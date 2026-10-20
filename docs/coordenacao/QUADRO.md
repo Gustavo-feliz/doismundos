@@ -1,5 +1,6 @@
 # Quadro de tarefas — Claude × Gemini
 
+**Endereço único deste arquivo:** `C:\Users\Gustavo\Desktop\jogo mecanico\docs\coordenacao\QUADRO.md`.
 Atualize sempre que pegar, terminar ou abandonar uma tarefa. Não edite a linha do outro agente: peça no `MENSAGENS.md`.
 Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
@@ -7,8 +8,8 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados |
 | --- | --- | --- | --- | --- |
-| Prompt 10: tutorial com o Seu Zé e Ato 1 (missões, objetivos, diálogos) | Claude | em andamento (aguardando worktree) | `claude/prompt-10` | `src/missions/**` (novo), `src/data/missions.ts` (novo), `src/game/Game.ts`, `src/game/GameSession.ts`, `src/save/**`, `src/ui/` (tutorial), `src/vite-env.d.ts` |
-| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | aceita (aguardando worktree e direção visual) | `gemini/arte-som` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
+| Prompt 10: tutorial com o Seu Zé e Ato 1 (missões, objetivos, diálogos) | Claude | em andamento | `main` (pasta do Claude) | `src/missions/**` (novo), `src/data/missions.ts` (novo), `src/game/Game.ts`, `src/game/GameSession.ts`, `src/save/**`, `src/ui/` (tutorial), `src/vite-env.d.ts` |
+| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | em andamento: referências visuais para o Gustavo escolher | `gemini/arte-som` (pasta `jogo mecanico (gemini)`) | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
 
 ### Por que essa divisão
 
@@ -42,7 +43,9 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 
 ## Configuração pendente (precisa do Gustavo)
 
-- [ ] Criar a pasta separada do Gemini com `git worktree` (ver `AGENTS.md`, seção 5) e abri-la no Antigravity.
+- [x] Pasta do Gemini criada: `C:\Users\Gustavo\Desktop\jogo mecanico (gemini)`, branch `gemini/arte-som`, portas 5288/4288, dependências instaladas.
+- [ ] Gustavo: abrir essa pasta no Antigravity.
+- [x] Direção visual: o Gustavo autorizou o Gemini a gerar as duas imagens de referência; ele escolhe depois.
 
 ## Concluídas
 

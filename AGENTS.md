@@ -1,6 +1,6 @@
 # Guia para agentes de IA — Simulador de Mecânico
 
-> **Para o agente Gemini (Antigravity):** este arquivo é o seu ponto de partida. Dois agentes trabalham neste projeto ao mesmo tempo: você (Gemini) e o Claude (Claude Code). Leia este guia inteiro e depois `docs/coordenacao/QUADRO.md` e `docs/coordenacao/MENSAGENS.md` antes de começar qualquer tarefa.
+> **Para o agente Gemini (Antigravity):** este arquivo é o seu ponto de partida. Dois agentes trabalham neste projeto ao mesmo tempo: você (Gemini) e o Claude (Claude Code). Leia este guia inteiro e depois o quadro e as mensagens da coordenação (caminhos absolutos na seção 5) antes de começar qualquer tarefa.
 
 ## 1. O projeto
 
@@ -79,29 +79,40 @@ tests/unit/      Vitest   ·   tests/e2e/   Playwright (helpers.ts tem pontos de
 
 ## 5. Colaboração entre os dois agentes
 
-**Os agentes não conversam diretamente.** A comunicação acontece por arquivos no repositório, e o Gustavo avisa cada um quando há novidade.
+**Os agentes não conversam diretamente.** A comunicação acontece por arquivos, e o Gustavo avisa cada um quando há novidade.
 
-| Arquivo | Para que serve |
+**Pastas de trabalho (git worktree, já criadas):**
+
+| Agente | Pasta | Branch | Portas (dev / preview) |
+| --- | --- | --- | --- |
+| Claude | `C:\Users\Gustavo\Desktop\jogo mecanico` | `main` (commits pequenos e testados) | 5188 / 4188 |
+| Gemini | `C:\Users\Gustavo\Desktop\jogo mecanico (gemini)` | `gemini/arte-som` (uma branch por tarefa) | 5288 / 4288 (arquivo local `.dev-ports.json`) |
+
+Cada pasta tem a **sua cópia** dos arquivos. Por isso, os arquivos de coordenação têm **um único endereço**, a pasta do Claude, e os dois agentes os leem e editam sempre por esse caminho completo:
+
+| Arquivo (caminho absoluto) | Para que serve |
 | --- | --- |
-| `docs/coordenacao/QUADRO.md` | Quem está fazendo o quê, e quais arquivos estão reservados. |
-| `docs/coordenacao/MENSAGENS.md` | Recados entre os agentes. Só se acrescenta no fim; nunca se apaga. |
+| `C:\Users\Gustavo\Desktop\jogo mecanico\docs\coordenacao\QUADRO.md` | Quem está fazendo o quê, e quais arquivos estão reservados. |
+| `C:\Users\Gustavo\Desktop\jogo mecanico\docs\coordenacao\MENSAGENS.md` | Recados entre os agentes. Só se acrescenta no fim; nunca se apaga. |
+
+> Gemini: **não edite** a cópia de `docs/coordenacao/` que existe na sua pasta (ela fica desatualizada). Use os caminhos acima. Quem faz o commit desses arquivos é o Claude.
 
 ### Regras para não atrapalhar um ao outro
 
 1. **Reserve antes de começar.** Coloque a tarefa no quadro com o seu nome e os arquivos que vai alterar. Não mexa em arquivos reservados pelo outro agente: peça no `MENSAGENS.md`.
-2. **Arquivos de alto risco**, que só um agente edita por vez (sempre reservando no quadro): `src/game/Game.ts`, `src/game/GameSession.ts`, `src/vite-env.d.ts`, `src/styles.css`, `README.md`, `CLAUDE.md`, `AGENTS.md`, `package.json`. No `styles.css`, prefira **acrescentar** uma seção nova no fim.
-3. **Uma pasta de trabalho por agente.** Os dois agentes no mesmo diretório ao mesmo tempo se atropelam: um troca de branch e muda os arquivos do outro. A recomendação é `git worktree`, que dá uma pasta separada para o Gemini a partir do mesmo repositório:
-   ```
-   git worktree add "../jogo mecanico (gemini)" -b gemini/trabalho
-   ```
-   O Gemini trabalha nessa pasta, na branch `gemini/...`. O Claude trabalha na pasta original, em branches `claude/...`.
-   **Portas:** cada pasta usa as suas, para os testes de uma nunca usarem o servidor da outra. A pasta do Gemini tem um `.dev-ports.json` (fora do git) com dev **5288** e preview **4288**; a do Claude usa 5188 e 4188. Veja `dev-ports.ts`.
-4. **Integração na `main`:** só com `npm run test:all` e `npm run build` passando. Antes, atualize a sua branch com a `main` (`git rebase main` ou merge) e resolva conflitos. Commits pequenos, mensagem em pt-BR explicando o porquê.
-5. **Ao terminar uma tarefa:** marque-a como concluída no quadro, libere os arquivos e deixe um recado no `MENSAGENS.md` com o que mudou e o que o outro agente precisa saber (novos dados, funções, ganchos de teste).
+2. **Arquivos de alto risco**, que só um agente edita por vez (sempre reservando no quadro): `src/game/Game.ts`, `src/game/GameSession.ts`, `src/vite-env.d.ts`, `src/styles.css`, `src/core/events.ts`, `tests/e2e/helpers.ts`, `README.md`, `CLAUDE.md`, `AGENTS.md`, `package.json`. No `styles.css`, prefira **acrescentar** uma seção nova no fim.
+3. **Fique em dia com a `main`.** O Gemini traz as novidades para a sua branch com `git merge main`, dentro da pasta dele, com frequência e sempre antes de pedir integração.
+4. **Integração na `main` (um único integrador: o Claude).** O git não deixa a mesma branch aberta em duas pastas, e a `main` está na pasta do Claude. Por isso:
+   1. o Gemini roda `npm run test:all` e `npm run build` na pasta dele, faz commit na branch dele e escreve no `MENSAGENS.md`: "pronto para integrar: <branch>, <resumo>, <testes>";
+   2. o Claude faz `git merge <branch>` na `main`, roda os testes de novo, resolve conflitos (se houver) e envia ao GitHub;
+   3. o Claude avisa no `MENSAGENS.md`, e o Gemini faz `git merge main`.
+
+   Commits pequenos, com mensagem em pt-BR explicando o porquê.
+5. **Ao terminar uma tarefa:** marque-a como concluída no quadro, libere os arquivos e deixe um recado no `MENSAGENS.md` com o que mudou e o que o outro agente precisa saber (novos dados, funções, eventos, ganchos de teste).
 
 ### Primeira tarefa do Gemini
 
-Leia `docs/coordenacao/QUADRO.md` e `docs/coordenacao/MENSAGENS.md`. Depois responda no `MENSAGENS.md`:
+Leia o `QUADRO.md` e o `MENSAGENS.md` (pelos caminhos absolutos acima). Depois responda no `MENSAGENS.md`:
 - se concorda com a divisão proposta;
 - em que você é mais forte neste projeto;
 - qualquer ajuste no protocolo.
