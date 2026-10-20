@@ -94,7 +94,8 @@ tests/unit/      Vitest   ·   tests/e2e/   Playwright (helpers.ts tem pontos de
    ```
    git worktree add "../jogo mecanico (gemini)" -b gemini/trabalho
    ```
-   O Gemini trabalha nessa pasta, na branch `gemini/...`. O Claude trabalha na pasta original, em branches `claude/...`. Essa configuração depende da aprovação do Gustavo; veja o quadro.
+   O Gemini trabalha nessa pasta, na branch `gemini/...`. O Claude trabalha na pasta original, em branches `claude/...`.
+   **Portas:** cada pasta usa as suas, para os testes de uma nunca usarem o servidor da outra. A pasta do Gemini tem um `.dev-ports.json` (fora do git) com dev **5288** e preview **4288**; a do Claude usa 5188 e 4188. Veja `dev-ports.ts`.
 4. **Integração na `main`:** só com `npm run test:all` e `npm run build` passando. Antes, atualize a sua branch com a `main` (`git rebase main` ou merge) e resolva conflitos. Commits pequenos, mensagem em pt-BR explicando o porquê.
 5. **Ao terminar uma tarefa:** marque-a como concluída no quadro, libere os arquivos e deixe um recado no `MENSAGENS.md` com o que mudou e o que o outro agente precisa saber (novos dados, funções, ganchos de teste).
 

@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { DEV_PORT } from './dev-ports';
 
 // Smoke test no navegador real. Um worker só: vários contextos WebGL
 // headless disputam a GPU e deixam o teste instável.
@@ -8,13 +9,13 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
   use: {
-    baseURL: 'http://127.0.0.1:5188',
+    baseURL: `http://127.0.0.1:${DEV_PORT}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   webServer: {
     command: 'npm run dev',
-    url: 'http://127.0.0.1:5188',
+    url: `http://127.0.0.1:${DEV_PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

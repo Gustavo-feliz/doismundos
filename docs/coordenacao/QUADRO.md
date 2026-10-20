@@ -7,8 +7,8 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados |
 | --- | --- | --- | --- | --- |
-| Prompt 10: tutorial com o Seu Zé e Ato 1 (missões, objetivos, diálogos) | Claude | proposta | `claude/prompt-10` | `src/missions/**` (novo), `src/data/missions.ts` (novo), `src/game/Game.ts`, `src/game/GameSession.ts`, `src/save/**`, `src/ui/` (tutorial), `src/vite-env.d.ts` |
-| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente | Gemini | proposta | `gemini/arte-som` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
+| Prompt 10: tutorial com o Seu Zé e Ato 1 (missões, objetivos, diálogos) | Claude | em andamento (aguardando worktree) | `claude/prompt-10` | `src/missions/**` (novo), `src/data/missions.ts` (novo), `src/game/Game.ts`, `src/game/GameSession.ts`, `src/save/**`, `src/ui/` (tutorial), `src/vite-env.d.ts` |
+| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | aceita (aguardando worktree e direção visual) | `gemini/arte-som` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
 
 ### Por que essa divisão
 

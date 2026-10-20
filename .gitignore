@@ -4,3 +4,5 @@ test-results/
 playwright-report/
 *.log
 .DS_Store
+# portas locais de cada pasta de trabalho (ver dev-ports.ts)
+.dev-ports.json

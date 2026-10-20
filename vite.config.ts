@@ -1,9 +1,10 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
+import { DEV_PORT, PREVIEW_PORT } from './dev-ports';
 
 export default defineConfig({
-  server: { host: '127.0.0.1', port: 5188, strictPort: true },
-  preview: { host: '127.0.0.1', port: 4188, strictPort: true },
+  server: { host: '127.0.0.1', port: DEV_PORT, strictPort: true },
+  preview: { host: '127.0.0.1', port: PREVIEW_PORT, strictPort: true },
   build: {
     sourcemap: true,
     target: 'es2022',
