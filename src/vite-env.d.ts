@@ -52,6 +52,10 @@ interface GameTestHooks {
     wear?: number;
     km?: number;
   }): { ok: boolean; code?: string; message?: string };
+  /** Força um autosave agora (true = gravou). */
+  autosaveNow(): Promise<boolean>;
+  /** Faz o jogo aceitar entrar sem capturar o mouse (headless). */
+  bypassPointerLock(): void;
   /** Posiciona o jogador (para mirar em algo de forma determinística). */
   teleport(x: number, z: number, yaw: number, pitch?: number): string;
 }

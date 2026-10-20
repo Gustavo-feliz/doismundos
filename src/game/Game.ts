@@ -19,6 +19,13 @@ import { Sfx, type SfxName } from '../audio/Sfx';
 import type { QuoteDraft } from '../orders/types';
 import { buildComputerView, buildQuoteView, buildServiceView, buildStockView } from '../orders/views';
 import { StockPanel } from '../ui/StockPanel';
+import { SaveSlotsPanel, type SavesMode } from '../ui/SaveSlotsPanel';
+import { SaveService } from '../save/SaveService';
+import { IndexedDbSaveStore, MemorySaveStore } from '../save/SaveStore';
+import type { SaveGame, SaveSummary, SlotId } from '../save/saveFile';
+import { validateSessionSnapshot } from '../save/sessionSnapshot';
+import { ORDER_STATUS_LABEL } from '../orders/types';
+import { WORKSHOP_SIZE } from '../world/Workshop';
 import { FUNCTIONAL_TESTS, SCANNER } from '../data/diagnostics';
 import { EQUIPMENT } from '../data/equipment';
 import { NEW_GAME } from '../data/newGame';
@@ -44,9 +51,11 @@ import type { VehicleState } from '../vehicles/state';
 import type { DiagnosticData } from '../diagnostics/rules';
 import type { EquipmentContext } from '../diagnostics/types';
 import { buildDiagnosisView } from '../diagnostics/view';
-import { GameSession, type ActionOutcome, type GameMoment } from './GameSession';
+import { GameSession, type ActionOutcome, type GameMoment, type SessionContent } from './GameSession';
 import { buildWorkshop, type Workshop } from '../world/Workshop';
 
+/** Intervalo do autosave enquanto se joga (segundos reais). */
+const AUTOSAVE_SECONDS = 60;
 const DEBUG = import.meta.env.DEV || new URLSearchParams(window.location.search).has('debug');
 /** Força dos reflexos de ambiente com as luzes acesas. */
 const ENVIRONMENT_INTENSITY = 0.35;
@@ -75,6 +84,14 @@ export class Game {
   private readonly inspection: InspectionPanel;
   private readonly stockPanel: StockPanel;
   private readonly computer: ComputerPanel;
+  private readonly content: SessionContent;
+  private readonly saves: SaveService;
+  private readonly savesPanel: SaveSlotsPanel;
+  private savesMode: SavesMode = 'load';
+  /** Autosave: o que já foi salvo (sessão + versão) e o tempo desde o último. */
+  private autosaved: { session: GameSession | null; version: number } = { session: null, version: -1 };
+  private autosaveClock = 0;
+  private autosaveBusy = false;
   private readonly sfx = new Sfx();
   private readonly catalogs: Catalogs;
   private session: GameSession;
@@ -94,7 +111,25 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     // Dados primeiro: se estiverem inválidos, falha cedo com mensagem útil (GDD §21.3).
     this.catalogs = buildCatalogs(VEHICLES, PARTS, PART_SLOTS);
+    this.content = {
+      cases: DIAGNOSTIC_CASES,
+      diagnostics: this.diagnosticData,
+      customers: CUSTOMERS,
+      pricing: PRICING,
+      initialStock: INITIAL_STOCK,
+      defaultDraft: DEFAULT_QUOTE_SETTINGS,
+      suppliers: SUPPLIERS,
+      economy: ECONOMY,
+    };
     this.session = this.newSession();
+    const store = IndexedDbSaveStore.available() ? new IndexedDbSaveStore() : new MemorySaveStore();
+    this.saves = new SaveService(store, (s) => validateSessionSnapshot(s, this.catalogs, (id) => GameSession.resolveCase(this.content, id)));
+    this.savesPanel = new SaveSlotsPanel({
+      onSave: (slot) => void this.saveTo(slot),
+      onLoad: (slot) => void this.loadFrom(slot),
+      onDelete: (slot) => void this.deleteSlot(slot),
+      onBack: () => this.menu.showMain(),
+    });
     const car = this.session.getVehicle(this.activeVehicleId);
     const vehicle = this.catalogs.models.get(car.modelId)!;
 
@@ -169,6 +204,8 @@ export class Game {
       onStart: () => void this.requestPlay(true),
       onResume: () => void this.requestPlay(false),
       onQuitToTitle: () => this.quitToTitle(),
+      onOpenSaves: (mode) => void this.openSaves(mode),
+      onContinueSaved: () => void this.continueLatest(),
       onSettingsChange: (s) => this.bus.emit('settings:changed', { settings: s }),
     });
 
@@ -189,6 +226,8 @@ export class Game {
 
     this.state.transition('menu');
     if (DEBUG) this.installDebugHooks();
+    this.listen(document, 'visibilitychange', this.handleVisibility);
+    void this.refreshContinue();
   }
 
   start(): void {
@@ -252,6 +291,14 @@ export class Game {
       tool: this.heldPartName() ?? 'Nada',
     });
 
+    // Autosave a cada minuto real de jogo, só se algo mudou (não trava: é assíncrono).
+    if (this.state.is('playing')) {
+      this.autosaveClock += dt;
+      if (this.autosaveClock >= AUTOSAVE_SECONDS) {
+        this.autosaveClock = 0;
+        void this.autosave();
+      }
+    }
     // Pedidos de peças chegam conforme o relógio do jogo.
     if (this.state.is('playing', 'panel')) this.receiveDeliveries();
     if (this.state.is('panel') && this.session.version !== this.panelVersion) this.refreshPanels();
@@ -414,16 +461,7 @@ export class Game {
   // --- Diagnóstico (ordens de serviço) -------------------------------------
 
   private newSession(): GameSession {
-    return new GameSession(this.catalogs, [], {
-      cases: DIAGNOSTIC_CASES,
-      diagnostics: this.diagnosticData,
-      customers: CUSTOMERS,
-      pricing: PRICING,
-      initialStock: INITIAL_STOCK,
-      defaultDraft: DEFAULT_QUOTE_SETTINGS,
-      suppliers: SUPPLIERS,
-      economy: ECONOMY,
-    });
+    return new GameSession(this.catalogs, [], this.content);
   }
 
   /** O carro do box 1 é o da OS ativa. */
@@ -519,11 +557,15 @@ export class Game {
     if (this.state.transition('paused')) {
       this.player.halt();
       this.input.exitPointerLock();
+      void this.autosave();
     }
   }
 
   private quitToTitle(): void {
-    if (this.state.transition('menu')) this.input.exitPointerLock();
+    if (this.state.transition('menu')) {
+      this.input.exitPointerLock();
+      void this.autosave().finally(() => void this.refreshContinue());
+    }
   }
 
   private applyStateToUi(state: string): void {
@@ -551,6 +593,130 @@ export class Game {
     // Sem captura de mouse (modo de teste), o Esc não é tratado pelo navegador.
     if (e.code === 'Escape' && this.state.is('playing') && !this.input.pointerLocked) this.pause();
   };
+
+  private readonly handleVisibility = (): void => {
+    if (document.visibilityState === 'hidden') void this.autosave();
+  };
+
+  // --- Save e carregamento ----------------------------------------------------
+
+  private collectSave(): SaveGame {
+    return {
+      clockMinutes: this.clock.absoluteMinutes,
+      player: { x: this.player.position.x, z: this.player.position.z, yaw: this.player.view.yaw, pitch: this.player.view.pitch },
+      equipment: this.equipment.exportState(),
+      session: this.session.toSnapshot(),
+    };
+  }
+
+  private saveSummary(): SaveSummary {
+    const c = this.session.activeCase;
+    return {
+      day: this.clock.day,
+      time: this.clock.formatTime(),
+      cashText: formatBRL(this.session.cash),
+      orderLabel: c ? `OS #${c.orderNumber} · ${ORDER_STATUS_LABEL[this.session.getOrder(c.id).status]}` : '—',
+      reputation: this.session.reputation.general.score,
+    };
+  }
+
+  /** Autosave: só quando o jogo mudou desde o último, e nunca com um jogo novo intocado. */
+  private async autosave(): Promise<boolean> {
+    const s = this.session;
+    const unchanged = this.autosaved.session === s && this.autosaved.version === s.version;
+    if (this.autosaveBusy || unchanged || s.version === 0) return false;
+    this.autosaveBusy = true;
+    try {
+      const result = await this.saves.save('auto', this.collectSave(), this.saveSummary());
+      if (result.ok) {
+        this.autosaved = { session: s, version: s.version };
+        this.hud.flashSaved('Salvo automaticamente');
+      } else {
+        console.warn('[save]', result.message);
+        this.hud.notify(result.message, 'blocked');
+      }
+      return result.ok;
+    } finally {
+      this.autosaveBusy = false;
+    }
+  }
+
+  /** Abre (ou atualiza) a lista de saves. Só limpa o aviso quando o jogador abre a lista. */
+  private async openSaves(mode: SavesMode, clearMessage = true): Promise<void> {
+    this.savesMode = mode;
+    if (clearMessage) this.menu.showMessage('');
+    this.savesPanel.render(mode, await this.saves.list(), this.saves.persistent);
+    this.menu.showSaves(this.savesPanel.element);
+  }
+
+  private async saveTo(slot: SlotId): Promise<void> {
+    const result = await this.saves.save(slot, this.collectSave(), this.saveSummary());
+    this.menu.showMessage(result.message, result.ok ? 'ok' : 'erro');
+    if (result.ok) this.sfx.play('ok');
+    await this.openSaves(this.savesMode, false);
+  }
+
+  private async deleteSlot(slot: SlotId): Promise<void> {
+    const result = await this.saves.remove(slot);
+    this.menu.showMessage(result.message, result.ok ? 'ok' : 'erro');
+    await this.openSaves(this.savesMode, false);
+    void this.refreshContinue();
+  }
+
+  private async loadFrom(slot: SlotId): Promise<void> {
+    const result = await this.saves.load(slot);
+    if (!result.ok) {
+      this.menu.showMessage(result.message);
+      await this.openSaves(this.savesMode, false);
+      return;
+    }
+    const applied = this.applySave(result.envelope.game);
+    if (!applied.ok) {
+      this.menu.showMessage(`Não foi possível carregar: ${applied.message}`);
+      await this.openSaves(this.savesMode, false);
+      return;
+    }
+    this.menu.showMessage(result.message, result.recovered ? 'erro' : 'ok');
+    this.hud.flashSaved(result.recovered ? 'Carregado da cópia de segurança' : 'Jogo carregado');
+    this.menu.showMain();
+    // Volta ao jogo direto (o clique em "Confirmar" vale como gesto para capturar o mouse).
+    void this.requestPlay(false);
+  }
+
+  private async continueLatest(): Promise<void> {
+    const latest = await this.saves.latest();
+    if (!latest) {
+      this.menu.showMessage('Nenhum save encontrado.');
+      return;
+    }
+    await this.loadFrom(latest.slot);
+  }
+
+  private async refreshContinue(): Promise<void> {
+    try {
+      const latest = await this.saves.latest();
+      this.menu.setContinueAvailable(latest?.summary ? `Dia ${latest.summary.day} · ${latest.summary.orderLabel}` : null);
+    } catch (error) {
+      console.warn('[save] não foi possível ler os saves', error);
+      this.menu.setContinueAvailable(null);
+    }
+  }
+
+  /** Troca o jogo atual pelo do save (a sessão é validada de novo antes de entrar). */
+  private applySave(game: SaveGame): { ok: true } | { ok: false; message: string } {
+    const restored = GameSession.fromSnapshot(this.catalogs, this.content, game.session);
+    if (!restored.ok) return { ok: false, message: restored.problems.slice(0, 3).join('; ') };
+    this.session = restored.session;
+    this.clock.setAbsolute(game.clockMinutes);
+    this.equipment.restore(game.equipment);
+    const inside = Math.abs(game.player.x) < WORKSHOP_SIZE.halfX - 0.3 && Math.abs(game.player.z) < WORKSHOP_SIZE.halfZ - 0.3;
+    if (inside) this.player.teleport(game.player.x, game.player.z, game.player.yaw, game.player.pitch);
+    else this.player.respawn();
+    this.applyActiveCarLook();
+    this.autosaved = { session: this.session, version: this.session.version };
+    this.panelVersion = -1;
+    return { ok: true };
+  }
 
   private readonly handleWindowBlur = (): void => {
     if (this.state.is('playing')) this.pause();
@@ -693,6 +859,8 @@ export class Game {
       getState: () => this.state.current,
       vehicleState: () => structuredClone(this.session.getVehicle(this.activeVehicleId)),
       vehicleOp: (op) => this.runVehicleOp(op as VehicleOp),
+      autosaveNow: () => this.autosave(),
+      bypassPointerLock: () => this.input.setLockBypass(true),
       teleport: (x, z, yaw, pitch = 0) => {
         this.player.teleport(x, z, yaw, pitch);
         this.player.applyToCamera(this.camera);

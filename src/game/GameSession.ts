@@ -26,6 +26,7 @@ import { compatiblePartsFor, revealPartCondition, type DomainResult } from '../v
 import { createVehicleState, type VehicleSpec } from '../vehicles/factory';
 import type { HistoryEntry, VehicleState } from '../vehicles/state';
 import { DataValidationError } from '../vehicles/types';
+import { validateSessionSnapshot, type SessionSnapshot } from '../save/sessionSnapshot';
 
 /** Momento do jogo: dia, hora formatada e minuto absoluto (para prazos e entregas). */
 export interface GameMoment {
@@ -57,6 +58,19 @@ export interface SessionContent {
 }
 
 const KNOWN_BAD = new Set(['gasta', 'critica', 'falhou']);
+const WARRANTY_SUFFIX = '-garantia';
+
+/** OS de retorno em garantia, criada a partir da OS original (mesmo carro, mesma causa). */
+export function warrantyReturnCase(c: DiagnosticCaseDef): DiagnosticCaseDef {
+  return {
+    ...c,
+    id: `${c.id}${WARRANTY_SUFFIX}`,
+    orderNumber: `${c.orderNumber}-G`,
+    complaint: `Voltei! O problema continua igual. ${c.complaint}`,
+    summary: `${c.summary} (retorno em garantia)`,
+    followUp: undefined,
+  };
+}
 const MAX_PURCHASE_QTY = 10;
 
 /**
@@ -616,6 +630,78 @@ export class GameSession {
     return this.rep;
   }
 
+  // --- Save -------------------------------------------------------------------
+
+  /** Foto do estado (cópia profunda): o que vai para o arquivo de save. */
+  toSnapshot(): SessionSnapshot {
+    return structuredClone({
+      caseIds: this.cases.map((c) => c.id),
+      caseIndex: this.caseIndex,
+      vehicles: [...this.vehicles.values()],
+      progress: this.cases.map((c) => this.getProgress(c.id)),
+      orders: this.cases.map((c) => ({ caseId: c.id, order: this.getOrder(c.id) })),
+      records: this.records,
+      lots: this.lots,
+      purchases: this.purchaseOrders,
+      ledger: this.ledger,
+      held: this.held,
+      scrap: this.scrapped,
+      reputation: this.rep,
+      warranties: this.warrantyRecords,
+      seq: this.seq,
+    });
+  }
+
+  /** Acha a definição de uma OS pelo ID: conteúdo do jogo, retornos de cliente ou retorno em garantia. */
+  static resolveCase(content: SessionContent, id: string): DiagnosticCaseDef | null {
+    const all = [...content.cases, ...content.cases.flatMap((c) => (c.followUp ? [c.followUp] : []))];
+    const direct = all.find((c) => c.id === id);
+    if (direct) return direct;
+    if (id.endsWith(WARRANTY_SUFFIX)) {
+      const base = GameSession.resolveCase(content, id.slice(0, -WARRANTY_SUFFIX.length));
+      return base ? warrantyReturnCase(base) : null;
+    }
+    return null;
+  }
+
+  /**
+   * Recria uma sessão a partir de uma foto vinda de um save. Valida TUDO antes:
+   * se algo estiver errado, devolve a lista de problemas e não cria nada.
+   */
+  static fromSnapshot(
+    catalogs: Catalogs,
+    content: SessionContent,
+    raw: unknown,
+  ): { ok: true; session: GameSession } | { ok: false; problems: string[] } {
+    const problems = validateSessionSnapshot(raw, catalogs, (id) => GameSession.resolveCase(content, id));
+    if (problems.length) return { ok: false, problems };
+    const snap = structuredClone(raw as SessionSnapshot);
+    const s = new GameSession(catalogs, [], content);
+    s.cases.length = 0;
+    for (const id of snap.caseIds) s.cases.push(GameSession.resolveCase(content, id)!);
+    s.vehicles.clear();
+    for (const v of snap.vehicles) s.vehicles.set(v.id, v);
+    s.progress.clear();
+    for (const p of snap.progress) s.progress.set(p.caseId, p);
+    s.orders.clear();
+    for (const { caseId, order } of snap.orders) s.orders.set(caseId, order);
+    s.records.length = 0;
+    s.records.push(...snap.records);
+    s.lots = snap.lots;
+    s.purchaseOrders = snap.purchases;
+    s.ledger = snap.ledger;
+    s.cashValue = s.recomputeCash();
+    s.held = snap.held;
+    s.scrapped.length = 0;
+    s.scrapped.push(...snap.scrap);
+    s.rep = snap.reputation;
+    s.warrantyRecords = snap.warranties;
+    s.caseIndex = snap.caseIndex;
+    s.seq = snap.seq;
+    s.revision = 0;
+    return { ok: true, session: s };
+  }
+
   /** Todas as OS registradas (inclui retornos). */
   allOrders(): OrderState[] {
     return this.cases.map((c) => this.getOrder(c.id));
@@ -635,14 +721,7 @@ export class GameSession {
   /** Retornos: reparo que não resolveu volta em garantia (logo em seguida); cliente satisfeito volta com o próximo problema. */
   private scheduleReturns(c: DiagnosticCaseDef, resolved: boolean, willReturn: boolean, when: GameMoment): void {
     if (!resolved) {
-      const ret: DiagnosticCaseDef = {
-        ...c,
-        id: `${c.id}-garantia`,
-        orderNumber: `${c.orderNumber}-G`,
-        complaint: `Voltei! O problema continua igual. ${c.complaint}`,
-        summary: `${c.summary} (retorno em garantia)`,
-        followUp: undefined,
-      };
+      const ret = warrantyReturnCase(c);
       const claim = evaluateClaim(this.warrantyRecords, { vehicleId: c.vehicle.id, at: when.at, sameComplaintOf: c.id, diagnosedSlot: null });
       this.registerCase(ret, this.caseIndex + 1, c.id, { covered: claim.covered, reason: claim.reason, warrantyId: claim.warranty?.id ?? null });
       if (claim.covered) this.penalize(c.trueCause, `Retorno em garantia da OS #${c.orderNumber}: o defeito não foi resolvido.`, when);

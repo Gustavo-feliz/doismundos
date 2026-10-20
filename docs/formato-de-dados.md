@@ -211,6 +211,25 @@ senão: 90 ou mais = excelente; 70 ou mais = boa; abaixo disso = regular
 
 **Retorno de cliente satisfeito:** o campo opcional `followUp` de uma OS em `src/data/diagnosticCases.ts` é a próxima visita do cliente. Ela só acontece se ele sair satisfeito.
 
+## Save do jogo
+
+O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulador-mecanico`, store `saves`. A chave é o slot: `auto`, `slot1`, `slot2`, `slot3`, mais `<slot>.bak` para a cópia de segurança.
+
+```
+{ schemaVersion, savedAt (ISO), slot, summary { dia, hora, caixa, OS, reputação },
+  checksum (FNV-1a do JSON de "game"),
+  game { clockMinutes, player { x, z, yaw, pitch }, equipment { liftUp, hoodOpen, drawerOpen, hallLightsOn, benchLampOn },
+         session { caseIds, caseIndex, vehicles, progress, orders, records, lots, purchases, ledger, held, scrap, reputation, warranties, seq } } }
+```
+
+- **OS no save.** As OS são guardadas **pelo ID**. A definição sempre vem do conteúdo do jogo; um retorno em garantia (`<id>-garantia`) é recriado a partir da OS original.
+- **Leitura, nesta ordem:** JSON → versão (uma mais nova que o jogo é recusada) → soma de verificação → migrações → validação completa (`src/save/sessionSnapshot.ts`), que confere peças, OS, carros, status, valores e referências.
+- **Migrações.** Ao mudar o formato:
+  1. aumente `SAVE_SCHEMA_VERSION`;
+  2. registre em `MIGRATIONS` a função `versãoAntiga: (envelope) => envelope da versão seguinte`.
+
+  Os saves antigos são migrados passo a passo ao carregar. O arquivo original só muda no próximo save.
+
 ## Como adicionar
 
 - **Uma peça:** acrescente um item em `parts.ts`. Se a posição for nova, crie-a em `partSlots.ts` e adicione-a aos `slots` dos modelos que a têm.

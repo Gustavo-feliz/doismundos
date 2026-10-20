@@ -34,6 +34,11 @@ export class GameClock {
     return Math.floor(this.totalMinutes);
   }
 
+  /** Define o minuto absoluto (carregar um save). Ignora valores inválidos. */
+  setAbsolute(absoluteMinute: number): void {
+    if (Number.isFinite(absoluteMinute) && absoluteMinute >= 0) this.totalMinutes = absoluteMinute;
+  }
+
   /** Avança até um minuto absoluto (nunca volta no tempo). */
   advanceTo(absoluteMinute: number): void {
     if (Number.isFinite(absoluteMinute) && absoluteMinute > this.totalMinutes) this.totalMinutes = absoluteMinute;

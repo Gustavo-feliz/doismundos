@@ -1279,3 +1279,66 @@ dd.negative {
   font-size: 0.72rem;
   font-weight: 800;
 }
+
+/* ---------- Saves ---------- */
+.menu-message[data-kind='ok'] {
+  background: rgba(68, 190, 110, 0.12);
+  border-color: rgba(68, 190, 110, 0.45);
+  color: #c9f2d6;
+}
+.save-slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.save-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+}
+.save-slot[data-state='corrompido'],
+.save-slot[data-state='recuperavel'] {
+  border-color: rgba(255, 107, 91, 0.45);
+}
+.save-state {
+  margin-left: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.save-state[data-state='ok'] {
+  color: #8fe0a9;
+}
+.save-state[data-state='corrompido'],
+.save-state[data-state='recuperavel'] {
+  color: #ffb0a6;
+}
+.save-actions,
+.save-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.save-confirm span {
+  font-size: 0.85rem;
+  flex-basis: 100%;
+}
+.hud-saved {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(18, 20, 22, 0.8);
+  border: 1px solid var(--line);
+  font-size: 0.78rem;
+  color: var(--muted);
+}

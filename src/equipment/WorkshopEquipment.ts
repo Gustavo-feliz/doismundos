@@ -4,6 +4,7 @@ import { pointInBox, type Box2D, type Point2D } from '../world/collision';
 import type { WorkshopParts } from '../world/Workshop';
 import { Actuator, easeInOut, type ActuatorPhase } from './Actuator';
 import { carBlocksWalking, hoodAvailability, liftAvailability, type BaySnapshot } from './bayRules';
+import type { EquipmentSave } from '../save/saveFile';
 
 /** Raio do jogador, para contar como "embaixo do carro" mesmo encostado na borda. */
 const PLAYER_RADIUS = 0.3;
@@ -65,6 +66,29 @@ export class WorkshopEquipment {
     this.drawer.reset(0);
     this.hallLightsOn = true;
     this.benchLampOn = false;
+    this.lightsDirty = true;
+    this.applyVisuals();
+  }
+
+  /** Estado para o save (posição final de cada peça móvel). */
+  exportState(): EquipmentSave {
+    const up = (p: ActuatorPhase) => p === 'extended' || p === 'extending';
+    return {
+      liftUp: up(this.lift.phase),
+      hoodOpen: up(this.hood.phase),
+      drawerOpen: up(this.drawer.phase),
+      hallLightsOn: this.hallLightsOn,
+      benchLampOn: this.benchLampOn,
+    };
+  }
+
+  /** Restaura do save, sem animação. Capô aberto com o carro no alto é impossível: fica fechado. */
+  restore(e: EquipmentSave): void {
+    this.lift.reset(e.liftUp ? 1 : 0);
+    this.hood.reset(e.hoodOpen && !e.liftUp ? 1 : 0);
+    this.drawer.reset(e.drawerOpen ? 1 : 0);
+    this.hallLightsOn = e.hallLightsOn;
+    this.benchLampOn = e.benchLampOn;
     this.lightsDirty = true;
     this.applyVisuals();
   }

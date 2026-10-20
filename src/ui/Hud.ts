@@ -30,6 +30,8 @@ export class Hud {
   private readonly notice: HTMLElement;
   private promptKey = '';
   private noticeTimer = 0;
+  private savedTimer = 0;
+  private readonly saved: HTMLElement;
 
   constructor(parent: HTMLElement) {
     this.money = h('strong', { class: 'hud-value', 'data-testid': 'hud-money' });
@@ -44,6 +46,7 @@ export class Hud {
     this.prompt = h('div', { class: 'interact-prompt', 'data-testid': 'interact-prompt', hidden: true }, this.promptName, this.promptDetail, this.promptAction);
 
     this.notice = h('div', { class: 'hud-notice', role: 'status', 'aria-live': 'polite', 'data-testid': 'hud-notice', hidden: true });
+    this.saved = h('div', { class: 'hud-saved', 'data-testid': 'hud-saved', hidden: true });
 
     this.element = h(
       'div',
@@ -59,6 +62,7 @@ export class Hud {
       this.crosshair,
       this.prompt,
       this.notice,
+      this.saved,
       h('div', { class: 'prototype-badge', text: 'Protótipo · modelos e texturas temporários' }),
     );
     parent.append(this.element);
@@ -115,7 +119,16 @@ export class Hud {
     }, NOTIFY_MS);
   }
 
+  /** Indicador discreto de save (canto da tela). */
+  flashSaved(text: string): void {
+    this.saved.textContent = text;
+    this.saved.hidden = false;
+    window.clearTimeout(this.savedTimer);
+    this.savedTimer = window.setTimeout(() => (this.saved.hidden = true), 1800);
+  }
+
   dispose(): void {
+    window.clearTimeout(this.savedTimer);
     window.clearTimeout(this.noticeTimer);
     this.element.remove();
   }

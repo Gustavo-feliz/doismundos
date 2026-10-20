@@ -12,8 +12,9 @@ O design completo está em [GDD_Simulador_de_Mecanico_Claude_Code.md](GDD_Simula
 6. Reparo e conclusão do serviço.
 7. Loja, estoque, pagamento e economia básica.
 8. Reputação, garantia e retorno de clientes.
+9. Save e carregamento confiáveis.
 
-Ainda **não** existem save de jogo, tutorial, cidade nem multiplayer.
+Ainda **não** existem tutorial, cidade nem multiplayer.
 
 ## Pré-requisitos
 
@@ -64,7 +65,7 @@ src/
   parts/      tipos e validação do catálogo de peças
   vehicles/   modelos, estado de cada carro, regras de domínio (domain.ts), visão de inspeção; modelo 3D temporário
   economy/    dinheiro em centavos; fórmula ÚNICA do orçamento (quote.ts); livro-caixa (ledger.ts)
-  save/       preferências versionadas e validadas (localStorage)
+  save/       preferências (localStorage) e saves do jogo (IndexedDB): formato, validação, slots e migrações
   ui/         HUD, menu inicial/pausa, configurações, tela de erro
   data/       conteúdo em dados: veículos, peças, carro de demonstração, teclas, equipamentos, valores de início
   game/       Game.ts liga os módulos e define a ordem de atualização; GameSession.ts guarda o estado da sessão
@@ -236,6 +237,29 @@ Cada critério ruim custa estrela.
 - **Reparo com retrabalho:** o cliente **volta em garantia**. Abre uma OS vinculada à original, sem custo para ele. A oficina paga a peça e perde 10 pontos de reputação.
 - **Cliente satisfeito (4★ ou mais):** pode voltar com outro problema. A Dona Cida volta com o freio trepidando. O mecânico confere a garantia: se o defeito **não tem relação** com o serviço anterior, a OS é cobrada normalmente e **não há penalidade**.
 
+## Save e carregamento (Prompt 9)
+
+Use **Salvar jogo** (no menu de pausa) e **Carregar jogo** (no menu inicial e na pausa). Na tela inicial, **Continuar jogo salvo** abre o save mais recente.
+
+**Slots.** São três manuais e um **autosave**. O autosave grava ao pausar, ao sair da aba e a cada minuto de jogo, só se algo mudou. Um jogo novo ainda intocado não grava por cima do autosave anterior.
+
+**Confirmação.** Carregar, sobrescrever e excluir pedem confirmação na própria linha do slot.
+
+**O que é salvo:**
+- carros, todas as OS (inclusive retornos em garantia) e diagnósticos;
+- estoque, pedidos, peça em mãos e livro-caixa (o caixa é recalculado a partir dele);
+- reputação e garantias;
+- relógio, posição do jogador e estado do elevador, capô, gaveta e luzes.
+
+Ainda não há upgrades nem missões no jogo; eles entram no save quando existirem.
+
+**Segurança contra corrupção:**
+- Cada save tem `schemaVersion`, data e hora, e uma **soma de verificação**: um arquivo cortado ou editado é detectado.
+- Antes de gravar, o próprio save é relido e validado. Um estado inválido **nunca** substitui um save bom.
+- Ao sobrescrever, o save anterior vira **cópia de segurança**. Se o principal corromper, o jogo carrega a cópia e avisa.
+
+Os saves ficam no navegador (IndexedDB). Se o navegador bloquear o armazenamento, o jogo avisa que os saves só valem até fechar a página.
+
 ## Roteiro de teste manual
 
 Os testes automáticos não conseguem capturar o mouse (Pointer Lock) no navegador headless, então confira à mão:
@@ -272,4 +296,10 @@ Os testes automáticos não conseguem capturar o mouse (Pointer Lock) no navegad
     - Faça o reparo e entregue: o caixa sobe R$ 294,70, o lucro bruto é R$ 165,70 e aparecem as estrelas com os motivos.
 23. No computador, aba Reputação: confira a avaliação do Marcão e a garantia GAR-001.
 24. **Garantia:** em um jogo novo, registre "Discos" na OS #001, troque os discos e entregue. Ele volta em garantia (OS 001-G), com orçamento zerado e −10 de reputação.
-25. Console do navegador (F12): sem erros vermelhos.
+25. **Save:**
+    - Avance a OS #001 até a contraproposta e pause.
+    - Em "Salvar jogo", use "Salvar aqui" no slot 1.
+    - **Recarregue a página (F5).** A tela inicial mostra "Continuar jogo salvo".
+    - Em "Carregar jogo", carregue o slot 1 e confirme: a OS, o caixa, a hora e a posição voltam iguais.
+26. Sobrescrever e excluir um slot pedem confirmação.
+27. Console do navegador (F12): sem erros vermelhos.
