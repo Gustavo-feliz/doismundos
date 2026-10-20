@@ -8,6 +8,7 @@ import { AIM, aim, diag, openGame, pressInteract, setLift, startPlaying, watchEr
  */
 const panel = (page: Page) => page.getByTestId('inspection-panel');
 const stock = (page: Page) => page.getByTestId('stock-panel');
+const computer = (page: Page) => page.getByTestId('computer-panel');
 const notice = (page: Page) => page.getByTestId('panel-notice').first();
 const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 
@@ -22,6 +23,24 @@ async function closeAny(page: Page) {
   await page.keyboard.press('KeyE');
   await expect(panel(page)).toBeHidden();
   await expect(stock(page)).toBeHidden();
+  await expect(computer(page)).toBeHidden();
+}
+
+async function openComputer(page: Page) {
+  await aim(page, AIM.computer);
+  await pressInteract(page);
+  await expect(computer(page)).toBeVisible();
+}
+
+/** Compra 1 peça no fornecedor do bairro e espera chegar (avança o relógio). */
+async function buyAndWait(page: Page, partId: string) {
+  await openComputer(page);
+  await page.locator(`[data-buy="${partId}"][data-supplier="autopecas-bairro"]`).click();
+  await expect(page.getByTestId('computer-notice')).toContainText('Pedido PED-');
+  await page.keyboard.press('Digit2');
+  await page.getByTestId('wait-delivery').click();
+  await expect(page.locator('[data-status="recebido"]').first()).toBeVisible();
+  await closeAny(page);
 }
 
 async function openStock(page: Page) {
@@ -73,15 +92,19 @@ test('OS 001 de ponta a ponta: negociação de prazo, peça errada tratada, repa
   expect(order).toMatchObject({ status: 'aprovada', approvedTotal: 294_70 });
   await info.attach('orcamento', { body: await page.screenshot(), contentType: 'image/png' });
 
-  // Serviço: precisa do carro no alto para tirar a roda.
+  // Serviço: precisa do carro no alto para tirar a roda — e da peça, que tem de ser comprada.
   await page.keyboard.press('Digit3');
   await expect(page.getByTestId('service-tab')).toContainText('Requer o carro no alto do elevador');
+  await expect(page.getByTestId('availability')).toHaveText('Falta comprar (computador do escritório)');
   await closeAny(page);
+  const cashBefore = (await diag(page)).cash;
+  await buyAndWait(page, 'pastilha-freio-diant-ventura-brisa');
+  expect((await diag(page)).cash).toBe(cashBefore - 129_00);
   await setLift(page, 'extended');
 
   // Pega a peça ERRADA no estoque (bateria) e tenta instalar.
   await openStock(page);
-  await expect(page.getByTestId('stock-list')).toContainText('Comprada para a OS #001');
+  await expect(page.getByTestId('stock-list')).toContainText('Autopeças do Bairro');
   await page.locator('[data-take="bateria-60ah-brasaco"]').click();
   await expect(page.getByTestId('stock-held')).toHaveText('Bateria 60 Ah');
   await closeAny(page);
@@ -99,7 +122,7 @@ test('OS 001 de ponta a ponta: negociação de prazo, peça errada tratada, repa
   // Devolve a bateria, pega as pastilhas da OS.
   await openStock(page);
   await page.getByTestId('return-part').click();
-  await page.locator('[data-take="pastilha-freio-diant-ventura-brisa"][data-order="001"]').click();
+  await page.locator('[data-take="pastilha-freio-diant-ventura-brisa"]').click();
   await expect(page.getByTestId('stock-held')).toHaveText('Pastilhas de freio dianteiras');
   await closeAny(page);
 
@@ -123,10 +146,28 @@ test('OS 001 de ponta a ponta: negociação de prazo, peça errada tratada, repa
   await page.getByTestId('complete').click();
   await expect(page.getByTestId('completion')).toContainText('Qualidade: Excelente (90/100)');
   expect((await diag(page)).order).toMatchObject({ status: 'concluida', quality: 'excelente' });
-  await info.attach('servico-concluido', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // Entrega: recebe conforme o orçamento aprovado, cliente avalia, lucro aparece.
+  const cashBeforeDelivery = (await diag(page)).cash;
+  await page.getByTestId('deliver').click();
+  await expect(page.getByTestId('delivery')).toContainText('★');
+  await expect(page.getByTestId('gross-profit')).toHaveText(brl(294_70 - 129_00));
+  expect((await diag(page)).cash).toBe(cashBeforeDelivery + 294_70);
+  expect((await diag(page)).order.status).toBe('entregue');
+  expect((await diag(page)).reputation).toBeGreaterThan(50);
+  await info.attach('servico-entregue', { body: await page.screenshot(), contentType: 'image/png' });
   await expect(page.getByTestId('next-case')).toBeVisible();
   await closeAny(page);
   await expect(page.getByTestId('hud-objective')).toContainText('OS #001 encerrada');
+
+  // Computador: caixa, lucro e avaliação registrados.
+  await openComputer(page);
+  await page.keyboard.press('Digit3');
+  await expect(page.getByTestId('ledger-profit')).toHaveText(brl(294_70 - 129_00));
+  await expect(page.getByTestId('ledger')).toContainText('Pagamento da OS #001');
+  await page.keyboard.press('Digit4');
+  await expect(page.getByTestId('reviews')).toContainText('OS #001 · Marcão');
+  await expect(page.getByTestId('warranties')).toContainText('GAR-001');
   expect(errors).toEqual([]);
 });
 
@@ -148,5 +189,28 @@ test('OS 002: contraproposta de preço aceita vira desconto negociado na mesma f
   await expect(page.getByTestId('quote-lines')).toContainText('Desconto negociado');
   await expect(page.getByTestId('quote-total')).toHaveText(brl(180_00));
   expect((await diag(page)).order).toMatchObject({ status: 'aprovada', approvedTotal: 180_00 });
+  expect(errors).toEqual([]);
+});
+
+test('computador: compra tira do caixa, cancelamento devolve, livro-caixa registra', async ({ page }) => {
+  const errors = watchErrors(page);
+  const start = (await diag(page)).cash;
+  await aim(page, AIM.computer);
+  await pressInteract(page);
+  await expect(page.getByTestId('computer-cash')).toHaveText(brl(start));
+  await page.locator('[data-buy="pastilha-freio-diant-ventura-brisa"][data-supplier="rio-pecas"]').click();
+  const price = Math.round(129_00 * 0.82);
+  await expect(page.getByTestId('computer-cash')).toHaveText(brl(start - price));
+
+  await page.keyboard.press('Digit2');
+  await expect(page.getByTestId('purchase-list')).toContainText('A caminho');
+  await page.locator('[data-cancel="PED-0001"]').click();
+  await expect(page.locator('[data-purchase="PED-0001"]')).toHaveAttribute('data-status', 'cancelado');
+  await expect(page.getByTestId('computer-cash')).toHaveText(brl(start));
+
+  await page.keyboard.press('Digit3');
+  await expect(page.locator('[data-tx="T0001"]')).toContainText('Compra de peças');
+  await expect(page.locator('[data-tx="T0002"]')).toContainText('Estorno de compra cancelada: Cancelamento do pedido PED-0001');
+  expect((await diag(page)).cash).toBe(start);
   expect(errors).toEqual([]);
 });

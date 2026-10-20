@@ -179,6 +179,38 @@ defeito não resolvido → retrabalho
 senão: 90 ou mais = excelente; 70 ou mais = boa; abaixo disso = regular
 ```
 
+## Economia, reputação e garantia
+
+**Fornecedores (`src/data/suppliers.ts`):** `{ id, name, priceFactor, deliveryMinutes }`. O preço é `custo-base × priceFactor`.
+
+**Economia (`src/data/economy.ts`):** `startingCash` e `creditLimit`, em centavos. O crédito vem desligado (0).
+
+**Livro-caixa (`src/economy/ledger.ts`):** cada `Transaction` tem `id`, `kind` (receita ou despesa), `category`, `amount` (positivo), `description`, `ref` (OS ou pedido) e o momento.
+
+| Categoria | Quando entra |
+| --- | --- |
+| `sinal` | Na aprovação de orçamento acima de R$ 1.000. |
+| `servico` | Na entrega do carro. |
+| `compra-pecas` | Na compra. |
+| `estorno-compra` | No cancelamento de um pedido. |
+
+**Estoque:** lotes `{ lotId, partId, qty, unitCost, source }`. O custo da peça instalada vira o custo do serviço, e lucro bruto = receita − custo das peças.
+
+**Avaliação (`src/customers/evaluation.ts`):** cada critério vale pontos. Para chegar às estrelas, some os pontos dos quatro critérios: `estrelas = 3 + piso(soma / 2)`, limitado entre 1 e 5. Com 4★ ou mais o cliente volta; com 2★ ou menos ele reclama.
+
+| Critério | Pontos |
+| --- | --- |
+| Prazo | +1 no prazo; 0 com até 2 h de atraso; −1 acima disso. |
+| Orçamento | +1 se o preço for até 85% do limite do cliente, ou se o serviço estiver na garantia. |
+| Qualidade | excelente +2, boa +1, regular 0, retrabalho −2. |
+| Comunicação | +1 sem contraproposta, 0 com uma, −1 com duas ou mais. |
+
+**Reputação (`src/customers/reputation.ts`):** a geral e cada especialidade começam em 50, numa escala de 0 a 100. Cada avaliação soma (estrelas − 3) × 4. Um retorno em garantia por falha do reparo tira 10.
+
+**Garantia (`src/orders/warranty.ts`):** registro com validade em dias, posições cobertas e a queixa resolvida. Uma reclamação é coberta se for a **mesma queixa** da OS original ou se a peça diagnosticada for **uma das trocadas**. Garantia vencida ou defeito sem relação não é coberto. Só a reclamação coberta penaliza a oficina.
+
+**Retorno de cliente satisfeito:** o campo opcional `followUp` de uma OS em `src/data/diagnosticCases.ts` é a próxima visita do cliente. Ela só acontece se ele sair satisfeito.
+
 ## Como adicionar
 
 - **Uma peça:** acrescente um item em `parts.ts`. Se a posição for nova, crie-a em `partSlots.ts` e adicione-a aos `slots` dos modelos que a têm.

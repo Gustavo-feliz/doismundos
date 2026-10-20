@@ -21,6 +21,9 @@ interface GameDiagnostics {
   panelOpen: boolean;
   stockOpen: boolean;
   held: string | null;
+  cash: number;
+  reputation: number;
+  computerOpen: boolean;
   order: { status: string | null; approvedTotal: number | null; quality: string | null; invalidAttempts: number };
   diagnosis: {
     caseId: string | null;

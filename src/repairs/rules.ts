@@ -41,7 +41,7 @@ export const FINAL_TEST_MINUTES = 10;
 
 export function startRepair(approved: QuoteBreakdown): RepairState {
   return {
-    items: approved.input.items.map((i) => ({ slot: i.slot, plannedPartId: i.partId, removed: false, installedPartId: null })),
+    items: approved.input.items.map((i) => ({ slot: i.slot, plannedPartId: i.partId, removed: false, installedPartId: null, installedUnitCost: null })),
     finalTest: null,
     invalidAttempts: 0,
     substitutions: 0,

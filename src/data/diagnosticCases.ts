@@ -1,4 +1,5 @@
 import type { DiagnosticCaseDef } from '../diagnostics/types';
+import type { VehicleSpec } from '../vehicles/factory';
 import type { InstalledPart } from '../vehicles/state';
 import { DEMO_VEHICLES } from './demoVehicles';
 import { PARTS } from './parts';
@@ -38,6 +39,44 @@ const OIL = 'fluidos.oleo-motor';
 const BATTERY = 'eletrica.bateria';
 const ALTERNATOR = 'eletrica.alternador';
 const PLUGS = 'motor.velas';
+
+const CIDA_SPEC: VehicleSpec = {
+  id: 'os003-brisa-cida',
+  modelId: 'ventura-brisa-16',
+  year: 2010,
+  plate: 'TMP2C33',
+  color: '#b9bcc0',
+  colorName: 'Prata',
+  mileageKm: 121_800,
+  parts: brisaParts(
+    121_800,
+    {
+      [PLUGS]: 100_000,
+      'motor.correia-dentada': 80_000,
+      'motor.filtro-ar': 115_000,
+      'motor.filtro-oleo': 118_000,
+      [OIL]: 118_000,
+      [RADIATOR]: 0,
+      [THERMOSTAT]: 60_000,
+      'combustivel.bomba': 50_000,
+      [PADS]: 100_000,
+      [DISCS]: 60_000,
+      [SHOCKS]: 60_000,
+      [BATTERY]: 95_000,
+      [ALTERNATOR]: 0,
+      'transmissao.kit-embreagem': 40_000,
+      'rodas.pneus': 100_000,
+    },
+    { [ALTERNATOR]: 92 }, // diodos queimados
+  ),
+  known: {
+    [BATTERY]: { status: 'avaliado', band: 'boa', source: 'historico', atKm: 95_000, partId: 'bateria-60ah-brasaco' },
+  },
+  history: [
+    { kind: 'manutencao', atKm: 95_000, day: null, text: 'Bateria nova instalada (nota da loja de baterias)', disclosed: true },
+    { kind: 'manutencao', atKm: 118_000, day: null, text: 'Troca de óleo e filtro', disclosed: true },
+  ],
+};
 
 export const DIAGNOSTIC_CASES: readonly DiagnosticCaseDef[] = [
   {
@@ -126,43 +165,7 @@ export const DIAGNOSTIC_CASES: readonly DiagnosticCaseDef[] = [
     customerName: 'Dona Cida',
     complaint: 'Toda manhã é a mesma novela: ele não quer pegar. Já dei carga na bateria duas vezes!',
     summary: 'Não pega de manhã',
-    vehicle: {
-      id: 'os003-brisa-cida',
-      modelId: 'ventura-brisa-16',
-      year: 2010,
-      plate: 'TMP2C33',
-      color: '#b9bcc0',
-      colorName: 'Prata',
-      mileageKm: 121_800,
-      parts: brisaParts(
-        121_800,
-        {
-          [PLUGS]: 100_000,
-          'motor.correia-dentada': 80_000,
-          'motor.filtro-ar': 115_000,
-          'motor.filtro-oleo': 118_000,
-          [OIL]: 118_000,
-          [RADIATOR]: 0,
-          [THERMOSTAT]: 60_000,
-          'combustivel.bomba': 50_000,
-          [PADS]: 100_000,
-          [DISCS]: 60_000,
-          [SHOCKS]: 60_000,
-          [BATTERY]: 95_000,
-          [ALTERNATOR]: 0,
-          'transmissao.kit-embreagem': 40_000,
-          'rodas.pneus': 100_000,
-        },
-        { [ALTERNATOR]: 92 }, // diodos queimados
-      ),
-      known: {
-        [BATTERY]: { status: 'avaliado', band: 'boa', source: 'historico', atKm: 95_000, partId: 'bateria-60ah-brasaco' },
-      },
-      history: [
-        { kind: 'manutencao', atKm: 95_000, day: null, text: 'Bateria nova instalada (nota da loja de baterias)', disclosed: true },
-        { kind: 'manutencao', atKm: 118_000, day: null, text: 'Troca de óleo e filtro', disclosed: true },
-      ],
-    },
+    vehicle: CIDA_SPEC,
     hypotheses: [
       { slot: BATTERY, prior: 3 },
       { slot: ALTERNATOR, prior: 2 },
@@ -172,6 +175,25 @@ export const DIAGNOSTIC_CASES: readonly DiagnosticCaseDef[] = [
     functionalTests: ['teste-carga'],
     customerId: 'cida',
     finalTest: { resolved: 'Com o motor ligado: 14,1 V. O sistema está carregando.', persists: 'A tensão continua caindo com o motor ligado.' },
+    // Satisfeita, ela volta com OUTRO defeito (freio): não tem relação com o alternador.
+    followUp: {
+      id: 'os-004-cida-freio',
+      orderNumber: '004',
+      customerName: 'Dona Cida',
+      complaint: 'Voltei porque gostei do serviço! Agora o pedal do freio está trepidando quando eu paro.',
+      summary: 'Freio trepidando',
+      vehicle: CIDA_SPEC,
+      hypotheses: [
+        { slot: DISCS, prior: 2 },
+        { slot: PADS, prior: 2 },
+        { slot: SHOCKS, prior: 1 },
+      ],
+      trueCause: DISCS,
+      functionalTests: ['teste-frenagem'],
+      hints: [{ testId: 'teste-frenagem', text: 'Seu Zé: “Trepidação no pedal? Faz umas freadas e sente o pedal.”' }],
+      customerId: 'cida',
+      finalTest: { resolved: 'Freada firme e lisa: a trepidação sumiu.', persists: 'O pedal continua trepidando nas freadas.' },
+    },
     hints: [
       { testId: 'teste-carga', text: 'Seu Zé: “Bateria que descarrega toda hora nem sempre é culpa dela. Mede a tensão com o motor ligado.”' },
       { testId: 'scanner', text: 'Seu Zé: “Vê se a central acusou alguma coisa no elétrico.”' },

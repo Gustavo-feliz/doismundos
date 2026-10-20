@@ -7,6 +7,7 @@ export interface ServiceCallbacks {
   onInstall(slot: string): void;
   onFinalTest(): void;
   onComplete(): void;
+  onDeliver(): void;
   onNextCase(): void;
 }
 
@@ -32,6 +33,7 @@ export class ServiceTab {
       { class: 'os-header' },
       h('span', { class: 'hud-label', text: view.statusLabel }),
       h('p', { class: 'os-customer' }, 'Em mãos: ', h('strong', { 'data-testid': 'held', text: view.heldName ?? 'nada' }), h('span', { class: 'muted', text: ' · as peças ficam nas estantes (estoque)' })),
+      ...(view.promisedText && !view.delivery ? [h('p', { class: 'muted small', 'data-testid': 'promised', text: view.promisedText })] : []),
     );
     if (view.inactiveText && !view.completion) {
       // OS recusada: o botão de próxima OS fica só na aba Orçamento.
@@ -71,7 +73,16 @@ export class ServiceTab {
         installRow.append(h('span', { class: 'muted small', text: 'depois de remover a antiga' }));
       }
       steps.append(installRow);
-      block.append(h('div', { class: 'repair-item', 'data-slot': item.slot }, h('strong', { text: item.name }), h('span', { class: 'muted small', text: `Peça orçada: ${item.plannedPart}` }), steps));
+      block.append(
+        h(
+          'div',
+          { class: 'repair-item', 'data-slot': item.slot },
+          h('strong', { text: item.name }),
+          h('span', { class: 'muted small', text: `Peça orçada: ${item.plannedPart}` }),
+          h('span', { class: item.availabilityOk ? 'avail ok' : 'avail', 'data-testid': 'availability', text: item.availability }),
+          steps,
+        ),
+      );
     }
     return block;
   }
@@ -98,16 +109,20 @@ export class ServiceTab {
     const block = h('section', { class: 'diag-block', 'aria-label': 'Conclusão' }, h('h3', { text: 'Conclusão' }));
     if (view.completion) {
       const c = view.completion;
-      block.append(
-        h(
-          'div',
-          { class: 'os-result', 'data-testid': 'completion' },
-          h('strong', { text: `Qualidade: ${c.qualityText} (${c.score}/100)` }),
-          h('span', { class: 'muted', text: c.minutesText }),
-          h('span', { class: 'muted', text: c.resolved ? 'Carro pronto. Entrega e pagamento: próxima etapa do jogo.' : 'O defeito continua: o cliente vai voltar (retrabalho).' }),
-          this.nextCase(view),
-        ),
+      const result = h(
+        'div',
+        { class: 'os-result', 'data-testid': 'completion' },
+        h('strong', { text: `Qualidade: ${c.qualityText} (${c.score}/100)` }),
+        h('span', { class: 'muted', text: c.minutesText }),
+        h('span', { class: 'muted', text: c.resolved ? 'Carro pronto para entregar.' : 'O defeito continua: o cliente vai voltar (retrabalho).' }),
       );
+      block.append(result);
+      if (view.canDeliver) {
+        const deliver = h('button', { type: 'button', class: 'btn btn-primary btn-small', 'data-testid': 'deliver' }, `Entregar o carro e receber ${view.toReceiveText ?? ''}`);
+        deliver.addEventListener('click', () => this.callbacks.onDeliver());
+        result.append(deliver);
+      }
+      if (view.delivery) block.append(this.delivery(view));
       return block;
     }
     if (view.pending.length) {
@@ -118,6 +133,30 @@ export class ServiceTab {
     done.addEventListener('click', () => this.callbacks.onComplete());
     block.append(done);
     return block;
+  }
+
+  private delivery(view: ServiceView): HTMLElement {
+    const d = view.delivery!;
+    return h(
+      'div',
+      { class: 'delivery', 'data-testid': 'delivery' },
+      h('strong', { class: 'stars', 'aria-label': `${d.stars} de 5 estrelas`, text: `${'★'.repeat(d.stars)}${'☆'.repeat(5 - d.stars)}` }),
+      h('ul', { class: 'review-reasons' }, ...d.reasons.map((r) => h('li', { 'data-effect': r.effect, text: r.text }))),
+      ...(d.complaint ? [h('p', { class: 'os-closed', text: d.complaint })] : []),
+      h('p', { class: 'muted small', text: d.willReturn ? 'Cliente satisfeito: deve voltar.' : 'Cliente não deve voltar tão cedo.' }),
+      h(
+        'dl',
+        { class: 'detail-list' },
+        h('dt', { text: 'Receita' }),
+        h('dd', { text: d.revenueText }),
+        h('dt', { text: 'Custo das peças' }),
+        h('dd', { text: d.partsCostText }),
+        h('dt', { text: 'Lucro bruto' }),
+        h('dd', { class: d.profitNegative ? 'negative' : 'positive', 'data-testid': 'gross-profit', text: d.profitText }),
+      ),
+      ...(d.warrantyText ? [h('p', { class: 'muted small', text: d.warrantyText })] : []),
+      this.nextCase(view),
+    );
   }
 
   private log(view: ServiceView): HTMLElement {
@@ -132,7 +171,7 @@ export class ServiceTab {
   }
 
   private nextCase(view: ServiceView): HTMLElement {
-    if (!view.hasNextCase) return h('span', { class: 'os-done', text: view.completion ? 'Era a última ordem de serviço de demonstração.' : '' });
+    if (!view.hasNextCase) return h('span', { class: 'os-done', text: view.delivery ? 'Não há mais ordens de serviço por agora.' : '' });
     const next = h('button', { type: 'button', class: 'btn btn-primary btn-small', 'data-testid': 'next-case' }, 'Próxima ordem de serviço →');
     next.addEventListener('click', () => this.callbacks.onNextCase());
     return next;

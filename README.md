@@ -10,8 +10,10 @@ O design completo está em [GDD_Simulador_de_Mecanico_Claude_Code.md](GDD_Simula
 4. Diagnóstico: 3 ordens de serviço, exames, evidências e hipóteses.
 5. Orçamento, cliente e negociação.
 6. Reparo e conclusão do serviço.
+7. Loja, estoque, pagamento e economia básica.
+8. Reputação, garantia e retorno de clientes.
 
-Ainda **não** existem entrega com pagamento, compra de peças com prazo, reputação, save de jogo, cidade nem multiplayer.
+Ainda **não** existem save de jogo, tutorial, cidade nem multiplayer.
 
 ## Pré-requisitos
 
@@ -53,14 +55,15 @@ src/
   interaction/ mira por raycast e contrato de interativos (disponível / em uso / indisponível)
   equipment/  elevador, capô, gaveta e luzes: peças móveis (Actuator) e regras puras (bayRules.ts)
   diagnostics/ exames, evidências e hipóteses (rules.ts, puro) e a visão segura para a UI (view.ts)
-  customers/  perfis e decisão do cliente (decision.ts, regras fixas)
-  orders/     estados da OS e visões das abas Orçamento/Serviço/Estoque
+  customers/  perfis, decisão (decision.ts), avaliação na entrega (evaluation.ts) e reputação (reputation.ts)
+  orders/     estados da OS, garantia (warranty.ts) e visões das abas e do computador
   repairs/    regras do reparo: acesso → remover → instalar → teste final; qualidade
+  inventory/  fornecedores, pedidos de compra e lotes de estoque (tipos)
   audio/      sons de retorno provisórios (Web Audio, gerados por código)
   world/      oficina temporária e colisão 2D simples
   parts/      tipos e validação do catálogo de peças
   vehicles/   modelos, estado de cada carro, regras de domínio (domain.ts), visão de inspeção; modelo 3D temporário
-  economy/    dinheiro em centavos inteiros; fórmula ÚNICA do orçamento (quote.ts)
+  economy/    dinheiro em centavos; fórmula ÚNICA do orçamento (quote.ts); livro-caixa (ledger.ts)
   save/       preferências versionadas e validadas (localStorage)
   ui/         HUD, menu inicial/pausa, configurações, tela de erro
   data/       conteúdo em dados: veículos, peças, carro de demonstração, teclas, equipamentos, valores de início
@@ -195,7 +198,43 @@ Depois de todos os itens, faça o **teste final**, com o carro no chão e o cap�
 - **o diagnóstico:** se a peça trocada não era a causa, o teste final mostra que o defeito continua e o serviço sai como **retrabalho**;
 - **a execução:** os erros acima e a troca da peça orçada por outra.
 
-Entrega do carro e pagamento: próxima etapa (Prompt 7).
+Concluído o serviço, entregue o carro na aba Serviço (veja abaixo).
+
+## Loja, estoque e caixa (Prompt 7)
+
+O **computador do escritório** é a gestão da oficina. Ele tem quatro abas:
+
+| Aba | O que faz |
+| --- | --- |
+| **Loja** | Lista as peças, com dois fornecedores fictícios. A Autopeças do Bairro tem preço cheio e entrega em 30 min. A Distribuidora Rio Peças é 18% mais barata e entrega em 180 min. As peças que a OS atual precisa aparecem no topo. |
+| **Pedidos** | A compra sai do caixa **na hora**, mas a peça só entra no estoque **quando chega**. Pedidos a caminho podem ser cancelados com estorno integral. "Esperar a entrega" avança o relógio até a próxima chegada. |
+| **Caixa** | Caixa atual, receita de serviços, compras líquidas e lucro bruto das OS entregues (receita − custo das peças usadas). Também o livro-caixa: cada transação com id, data, categoria, descrição, referência (OS ou pedido) e valor. |
+| **Reputação** | Veja a seção seguinte. |
+
+**Limites de gasto.** Não dá para gastar mais do que o caixa. A exceção é uma regra de crédito, que vem desligada (`creditLimit` em `src/data/economy.ts`). Só existe o caixa da oficina: nada de dinheiro pessoal.
+
+**Pagamento.** Um orçamento acima de R$ 1.000 cobra 30% de sinal na aprovação. O restante é pago na **entrega**, sempre conforme o orçamento aprovado. As peças herdadas do tio custam zero.
+
+## Reputação, garantia e retorno (Prompt 8)
+
+**Avaliação.** Na entrega, o cliente dá de 1 a 5 estrelas, com um motivo legível para cada um destes critérios:
+
+| Critério | Como conta |
+| --- | --- |
+| Prazo | Compara com o prometido. Até 2 h de atraso é tolerado; acima disso, conta contra. |
+| Orçamento | Preço justo conta a favor. Serviço na garantia também. |
+| Qualidade | Vem do reparo. |
+| Comunicação | Quantas contrapropostas foram precisas. |
+
+Cada critério ruim custa estrela.
+
+**Reputação.** Guardada em duas formas, separadas: **geral** e **por especialidade** (mecânica e elétrica). Cada avaliação soma (estrelas − 3) × 4 pontos.
+
+**Garantia.** Cada entrega registra uma garantia de 90 ou 180 dias, conforme o orçamento, que cobre as peças trocadas e a queixa resolvida.
+
+**Retorno do cliente:**
+- **Reparo com retrabalho:** o cliente **volta em garantia**. Abre uma OS vinculada à original, sem custo para ele. A oficina paga a peça e perde 10 pontos de reputação.
+- **Cliente satisfeito (4★ ou mais):** pode voltar com outro problema. A Dona Cida volta com o freio trepidando. O mecânico confere a garantia: se o defeito **não tem relação** com o serviço anterior, a OS é cobrada normalmente e **não há penalidade**.
 
 ## Roteiro de teste manual
 
@@ -226,4 +265,11 @@ Os testes automáticos não conseguem capturar o mouse (Pointer Lock) no navegad
 19. Feche o painel, suba o elevador e pegue a **bateria** na estante. Na aba Serviço, remova as pastilhas e tente instalar a bateria: aparece "Peça errada".
 20. Devolva a bateria, pegue as pastilhas da OS #001 e instale. Tente o teste final com o carro no alto: ele pede o carro no chão. Desça o elevador, faça o teste ("o chiado sumiu") e conclua: qualidade Excelente (90).
 21. **OS #002 (Seu Jorge):** envie o orçamento padrão (R$ 197,37). Ele contrapropõe R$ 180,00. "Aceitar R$ 180,00" cria a linha "Desconto negociado".
-22. Console do navegador (F12): sem erros vermelhos.
+22. **Pagamento:**
+    - Na OS #001 aprovada, a aba Serviço mostra "Falta comprar".
+    - No computador, compre as pastilhas na Autopeças do Bairro (o caixa cai R$ 129,00).
+    - Em Pedidos, clique em "Esperar a entrega".
+    - Faça o reparo e entregue: o caixa sobe R$ 294,70, o lucro bruto é R$ 165,70 e aparecem as estrelas com os motivos.
+23. No computador, aba Reputação: confira a avaliação do Marcão e a garantia GAR-001.
+24. **Garantia:** em um jogo novo, registre "Discos" na OS #001, troque os discos e entregue. Ele volta em garantia (OS 001-G), com orçamento zerado e −10 de reputação.
+25. Console do navegador (F12): sem erros vermelhos.

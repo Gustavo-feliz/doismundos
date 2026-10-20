@@ -32,6 +32,7 @@ export class QuoteTab {
     }
     this.element.replaceChildren(
       this.customerCard(view),
+      ...(view.warrantyNote ? [h('p', { class: view.warrantyNote.covered ? 'test-ok' : 'os-closed', 'data-testid': 'warranty-note', text: view.warrantyNote.text })] : []),
       h('div', { class: 'quote-body' }, h('div', { class: 'diagnosis-col' }, this.editor(view)), h('div', { class: 'diagnosis-col' }, this.breakdown(view), this.history(view))),
     );
   }

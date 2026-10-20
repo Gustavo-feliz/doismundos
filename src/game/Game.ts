@@ -12,9 +12,12 @@ import { CUSTOMERS } from '../data/customers';
 import { DIAGNOSTIC_CASES } from '../data/diagnosticCases';
 import { DEFAULT_QUOTE_SETTINGS, PRICING } from '../data/pricing';
 import { INITIAL_STOCK } from '../data/stock';
+import { ECONOMY } from '../data/economy';
+import { SUPPLIERS } from '../data/suppliers';
+import { ComputerPanel } from '../ui/ComputerPanel';
 import { Sfx, type SfxName } from '../audio/Sfx';
 import type { QuoteDraft } from '../orders/types';
-import { buildQuoteView, buildServiceView, buildStockView } from '../orders/views';
+import { buildComputerView, buildQuoteView, buildServiceView, buildStockView } from '../orders/views';
 import { StockPanel } from '../ui/StockPanel';
 import { FUNCTIONAL_TESTS, SCANNER } from '../data/diagnostics';
 import { EQUIPMENT } from '../data/equipment';
@@ -22,7 +25,7 @@ import { NEW_GAME } from '../data/newGame';
 import { PART_SLOTS } from '../data/partSlots';
 import { PARTS } from '../data/parts';
 import { VEHICLES } from '../data/vehicles';
-import { formatBRL, type Cents } from '../economy/money';
+import { formatBRL } from '../economy/money';
 import { WorkshopEquipment } from '../equipment/WorkshopEquipment';
 import { InteractionSystem } from '../interaction/InteractionSystem';
 import { FirstPersonController } from '../player/FirstPersonController';
@@ -71,6 +74,7 @@ export class Game {
   private readonly hud: Hud;
   private readonly inspection: InspectionPanel;
   private readonly stockPanel: StockPanel;
+  private readonly computer: ComputerPanel;
   private readonly sfx = new Sfx();
   private readonly catalogs: Catalogs;
   private session: GameSession;
@@ -81,7 +85,6 @@ export class Game {
   private settings: Settings;
   private readonly loop: Loop;
   private readonly cleanups: Array<() => void> = [];
-  private cash: Cents = NEW_GAME.startingCash;
   private frame = 0;
   private menuTime = 0;
   private needsRender = true;
@@ -116,6 +119,7 @@ export class Game {
       onInspectVehicle: () => this.openInspection(),
       describeVehicle: () => this.describeActiveVehicle(),
       onOpenStock: () => this.openStock(),
+      onOpenComputer: () => this.openComputer(),
       describeStock: () => this.describeStock(),
       onAmbientScale: (scale) => {
         this.scene.environmentIntensity = ENVIRONMENT_INTENSITY * scale;
@@ -146,12 +150,19 @@ export class Game {
         onInstall: (slot) => this.act(this.session.installHeldPart(slot, this.equipmentContext(), this.moment()), 'ferramenta'),
         onFinalTest: () => this.act(this.session.runFinalTest(this.equipmentContext(), this.moment()), 'ok'),
         onComplete: () => this.act(this.session.completeOrder(this.moment()), 'concluido'),
+        onDeliver: () => this.act(this.session.deliverVehicle(this.moment()), 'concluido'),
         onNextCase: () => this.nextCase(),
       },
     });
     this.stockPanel = new StockPanel(uiRoot, {
-      onTake: (partId, orderNumber) => this.act(this.session.takePart(partId, orderNumber), 'pegar'),
+      onTake: (lotId) => this.act(this.session.takePart(lotId), 'pegar'),
       onReturn: () => this.act(this.session.returnHeldPart(), 'pegar'),
+      onClose: (reason) => this.closePanel(reason),
+    });
+    this.computer = new ComputerPanel(uiRoot, {
+      onBuy: (partId, supplierId) => this.act(this.session.buyPart(partId, supplierId, 1, this.moment()), 'pegar'),
+      onCancel: (id) => this.act(this.session.cancelPurchase(id, this.moment()), 'ok'),
+      onWait: () => this.waitForDelivery(),
       onClose: (reason) => this.closePanel(reason),
     });
     this.menu = new MenuScreen(uiRoot, this.settings, {
@@ -193,6 +204,7 @@ export class Game {
     this.hud.dispose();
     this.inspection.dispose();
     this.stockPanel.dispose();
+    this.computer.dispose();
     this.sfx.dispose();
     this.menu.dispose();
     disposeObject3D(this.scene);
@@ -233,13 +245,15 @@ export class Game {
     }
 
     this.hud.update({
-      money: formatBRL(this.cash),
+      money: formatBRL(this.session.cash),
       day: this.clock.day,
       time: this.clock.formatTime(),
       objective: this.currentObjective(),
       tool: this.heldPartName() ?? 'Nada',
     });
 
+    // Pedidos de peças chegam conforme o relógio do jogo.
+    if (this.state.is('playing', 'panel')) this.receiveDeliveries();
     if (this.state.is('panel') && this.session.version !== this.panelVersion) this.refreshPanels();
 
     if (DEBUG) this.updateDiagnostics();
@@ -305,10 +319,46 @@ export class Game {
     return true;
   }
 
+  private openComputer(): void {
+    if (!this.enterPanel()) return;
+    this.computer.open(this.computerView());
+  }
+
+  private computerView() {
+    return buildComputerView(this.session, this.clock.absoluteMinutes, this.session.activeCase?.vehicle.id ?? null);
+  }
+
   private refreshPanels(): void {
-    this.inspection.refresh(this.currentPanelViews());
-    this.stockPanel.refresh(buildStockView(this.session));
+    if (this.inspection.isOpen) this.inspection.refresh(this.currentPanelViews());
+    if (this.stockPanel.isOpen) this.stockPanel.refresh(buildStockView(this.session));
+    if (this.computer.isOpen) this.computer.refresh(this.computerView());
     this.panelVersion = this.session.version;
+  }
+
+  private receiveDeliveries(): void {
+    const arrived = this.session.deliverDue(this.clock.absoluteMinutes);
+    if (arrived.length === 0) return;
+    const names = arrived.map((p) => `${p.qty}× ${this.catalogs.parts.get(p.partId)?.name ?? p.partId}`).join(', ');
+    const text = `Chegou do fornecedor: ${names}. Já está nas estantes.`;
+    if (this.state.is('panel')) this.activePanel().notify(text, 'ok');
+    else this.hud.notify(text, 'ok');
+    this.sfx.play('pegar');
+  }
+
+  /** "Esperar a entrega": o relógio pula até o próximo pedido chegar. */
+  private waitForDelivery(): void {
+    const next = this.session.nextDeliveryAt();
+    if (next === null) return;
+    const waited = Math.max(0, next - this.clock.absoluteMinutes);
+    this.clock.advanceTo(next);
+    this.computer.notify(`Você esperou ${waited} min.`, 'ok');
+    this.receiveDeliveries();
+  }
+
+  private activePanel(): { notify(text: string, kind: 'ok' | 'warn' | 'blocked'): void } {
+    if (this.computer.isOpen) return this.computer;
+    if (this.stockPanel.isOpen) return this.stockPanel;
+    return this.inspection;
   }
 
   private closePanel(reason: PanelCloseReason): void {
@@ -320,9 +370,8 @@ export class Game {
   /** Resultado de uma ação: gasta o tempo no relógio, avisa no painel aberto e toca um som. */
   private act(outcome: ActionOutcome, sound: SfxName): void {
     if (outcome.minutes > 0) this.clock.addMinutes(outcome.minutes);
-    const target = this.stockPanel.isOpen ? this.stockPanel : this.inspection;
     const tone = outcome.tone ?? (outcome.ok ? 'ok' : 'blocked');
-    if (outcome.message) target.notify(outcome.message, tone);
+    if (outcome.message) this.activePanel().notify(outcome.message, tone);
     this.sfx.play(tone === 'blocked' ? 'erro' : sound);
   }
 
@@ -357,7 +406,7 @@ export class Game {
           })
         : null,
       quote: c ? buildQuoteView(this.session, c.id, this.clock.day) : null,
-      service: c ? buildServiceView(this.session, c.id, this.equipmentContext()) : null,
+      service: c ? buildServiceView(this.session, c.id, this.equipmentContext(), this.clock.absoluteMinutes) : null,
       orderStatus: c ? this.session.getOrder(c.id).status : null,
     };
   }
@@ -372,6 +421,8 @@ export class Game {
       pricing: PRICING,
       initialStock: INITIAL_STOCK,
       defaultDraft: DEFAULT_QUOTE_SETTINGS,
+      suppliers: SUPPLIERS,
+      economy: ECONOMY,
     });
   }
 
@@ -386,7 +437,7 @@ export class Game {
   }
 
   private moment(): GameMoment {
-    return { day: this.clock.day, time: this.clock.formatTime() };
+    return { day: this.clock.day, time: this.clock.formatTime(), at: this.clock.absoluteMinutes };
   }
 
   /** Exame: registra no horário de início e gasta o tempo dele no relógio do jogo. */
@@ -436,7 +487,9 @@ export class Game {
         return `${os}: monte o orçamento e negocie com ${c.customerName}`;
       case 'aprovada':
       case 'em-reparo':
-        return `${os}: faça o reparo (as peças estão nas estantes)`;
+        return `${os}: compre as peças no computador e faça o reparo`;
+      case 'concluida':
+        return `${os}: entregue o carro a ${c.customerName} (aba Serviço)`;
       default:
         return this.session.caseNumber < this.session.caseCount
           ? `${os} encerrada: abra o painel do carro para a próxima`
@@ -457,7 +510,6 @@ export class Game {
       this.equipment.reset();
       this.session = this.newSession();
       this.applyActiveCarLook();
-      this.cash = NEW_GAME.startingCash;
     }
     this.input.reset();
     this.state.transition('playing');
@@ -480,6 +532,7 @@ export class Game {
     if (state !== 'panel') {
       this.inspection.close();
       this.stockPanel.close();
+      this.computer.close();
     }
     const showMenu = state === 'menu' || state === 'paused';
     if (state === 'menu') this.menu.setMode('title');
@@ -567,6 +620,9 @@ export class Game {
       panelOpen: this.inspection.isOpen,
       stockOpen: this.stockPanel.isOpen,
       held: this.session.heldPartId,
+      cash: this.session.cash,
+      reputation: this.session.reputation.general.score,
+      computerOpen: this.computer.isOpen,
       order: this.orderDiagnostics(),
       diagnosis: this.diagnosisDiagnostics(),
       equipment: this.equipment.snapshot(),

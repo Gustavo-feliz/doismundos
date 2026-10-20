@@ -92,6 +92,8 @@ export interface DiagnosticCaseDef {
   customerId: string;
   /** Teste final do reparo: o que o mecânico percebe com e sem o defeito resolvido. */
   finalTest: { resolved: string; persists: string };
+  /** Se o cliente sair satisfeito, volta com este novo problema (GDD Prompt 8). */
+  followUp?: DiagnosticCaseDef;
 }
 
 export type TestKind = 'visual' | 'scanner' | 'funcional';

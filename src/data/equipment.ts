@@ -96,6 +96,7 @@ export const EQUIPMENT = {
 
   computer: {
     name: 'Computador do escritório',
-    unavailable: 'O computador de gestão chega numa etapa futura',
+    action: 'Abrir computador de gestão',
+    detail: 'Loja de peças, pedidos, caixa e reputação',
   },
 } as const;

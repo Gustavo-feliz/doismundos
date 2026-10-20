@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PART_SLOTS } from '../../src/data/partSlots';
 import { VEHICLES } from '../../src/data/vehicles';
+import { ECONOMY } from '../../src/data/economy';
 import { NEW_GAME } from '../../src/data/newGame';
 import { assertCents, formatBRL, reaisToCents } from '../../src/economy/money';
 import {
@@ -35,7 +36,8 @@ describe('dinheiro', () => {
   });
 
   it('caixa inicial é um valor em centavos válido', () => {
-    expect(() => assertCents(NEW_GAME.startingCash)).not.toThrow();
+    expect(() => assertCents(ECONOMY.startingCash)).not.toThrow();
+    expect(NEW_GAME.firstObjective.length).toBeGreaterThan(0);
   });
 });
 

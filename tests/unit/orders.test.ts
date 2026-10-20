@@ -6,7 +6,7 @@ import { computeQuote, type QuoteBreakdown, type QuoteInput } from '../../src/ec
 import type { GameSession } from '../../src/game/GameSession';
 import { canTransitionOrder } from '../../src/orders/types';
 import { computeQuality, installHeldPart, startRepair } from '../../src/repairs/rules';
-import { CTX, catalogs, newSession, when } from './fixtures';
+import { CTX, buyAndReceive, catalogs, inheritedLot, newSession, when } from './fixtures';
 
 const PADS = 'freios.pastilhas-dianteiras';
 const DISCS = 'freios.discos-dianteiros';
@@ -189,7 +189,8 @@ describe('ordem de serviço: orçamento e negociação', () => {
     expect(order.status).toBe('aprovada');
     expect(order.approved!.total).toBe(294_70);
     expect(order.proposals.map((p) => p.decision.kind)).toEqual(['contraproposta', 'aceita']);
-    expect(s.stock).toContainEqual({ partId: PADS_PART, qty: 1, orderNumber: '001' });
+    // Prompt 7: aprovar não entrega peça nenhuma — é preciso comprar.
+    expect(s.stock.some((l) => l.partId === PADS_PART)).toBe(false);
     expect(s.updateDraft(c.id, { urgent: false }).ok).toBe(false); // aprovado: não muda mais
     expect(s.getVehicle(c.vehicle.id).history.at(-1)?.text).toMatch(/Orçamento aprovado: R\$\s294,70/);
   });
@@ -256,7 +257,7 @@ describe('reparo', () => {
     const { s, c } = approved();
     expect(s.removeOldPart(PADS, CTX.lifted, when)).toMatchObject({ ok: true, minutes: 23 });
     expect(s.getOrder(c.id).status).toBe('em-reparo');
-    expect(s.takePart(PADS_PART, '001').ok).toBe(true);
+    expect(s.takePart(buyAndReceive(s, PADS_PART).lotId).ok).toBe(true);
     expect(s.heldPartId).toBe(PADS_PART);
     expect(s.installHeldPart(PADS, CTX.lifted, when)).toMatchObject({ ok: true, minutes: 22 });
     expect(s.heldPartId).toBeNull();
@@ -265,6 +266,8 @@ describe('reparo', () => {
     expect(s.runFinalTest(CTX.floor, when).message).toMatch(/chiado sumiu/);
     expect(s.completeOrder(when).ok).toBe(true);
     expect(s.getOrder(c.id)).toMatchObject({ status: 'concluida', completion: { qualityLabel: 'excelente', qualityScore: 100, symptomResolved: true } });
+    expect(s.advanceCase()).toBe(false); // falta entregar
+    expect(s.deliverVehicle(when).ok).toBe(true);
     expect(s.advanceCase()).toBe(true);
   });
 
@@ -283,13 +286,14 @@ describe('reparo', () => {
     expect(attempts()).toBe(2);
 
     expect(s.installHeldPart(PADS, CTX.lifted, when).message).toMatch(/não está segurando/);
-    s.takePart('bateria-60ah-brasaco', null);
-    expect(s.takePart(PADS_PART, '001').ok).toBe(false); // mãos ocupadas
+    const padsLot = buyAndReceive(s, PADS_PART);
+    s.takePart(inheritedLot(s, 'bateria-60ah-brasaco').lotId);
+    expect(s.takePart(padsLot.lotId).ok).toBe(false); // mãos ocupadas
     expect(s.installHeldPart(PADS, CTX.lifted, when).message).toMatch(/Peça errada/);
     expect(attempts()).toBe(3);
     expect(s.returnHeldPart().ok).toBe(true);
 
-    s.takePart(PADS_PART, '001');
+    s.takePart(padsLot.lotId);
     s.installHeldPart(PADS, CTX.lifted, when);
     expect(s.runFinalTest(CTX.lifted, when).message).toMatch(/carro no chão/);
     s.runFinalTest(CTX.floor, when);
@@ -312,7 +316,7 @@ describe('reparo', () => {
   it('diagnóstico errado: troca a peça orçada, mas o defeito continua → retrabalho', () => {
     const { s, c } = approved(DISCS);
     s.removeOldPart(DISCS, CTX.lifted, when);
-    s.takePart('disco-freio-diant-brasaco-brisa', '001');
+    s.takePart(buyAndReceive(s, 'disco-freio-diant-brasaco-brisa').lotId);
     s.installHeldPart(DISCS, CTX.lifted, when);
     expect(s.runFinalTest(CTX.floor, when).message).toMatch(/continua/);
     expect(s.completeOrder(when).message).toMatch(/o cliente vai voltar/);

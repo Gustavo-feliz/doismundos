@@ -44,6 +44,8 @@ export interface QuoteInput {
   warrantyDays: number;
   /** Desconto em reais combinado numa contraproposta (opcional). */
   negotiatedDiscount?: Cents;
+  /** Rótulo da linha do desconto negociado (ex.: "Coberto pela garantia"). */
+  negotiatedLabel?: string;
 }
 
 export type QuoteLineKind = 'peca' | 'mao-de-obra' | 'urgencia' | 'taxa' | 'desconto';
@@ -136,7 +138,10 @@ export function computeQuote(input: QuoteInput, ctx: QuoteContext): QuoteResult 
 
   const beforeNegotiation = partsSubtotal + laborSubtotal + urgencyFee + fees - discount;
   if (negotiated > beforeNegotiation) return fail('valor-invalido', 'Desconto negociado maior que o total.');
-  if (negotiated) lines.push({ kind: 'desconto', label: 'Desconto negociado', detail: 'combinado com o cliente', amount: -negotiated });
+  if (negotiated) {
+    const label = input.negotiatedLabel ?? 'Desconto negociado';
+    lines.push({ kind: 'desconto', label, detail: input.negotiatedLabel ? 'sem custo para o cliente' : 'combinado com o cliente', amount: -negotiated });
+  }
   const total = beforeNegotiation - negotiated;
 
   const deadlineHours = Math.ceil(laborHours + (input.urgent ? rules.urgentQueueHours : rules.queueHours));

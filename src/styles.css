@@ -1159,3 +1159,123 @@ body[data-state='paused'] .interact-prompt {
   cursor: not-allowed;
   transform: none;
 }
+
+/* ---------- Entrega, avaliação e computador de gestão ---------- */
+.avail {
+  font-size: 0.78rem;
+  color: #f6c071;
+}
+.avail.ok {
+  color: #8fe0a9;
+}
+.delivery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+}
+.stars {
+  font-size: 1.4rem;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+.review-reasons {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.review-reasons li[data-effect='positivo']::marker {
+  color: #44be6e;
+}
+.review-reasons li[data-effect='negativo'] {
+  color: #ffb0a6;
+}
+dd.positive {
+  color: #8fe0a9;
+  font-weight: 700;
+}
+dd.negative {
+  color: #ff8f80;
+  font-weight: 700;
+}
+.computer-card {
+  width: min(1040px, 100%);
+}
+.computer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  overflow-y: auto;
+  max-height: 62vh;
+  padding-right: 0.3rem;
+}
+.shop-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.shop-row[data-fits='true'] {
+  border-left: 3px solid var(--accent);
+}
+.shop-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.offer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.money-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+.money-tile {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.money-tile strong {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+.ledger-amount[data-kind='receita'] {
+  color: #8fe0a9;
+}
+.ledger-amount[data-kind='despesa'] {
+  color: #ffb0a6;
+}
+.rep-score {
+  font: 900 2rem/1 var(--font-display);
+  color: var(--accent);
+}
+@media (max-width: 760px) {
+  .shop-row {
+    grid-template-columns: 1fr;
+  }
+}
+.needed-tag {
+  align-self: flex-start;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+}

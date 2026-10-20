@@ -1,7 +1,6 @@
 /**
- * Peças que o tio deixou nas estantes (estoque inicial do protótipo).
- * As peças de cada OS aprovada chegam do fornecedor na hora (entrega
- * imediata no protótipo; prazo e fornecedores reais: Prompt 7).
+ * Peças que o tio deixou nas estantes (estoque inicial, custo zero para a oficina).
+ * O resto se compra no computador do escritório (loja, Prompt 7).
  */
 export const INITIAL_STOCK: ReadonlyArray<{ partId: string; qty: number }> = [
   { partId: 'bateria-60ah-brasaco', qty: 1 },

@@ -3,7 +3,9 @@ import { DIAGNOSTIC_CASES } from '../../src/data/diagnosticCases';
 import { FUNCTIONAL_TESTS, SCANNER } from '../../src/data/diagnostics';
 import { PART_SLOTS } from '../../src/data/partSlots';
 import { PARTS } from '../../src/data/parts';
+import { ECONOMY } from '../../src/data/economy';
 import { DEFAULT_QUOTE_SETTINGS, PRICING } from '../../src/data/pricing';
+import { SUPPLIERS } from '../../src/data/suppliers';
 import { INITIAL_STOCK } from '../../src/data/stock';
 import { VEHICLES } from '../../src/data/vehicles';
 import type { DiagnosticData } from '../../src/diagnostics/rules';
@@ -21,9 +23,32 @@ export const content: SessionContent = {
   pricing: PRICING,
   initialStock: INITIAL_STOCK,
   defaultDraft: DEFAULT_QUOTE_SETTINGS,
+  suppliers: SUPPLIERS,
+  economy: ECONOMY,
 };
-export const newSession = () => new GameSession(catalogs, [], content);
-export const when = { day: 1, time: '09:00' };
+export const newSession = (patch: Partial<SessionContent> = {}) => new GameSession(catalogs, [], { ...content, ...patch });
+/** Dia 1, 09:00 (minuto absoluto 540). */
+export const when = { day: 1, time: '09:00', at: 540 };
+/** Momento `minutes` minutos depois de `when`. */
+export const later = (minutes: number) => {
+  const at = when.at + minutes;
+  const hh = String(Math.floor((at % 1440) / 60)).padStart(2, '0');
+  const mm = String(at % 60).padStart(2, '0');
+  return { day: Math.floor(at / 1440) + 1, time: `${hh}:${mm}`, at };
+};
+
+/** Compra 1 unidade no fornecedor do bairro, espera chegar e devolve o lote recebido. */
+export function buyAndReceive(s: GameSession, partId: string, at = when) {
+  const bought = s.buyPart(partId, 'autopecas-bairro', 1, at);
+  if (!bought.ok) throw new Error(bought.message);
+  s.deliverDue(at.at + 30);
+  const lot = s.stock.find((l) => l.partId === partId && l.unitCost > 0);
+  if (!lot) throw new Error('peça não chegou');
+  return lot;
+}
+
+/** Lote herdado do tio (custo zero). */
+export const inheritedLot = (s: GameSession, partId: string) => s.stock.find((l) => l.partId === partId && l.unitCost === 0)!;
 
 /** Estados de equipamento prontos. */
 export const CTX = {

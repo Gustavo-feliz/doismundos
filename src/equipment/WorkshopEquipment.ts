@@ -23,6 +23,8 @@ export interface EquipmentCallbacks {
   onInspectVehicle(): void;
   /** O jogador abriu o estoque (estantes). */
   onOpenStock(): void;
+  /** O jogador abriu o computador de gestão. */
+  onOpenComputer(): void;
   /** Resumo do que há no estoque, para o aviso da mira. */
   describeStock(): string;
   /** Nome e linha de detalhe do carro do box (vêm do estado do veículo). */
@@ -185,8 +187,11 @@ export class WorkshopEquipment {
       createInteractable({
         id: EQUIPMENT_IDS.computer,
         name: E.computer.name,
-        evaluate: () => ({ status: 'unavailable', reason: E.computer.unavailable }),
-        perform: () => '',
+        evaluate: () => ({ status: 'available', action: E.computer.action, detail: E.computer.detail }),
+        perform: () => {
+          this.callbacks.onOpenComputer();
+          return '';
+        },
       }),
     ];
   }

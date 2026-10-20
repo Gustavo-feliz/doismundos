@@ -128,7 +128,7 @@ test('luzes, luminária e gaveta alternam; segurar a tecla não repete a ação;
   expect(errors).toEqual([]);
 });
 
-test('portão e computador aparecem como indisponíveis, com o motivo', async ({ page }) => {
+test('portão aparece como indisponível com o motivo; computador abre a gestão', async ({ page }) => {
   const errors = watchErrors(page);
   await aim(page, AIM.gate);
   await expect(prompt(page)).toContainText('Portão');
@@ -139,7 +139,7 @@ test('portão e computador aparecem como indisponíveis, com o motivo', async ({
 
   await aim(page, AIM.computer);
   await expect(prompt(page)).toContainText('Computador do escritório');
-  await expect(prompt(page)).toHaveAttribute('data-status', 'unavailable');
+  await expect(prompt(page)).toContainText('Abrir computador de gestão');
   expect(errors).toEqual([]);
 });
 

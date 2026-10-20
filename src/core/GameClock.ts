@@ -29,6 +29,16 @@ export class GameClock {
     this.totalMinutes += realSeconds * this.options.minutesPerRealSecond;
   }
 
+  /** Minuto absoluto desde o início do jogo (para prazos e entregas). */
+  get absoluteMinutes(): number {
+    return Math.floor(this.totalMinutes);
+  }
+
+  /** Avança até um minuto absoluto (nunca volta no tempo). */
+  advanceTo(absoluteMinute: number): void {
+    if (Number.isFinite(absoluteMinute) && absoluteMinute > this.totalMinutes) this.totalMinutes = absoluteMinute;
+  }
+
   /** Avança minutos de jogo de uma vez (ex.: um exame que leva 15 min). */
   addMinutes(minutes: number): void {
     if (!Number.isFinite(minutes) || minutes <= 0) return;

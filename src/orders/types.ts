@@ -1,12 +1,14 @@
+import type { Review } from '../customers/evaluation';
 import type { CustomerDecision } from '../customers/types';
+import type { Cents } from '../economy/money';
 import type { QuoteBreakdown } from '../economy/quote';
 
 /**
  * Ordem de serviço (OS): o caminho de um carro pela oficina.
- * diagnostico → orcamento → (contraproposta ↔) → aprovada → em-reparo → concluida
+ * diagnostico → orcamento → (contraproposta ↔) → aprovada → em-reparo → concluida → entregue
  *                         ↘ recusada (cliente desistiu ou foi dispensado)
  */
-export type OrderStatus = 'diagnostico' | 'orcamento' | 'contraproposta' | 'aprovada' | 'em-reparo' | 'concluida' | 'recusada';
+export type OrderStatus = 'diagnostico' | 'orcamento' | 'contraproposta' | 'aprovada' | 'em-reparo' | 'concluida' | 'entregue' | 'recusada';
 
 export const ORDER_STATUS_LABEL: Readonly<Record<OrderStatus, string>> = {
   diagnostico: 'Em diagnóstico',
@@ -15,6 +17,7 @@ export const ORDER_STATUS_LABEL: Readonly<Record<OrderStatus, string>> = {
   aprovada: 'Aprovada: pronta para o reparo',
   'em-reparo': 'Em reparo',
   concluida: 'Serviço concluído: aguardando entrega',
+  entregue: 'Entregue e paga',
   recusada: 'Encerrada sem serviço',
 };
 
@@ -24,7 +27,8 @@ const TRANSITIONS: Readonly<Record<OrderStatus, readonly OrderStatus[]>> = {
   contraproposta: ['aprovada', 'contraproposta', 'recusada'],
   aprovada: ['em-reparo'],
   'em-reparo': ['concluida'],
-  concluida: [],
+  concluida: ['entregue'],
+  entregue: [],
   recusada: [],
 };
 
@@ -34,7 +38,7 @@ export function canTransitionOrder(from: OrderStatus, to: OrderStatus): boolean 
 
 /** OS fechada: libera o box para o próximo carro. */
 export function isOrderClosed(status: OrderStatus): boolean {
-  return status === 'concluida' || status === 'recusada';
+  return status === 'entregue' || status === 'recusada';
 }
 
 /** Rascunho do orçamento que o jogador monta. */
@@ -61,6 +65,8 @@ export interface RepairItemState {
   plannedPartId: string;
   removed: boolean;
   installedPartId: string | null;
+  /** Quanto a oficina pagou pela peça instalada (custo do serviço). */
+  installedUnitCost: Cents | null;
 }
 
 export interface RepairLogEntry {
@@ -109,4 +115,24 @@ export interface OrderState {
   repair: RepairState | null;
   completion: CompletionRecord | null;
   closedReason: string | null;
+  /** Minuto absoluto da aprovação (o prazo prometido conta daqui). */
+  approvedAt: number | null;
+  depositPaid: Cents;
+  delivery: DeliveryRecord | null;
+  /** Garantia: esta OS é coberta? (decidido no retorno ou no diagnóstico). */
+  warranty: { covered: boolean; reason: string; warrantyId: string | null } | null;
+  /** OS original, quando esta é um retorno em garantia. */
+  linkedTo: string | null;
+}
+
+export interface DeliveryRecord {
+  at: number;
+  day: number;
+  time: string;
+  promisedAt: number;
+  revenue: Cents;
+  partsCost: Cents;
+  grossProfit: Cents;
+  review: Review;
+  warrantyId: string | null;
 }

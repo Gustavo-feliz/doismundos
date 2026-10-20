@@ -2,7 +2,7 @@ import type { StockView } from '../orders/views';
 import { h } from './dom';
 
 export interface StockCallbacks {
-  onTake(partId: string, orderNumber: string | null): void;
+  onTake(lotId: string): void;
   onReturn(): void;
   onClose(reason: 'resume' | 'pause'): void;
 }
@@ -90,20 +90,25 @@ export class StockPanel {
       held.append(back);
     }
     const rows = view.entries.map((e) => {
-      const take = h('button', { type: 'button', class: 'btn btn-small', 'data-take': e.partId, 'data-order': e.orderNumber ?? '' }, 'Pegar');
+      const take = h('button', { type: 'button', class: 'btn btn-small', 'data-take': e.partId, 'data-lot': e.lotId }, 'Pegar');
       take.disabled = !view.canTake;
-      take.addEventListener('click', () => this.callbacks.onTake(e.partId, e.orderNumber));
+      take.addEventListener('click', () => this.callbacks.onTake(e.lotId));
       return h(
         'li',
-        { class: 'test-item', 'data-part': e.partId, 'data-order': e.orderNumber ?? '' },
-        h('div', { class: 'test-info' }, h('strong', { text: `${e.name} ×${e.qty}` }), h('span', { class: 'muted', text: `${e.brand} · ${e.quality} · posição: ${e.slotName} · ${e.tag}` })),
+        { class: 'test-item', 'data-part': e.partId },
+        h(
+          'div',
+          { class: 'test-info' },
+          h('strong', { text: `${e.name} ×${e.qty}` }),
+          h('span', { class: 'muted', text: `${e.brand} · ${e.quality} · posição: ${e.slotName} · ${e.costText} · ${e.source}` }),
+        ),
         take,
       );
     });
     this.body.replaceChildren(
       held,
       rows.length ? h('ul', { class: 'test-list', 'data-testid': 'stock-list' }, ...rows) : h('p', { class: 'muted', text: 'As estantes estão vazias.' }),
-      h('p', { class: 'panel-footnote', text: 'Peças de OS aprovadas chegam aqui na hora (fornecedores e prazos de entrega: próxima etapa).' }),
+      h('p', { class: 'panel-footnote', text: view.onTheWay ? `${view.onTheWay} peça(s) a caminho. Compras e entregas: computador do escritório.` : 'Para comprar peças, use o computador do escritório.' }),
     );
   }
 

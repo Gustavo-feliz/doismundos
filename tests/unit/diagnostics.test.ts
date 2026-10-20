@@ -149,7 +149,7 @@ describe('regras de execução', () => {
     expect(s.concludeActiveCase('eletrica.bateria', when)).toMatchObject({ ok: false, error: { code: 'hipotese-invalida' } });
     expect(s.advanceCase()).toBe(false);
 
-    const wrong = s.concludeActiveCase('freios.discos-dianteiros', { day: 1, time: '09:15' });
+    const wrong = s.concludeActiveCase('freios.discos-dianteiros', { day: 1, time: '09:15', at: 555 });
     expect(wrong.ok && wrong.value).toMatchObject({ caseId: c.id, chosenSlot: 'freios.discos-dianteiros', correct: false, evidenceCount: 1, minutesSpent: 15 });
     expect(s.diagnoses).toHaveLength(1);
     expect(s.runDiagnosticTest('teste-frenagem', { hoodOpen: false, liftUp: false, liftDown: true }, when)).toMatchObject({ ok: false, error: { code: 'ja-concluido' } });
