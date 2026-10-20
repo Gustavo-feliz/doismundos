@@ -17,6 +17,9 @@ Etapas concluídas: **Prompts 1–9** (fundação; interação; veículo/peças;
 - Node 24 em `C:\Program Files\nodejs`; no Bash, prefixe `export PATH="/c/Program Files/nodejs:$PATH"` se `npm` não for achado.
 - Testes e2e entram no jogo via `window.__GAME_TEST_HOOKS__` (só em dev/`?debug`), porque o headless não captura o mouse. Leia `__GAME_DIAGNOSTICS__` só depois de esperar alguns quadros.
 
+## Colaboração com o Gemini (Antigravity)
+Antes de cada tarefa, leia `docs/coordenacao/QUADRO.md` e `docs/coordenacao/MENSAGENS.md`; reserve arquivos no quadro e respeite os reservados pelo outro agente. Protocolo completo: `AGENTS.md` §5.
+
 ## Regras de arquitetura (§21)
 - Módulos separados: `core`, `interaction`, `vehicles`, `diagnostics`, `repairs`, `customers`, `economy`, `inventory`, `missions`, `save`, `ui`. Nada de `multiplayer` no protótipo.
 - Comunicação por interfaces e eventos tipados; sem dependências circulares; sem arquivo monolítico.
