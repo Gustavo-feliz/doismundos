@@ -435,7 +435,14 @@ Depois, dá para **ver a história** ou **pular a abertura**.
 - a escolha muda a primeira fala do Seu Zé;
 - o perfil fica no save (versão 7), e carregar um jogo nunca repete a abertura.
 
-**O sistema de cenas** (`src/cinematics/`) é orientado por dados e validado ao abrir o jogo. Os personagens em 3D (Prompt 22) entram nas tomadas quando os modelos ficarem prontos; até lá, a câmera e as legendas contam a história.
+**O sistema de cenas** (`src/cinematics/`) é orientado por dados e validado ao abrir o jogo. Cada tomada pode ter **elenco** (o Seu Zé no portão, na bancada e ao lado do carro, com os modelos do Prompt 22), **hora do dia** (a luz da manhã) e **clima** (a ligação à noite tem chuva na tela).
+
+## Mundo vivo ligado ao jogo
+
+- **Hora do dia:** a luz da oficina e do bairro segue o relógio do jogo; só muda quando o minuto muda.
+- **Desgaste do carro:** a pintura do carro do box fica mais fosca conforme o ano e a quilometragem. É só aparência e nunca revela o estado das peças.
+- **Personagens:** o Seu Zé fica na bancada durante o jogo e se mexe, a não ser com "reduzir movimento".
+- **Sons:** as ações com retorno tocam o som pelo evento `feedback:action` (Gemini), sem som duplicado.
 
 ## Sensação de jogo (Prompt 25, parte visual)
 

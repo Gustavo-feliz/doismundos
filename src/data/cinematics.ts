@@ -22,6 +22,8 @@ export const CINEMATICS: readonly CinematicDef[] = [
         scene: 'preto',
         minSeconds: 3,
         title: 'Rio de Janeiro · 23h',
+        timeOfDay: 23 * 60,
+        weather: 'chuva',
         lines: [
           { speaker: 'narrador', text: 'Chuva fina na janela. O telefone toca no meio da noite.' },
           { speaker: 'narrador', text: '— {nome}? É a tia Neide. O seu tio Tonhão… ele se foi hoje à tarde.' },
@@ -33,14 +35,20 @@ export const CINEMATICS: readonly CinematicDef[] = [
         scene: 'rua',
         minSeconds: 5,
         title: 'São Cristóvão · manhã seguinte',
+        timeOfDay: 7 * 60,
         camera: { from: [7, 2.6, 24], to: [3.5, 2, 17], lookFrom: [0, 2.6, 9], lookTo: [0, 2.2, 9] },
+        // O Seu Zé esperando no portão, olhando a rua.
+        cast: [{ role: 'seu-ze', position: [-1.4, 0, 10.4], yaw: 0.35, animation: 'idle' }],
         lines: [{ speaker: 'narrador', text: 'Rua das Oficinas. O portão de aço meio enferrujado, a placa da oficina apagada.' }],
       },
       {
         id: 'seu-ze',
         scene: 'rua',
         minSeconds: 4,
+        timeOfDay: 7 * 60 + 5,
         camera: { from: [2.2, 1.7, 14], to: [1, 1.65, 12.5], lookFrom: [0, 1.7, 9], lookTo: [-0.4, 1.6, 9] },
+        // Falando de frente para quem chega (a câmera).
+        cast: [{ role: 'seu-ze', position: [-0.5, 0, 10.2], yaw: 0.55, animation: 'talking' }],
         lines: [
           { speaker: 'seu-ze', text: '{nome}! Sou o Zé. Trabalhei trinta anos aqui com o teu tio.' },
           { speaker: 'seu-ze', text: 'O Tonhão era o melhor mecânico de São Cristóvão. Mas os últimos anos foram duros.' },
@@ -52,21 +60,30 @@ export const CINEMATICS: readonly CinematicDef[] = [
         id: 'portao',
         scene: 'oficina',
         minSeconds: 5,
+        timeOfDay: 7 * 60 + 10,
         camera: { from: [0, 1.7, 13], to: [0.4, 1.7, 5.5], lookFrom: [0, 1.6, 0], lookTo: [-1.4, 1.1, -1.2] },
+        // Entrando na frente, rumo ao carro do Tonhão.
+        cast: [{ role: 'seu-ze', position: [1.6, 0, 3.4], yaw: Math.PI + 0.35, animation: 'walking' }],
         lines: [{ speaker: 'narrador', text: 'O portão sobe rangendo. Lá dentro, poeira no ar e tudo do jeito que o Tonhão deixou.' }],
       },
       {
         id: 'bancada',
         scene: 'oficina',
         minSeconds: 4,
+        timeOfDay: 7 * 60 + 12,
         camera: { from: [-1.5, 1.8, -3.5], to: [-2.8, 1.6, -5], lookFrom: [-4.1, 1.1, -7.6], lookTo: [-4.1, 1, -7.8] },
+        // Mostrando as ferramentas da bancada.
+        cast: [{ role: 'seu-ze', position: [-2.45, 0, -7.1], yaw: -1.87, animation: 'pointing' }],
         lines: [{ speaker: 'seu-ze', text: 'Cada ferramenta aqui tem história. O Tonhão nunca jogou nada fora.' }],
       },
       {
         id: 'escolha',
         scene: 'oficina',
         minSeconds: 3,
+        timeOfDay: 7 * 60 + 15,
         camera: { from: [4.5, 2.4, 5.5], to: [4, 2.2, 4.5], lookFrom: [-1.6, 1, -1.2], lookTo: [-1.6, 0.9, -1.2] },
+        // Ao lado do elevador, perguntando para você (acima das opções na tela).
+        cast: [{ role: 'seu-ze', position: [1.8, 0, -1.6], yaw: 0.35, animation: 'talking' }],
         lines: [],
         choice: {
           prompt: { speaker: 'seu-ze', text: 'E aí, {parente}? O que você vai fazer com isso aqui?' },
@@ -80,7 +97,10 @@ export const CINEMATICS: readonly CinematicDef[] = [
         id: 'buzina',
         scene: 'oficina',
         minSeconds: 4,
+        timeOfDay: 7 * 60 + 20,
         camera: { from: [3.5, 2, 4], to: [1.6, 1.6, 2.6], lookFrom: [-1.6, 0.9, -1.2], lookTo: [-1.6, 0.8, -1.2] },
+        // Apontando o portão, onde o Marcão buzina.
+        cast: [{ role: 'seu-ze', position: [0.9, 0, 0.9], yaw: 0.1, animation: 'pointing' }],
         lines: [
           { speaker: 'narrador', text: 'Bi-bi! Um carro buzina no portão, chiando a cada freada.' },
           { speaker: 'seu-ze', text: 'Olha o Marcão aí. Teu primeiro cliente. Bora?' },

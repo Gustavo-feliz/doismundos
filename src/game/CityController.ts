@@ -58,6 +58,8 @@ export class CityController {
   private readonly visited = new Set<CityLocationId>(['oficina']);
   private loadMs = 0;
   private panelMode: CityPanelMode = 'ferro-velho';
+  /** Última hora do relógio (para aplicar no bairro assim que ele carregar). */
+  private minuteOfDay = 8 * 60;
 
   constructor(
     private readonly host: CityHost,
@@ -66,6 +68,12 @@ export class CityController {
 
   get active(): boolean {
     return this.isActive;
+  }
+
+  /** Luz do bairro pela hora do relógio (feito pelo Gemini em CityNeighborhood). */
+  setTimeOfDay(minuteOfDay: number): void {
+    this.minuteOfDay = minuteOfDay;
+    this.city?.setTimeOfDay?.(minuteOfDay);
   }
 
   /** Jogador e mira da rua (null fora do bairro). */
@@ -88,6 +96,7 @@ export class CityController {
         const { buildCityNeighborhood } = await import('../world/CityNeighborhood');
         this.city = buildCityNeighborhood(CITY_NEIGHBORHOOD);
         this.city.root.visible = false;
+        this.city.setTimeOfDay?.(this.minuteOfDay);
         this.host.scene.add(this.city.root);
         this.cityPlayer = new FirstPersonController(this.city.colliders, CITY_NEIGHBORHOOD.spawn);
         this.cityInteraction = new InteractionSystem(this.city.raycastTargets, CITY_NEIGHBORHOOD.interactRadius);

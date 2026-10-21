@@ -92,3 +92,38 @@ describe('perfil do jogador', () => {
     expect(profileProblems(null)).toEqual(['perfil do jogador ausente']);
   });
 });
+
+describe('abertura: elenco, hora e clima por tomada (Prompt 22 ligado ao 23)', () => {
+  it('o Seu Zé aparece quando fala com você e a ligação é à noite, com chuva', () => {
+    const shot = (id: string) => opening.shots.find((s) => s.id === id)!;
+    expect(shot('ligacao')).toMatchObject({ timeOfDay: 23 * 60, weather: 'chuva' });
+    expect(shot('rua').timeOfDay).toBe(7 * 60);
+    for (const id of ['seu-ze', 'escolha']) expect(shot(id).cast?.map((c) => c.role)).toContain('seu-ze');
+    expect(shot('seu-ze').cast?.[0]?.animation).toBe('talking');
+  });
+
+  it('a validação recusa elenco desconhecido, repetido, no escuro e hora inválida', () => {
+    const base = opening.shots.find((s) => s.id === 'seu-ze')!;
+    const bad: CinematicDef = {
+      id: 'teste',
+      shots: [
+        { ...base, id: 'a', cast: [{ role: 'fantasma' as never, position: [0, 0, 0], yaw: 0, animation: 'idle' }] },
+        { ...base, id: 'b', cast: [base.cast![0]!, base.cast![0]!] },
+        { ...base, id: 'c', scene: 'preto', camera: undefined, cast: [base.cast![0]!] },
+        { ...base, id: 'd', timeOfDay: 1440 },
+        { ...base, id: 'e', cast: [{ ...base.cast![0]!, animation: 'dancing' as never }] },
+      ],
+    };
+    try {
+      validateCinematics([bad]);
+      expect.unreachable();
+    } catch (e) {
+      const msg = (e as DataValidationError).message;
+      expect(msg).toContain('desconhecido "fantasma"');
+      expect(msg).toContain('repetido no elenco');
+      expect(msg).toContain('no escuro não mostra elenco');
+      expect(msg).toContain('minuto de 0 a 1439');
+      expect(msg).toContain('animação desconhecida');
+    }
+  });
+});

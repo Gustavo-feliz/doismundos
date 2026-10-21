@@ -776,6 +776,32 @@ body:not([data-state='paused']) .menu-overlay:not([data-panel='main']) .menu-car
   font-size: 1.25rem;
   padding: 1rem 1.6rem;
 }
+/* Chuva da tomada da ligação (Prompt 23 + clima do Gemini no bairro). */
+.cine-rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    repeating-linear-gradient(104deg, transparent 0 22px, rgba(170, 190, 215, 0.22) 22px 23px, transparent 23px 61px),
+    repeating-linear-gradient(100deg, transparent 0 37px, rgba(170, 190, 215, 0.14) 37px 38px, transparent 38px 89px),
+    radial-gradient(ellipse at 30% 70%, rgba(242, 170, 60, 0.12), transparent 45%),
+    radial-gradient(ellipse at 75% 60%, rgba(120, 160, 230, 0.1), transparent 40%);
+  background-size: 100% 180px, 100% 260px, 100% 100%, 100% 100%;
+  animation: cine-rain 0.55s linear infinite;
+}
+@keyframes cine-rain {
+  from { background-position: 0 0, 0 0, 0 0, 0 0; }
+  to { background-position: -40px 180px, -46px 260px, 0 0, 0 0; }
+}
+:root[data-reduce-motion='true'] .cine-rain {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cine-rain {
+    animation: none;
+  }
+}
 :root[data-reduce-motion='true'] .cine-dark {
   transition: none;
 }

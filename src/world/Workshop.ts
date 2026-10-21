@@ -118,6 +118,8 @@ export interface Workshop {
   placeCast(cast: readonly CastMemberSpec[] | null): void;
   /** Ativa ou desativa a atmosfera e iluminação cinematográfica do menu inicial. */
   setMenuMood(on: boolean): void;
+  /** Anima os personagens visíveis (Seu Zé e o elenco das cenas); chamar a cada quadro. */
+  updateCharacters(timeSec: number, reduceMotion: boolean): void;
   /** Conecta o barramento de eventos (`tutorial:highlight`, `settings:changed`, `upgrade:changed`) à oficina. */
   bindEvents(bus: EventBus<GameEvents>): () => void;
 }
@@ -439,6 +441,10 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
     setTimeOfDay,
     placeCast,
     setMenuMood,
+    updateCharacters(timeSec: number, reduceMotion: boolean) {
+      if (seuZe.root.visible) seuZe.update(timeSec, reduceMotion);
+      castStage.update(timeSec, reduceMotion);
+    },
     bindEvents(bus: EventBus<GameEvents>): () => void {
       const offHighlight = bus.on('tutorial:highlight', ({ targetId }) => {
         setHighlightWithSeuZe(targetId);
@@ -464,13 +470,15 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       const offState = bus.on('state:changed', ({ to }) => {
         setMenuMood(to === 'menu');
       });
-      const offVehicle = bus.on('vehicle:changed', ({ modelId, category, color, plate }) => {
+      const offVehicle = bus.on('vehicle:changed', ({ modelId, category, color, plate, year, mileageKm }) => {
         const def =
           VEHICLES.find((v) => v.id === modelId) ??
           ({ ...vehicle, id: modelId, category: (category as VehicleCategory) || vehicle.category } satisfies VehicleDefinition);
         const prevClosed = parts.hoodClosedAngle;
         const openDelta = car.hoodPivot.rotation.z - prevClosed;
         car.setVehicle(def, { color, plate });
+        // Desgaste só visual (pintura), pelo ano e pela quilometragem; nada das peças internas.
+        car.setExteriorWear?.({ modelYear: year, mileageKm });
         parts.hoodClosedAngle = car.hoodClosedAngle;
         car.hoodPivot.rotation.z = car.hoodClosedAngle + openDelta;
       });

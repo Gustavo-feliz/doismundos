@@ -17,7 +17,7 @@ export interface GameEvents {
   /** Nível de uma ferramenta/upgrade (0–3): ao comprar e ao começar/carregar um jogo. */
   'upgrade:changed': { upgradeId: string; level: number };
   /** O carro do box 1 mudou (nova OS, jogo novo ou save carregado). Para a cena trocar a carroceria. */
-  'vehicle:changed': { modelId: string; category: string; color: string; plate: string };
+  'vehicle:changed': { modelId: string; category: string; color: string; plate: string; year: number; mileageKm: number };
   /** Uma ação do jogador terminou (Prompt 25): para o som e o retorno visual. `erro` = não deu. */
   'feedback:action': { kind: FeedbackActionKind; minutes: number };
   /** Recompensa (Prompt 25): pagamento em centavos, variação de reputação ou missão concluída. */

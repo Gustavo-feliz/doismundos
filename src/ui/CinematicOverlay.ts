@@ -11,6 +11,8 @@ export interface CinematicView {
   options: readonly string[] | null;
   /** 0–1: quanto do "segurar Esc" já foi. */
   skipProgress: number;
+  /** Chuva na tela (tomada da ligação, à noite). */
+  rain: boolean;
 }
 
 /**
@@ -21,6 +23,7 @@ export interface CinematicView {
 export class CinematicOverlay {
   readonly element: HTMLElement;
   private readonly darkLayer: HTMLElement;
+  private readonly rainLayer: HTMLElement;
   private readonly title: HTMLElement;
   private readonly subtitle: HTMLElement;
   private readonly speaker: HTMLElement;
@@ -36,6 +39,7 @@ export class CinematicOverlay {
     private readonly callbacks: { onChoose(number: number): void; onStart(): void },
   ) {
     this.darkLayer = h('div', { class: 'cine-dark' });
+    this.rainLayer = h('div', { class: 'cine-rain', 'data-testid': 'cine-rain', 'aria-hidden': 'true', hidden: true });
     this.title = h('div', { class: 'cine-title', 'data-testid': 'cine-title', hidden: true });
     this.speaker = h('div', { class: 'cine-speaker' });
     this.text = h('p', { class: 'cine-text', 'data-testid': 'cine-text' });
@@ -55,6 +59,7 @@ export class CinematicOverlay {
       'div',
       { class: 'cine', 'data-testid': 'cinematic', hidden: true },
       this.darkLayer,
+      this.rainLayer,
       h('div', { class: 'cine-bar cine-bar-top' }),
       h('div', { class: 'cine-bar cine-bar-bottom' }),
       this.title,
@@ -81,6 +86,7 @@ export class CinematicOverlay {
 
   render(v: CinematicView): void {
     this.darkLayer.dataset.on = String(v.dark);
+    this.rainLayer.hidden = !v.rain;
     this.title.hidden = !v.title;
     if (v.title) setText(this.title, v.title);
     this.subtitle.hidden = !v.text;
@@ -110,6 +116,7 @@ export class CinematicOverlay {
     this.subtitle.hidden = true;
     this.title.hidden = true;
     this.darkLayer.dataset.on = 'false';
+    this.rainLayer.hidden = true;
     this.endCard.hidden = false;
     this.skipHint.hidden = true;
     this.endCard.querySelector('button')?.focus();

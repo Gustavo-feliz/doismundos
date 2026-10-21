@@ -1,3 +1,4 @@
+import type { CharacterAnimationState, CharacterRole } from '../characters';
 import type { DialogueLine } from '../missions/types';
 
 /** Ponto 3D simples (metros). */
@@ -28,6 +29,21 @@ export interface CinematicShot {
   title?: string;
   lines: readonly DialogueLine[];
   choice?: CinematicChoice;
+  /** Personagens em cena nesta tomada (Prompt 22). Sem elenco, a cena fica sem ninguém. */
+  cast?: readonly CinematicCastMember[];
+  /** Hora do dia da luz (minuto 0–1439). Sem ela, vale a hora padrão da abertura. */
+  timeOfDay?: number;
+  /** Clima: 'chuva' mostra chuva na tela (a tomada da ligação, à noite). */
+  weather?: 'chuva';
+}
+
+/** Um personagem numa tomada: onde fica, para onde olha e o que faz. */
+export interface CinematicCastMember {
+  role: CharacterRole;
+  position: Vec3;
+  /** Rotação (radianos): 0 = olhando para +Z. */
+  yaw: number;
+  animation: CharacterAnimationState;
 }
 
 export interface CinematicChoice {

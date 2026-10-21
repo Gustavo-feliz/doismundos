@@ -43,7 +43,7 @@ import { hashSeed } from '../ui/feedbackText';
 import { aimAssistScale } from '../player/cameraFeel';
 import type { FeedbackActionKind } from '../core/events';
 import { CinematicPlayer, cameraAt } from '../cinematics/CinematicPlayer';
-import { cleanName, DEFAULT_PROFILE, kinTerm, profileProblems, type PlayerProfile } from '../cinematics/types';
+import { cleanName, DEFAULT_PROFILE, kinTerm, profileProblems, type CinematicShot, type PlayerProfile } from '../cinematics/types';
 import { validateCinematics } from '../cinematics/validate';
 import { CINEMATICS, OPENING_ID } from '../data/cinematics';
 import { LoadingOverlay } from '../ui/LoadingOverlay';
@@ -123,6 +123,12 @@ export class Game {
   private readonly feedback: FeedbackLayer;
   private cine: CinematicPlayer | null = null;
   private skipHold = 0;
+  /** Tomada já montada na cena (elenco e luz), para montar só na troca. */
+  private cineShotId: string | null = null;
+  /** Último minuto do relógio aplicado na luz (-1 = aplicar de novo). */
+  private lightMinute = -1;
+  /** Relógio das animações dos personagens (s). */
+  private characterTime = 0;
   private profile: PlayerProfile = { ...DEFAULT_PROFILE };
   /** Test drive (Prompt 13): pátio, física, câmera e painel. A oficina fica intacta enquanto isso. */
   private readonly testDrive: TestDriveController;
@@ -501,6 +507,7 @@ export class Game {
     }
 
     if (this.state.is('playing', 'panel')) this.updateMissions();
+    this.updateWorldAmbience(dt);
     const mission = this.objectiveCache;
     this.hud.update({
       money: formatBRL(this.session.cash),
@@ -698,9 +705,11 @@ export class Game {
     if (outcome.minutes > 0) this.clock.addMinutes(outcome.minutes);
     const tone = outcome.tone ?? (outcome.ok ? 'ok' : 'blocked');
     if (outcome.message) this.activePanel().notify(outcome.message, tone);
-    this.sfx.play(tone === 'blocked' ? 'erro' : sound);
+    // Ações com retorno (e toda ação barrada) tocam o som pelo evento feedback:action,
+    // no Sfx.bindEvents; as outras ainda tocam o som simples aqui.
     if (tone === 'blocked') this.feedbackAction('erro', 0);
     else if (kind) this.feedbackAction(kind, outcome.minutes);
+    else this.sfx.play(sound);
   }
 
   private feedbackAction(kind: FeedbackActionKind, minutes: number): void {
@@ -823,7 +832,7 @@ export class Game {
     const car = this.session.getVehicle(this.activeVehicleId);
     this.workshop.parts.setCarLook({ color: car.color, plate: car.plate });
     const model = this.catalogs.models.get(car.modelId);
-    this.bus.emit('vehicle:changed', { modelId: car.modelId, category: model?.category ?? 'sedan', color: car.color, plate: car.plate });
+    this.bus.emit('vehicle:changed', { modelId: car.modelId, category: model?.category ?? 'sedan', color: car.color, plate: car.plate, year: car.year, mileageKm: car.mileageKm });
   }
 
   // --- Test drive (Prompt 13) ----------------------------------------------
@@ -1020,6 +1029,7 @@ export class Game {
     if (this.state.is('cutscene')) {
       this.cine = null;
       this.cineOverlay.hide();
+      this.clearCinematicStaging();
     }
     this.input.reset();
     this.state.transition('playing');
@@ -1028,6 +1038,7 @@ export class Game {
   /** Mundo novo: oficina, relógio, sessão e missões do zero. */
   private resetWorld(): void {
     this.feedback.clear();
+    this.clearCinematicStaging();
     this.city.resetForNewGame();
     this.player.respawn();
     this.clock.reset();
@@ -1069,6 +1080,7 @@ export class Game {
     if (this.skipHold >= 1) cine.skipAll();
     cine.update(dt);
     const f = cine.frame();
+    if (f.shot.id !== this.cineShotId) this.stageShot(f.shot);
     const cam = cameraAt(f.shot, f.progress, this.settings.reduceMotion);
     if (cam) {
       this.camera.position.set(cam.position[0], cam.position[1], cam.position[2]);
@@ -1088,7 +1100,47 @@ export class Game {
       text: f.line ? this.fill(f.line.text) : null,
       options: f.options?.map((o) => this.fill(o.label)) ?? null,
       skipProgress: Math.min(1, this.skipHold),
+      rain: f.shot.weather === 'chuva',
     });
+  }
+
+  /** Monta a tomada na cena: personagens (Prompt 22) e a luz da hora do dia. */
+  private stageShot(shot: CinematicShot): void {
+    this.cineShotId = shot.id;
+    this.workshop.placeCast(shot.cast?.map((c) => ({ role: c.role, position: c.position, yaw: c.yaw, animation: c.animation })) ?? null);
+    this.workshop.setTimeOfDay(shot.timeOfDay ?? 7 * 60);
+  }
+
+  /** Tira o elenco da abertura e devolve a luz ao relógio do jogo. */
+  private clearCinematicStaging(): void {
+    if (this.cineShotId === null) return;
+    this.cineShotId = null;
+    this.workshop.placeCast(null);
+    this.lightMinute = -1;
+  }
+
+  /**
+   * Luz pela hora do relógio na oficina e no bairro (feito pelo Gemini), só quando
+   * o minuto muda; e as animações dos personagens. O menu tem luz própria e a
+   * abertura escolhe a hora de cada tomada.
+   */
+  private updateWorldAmbience(dt: number): void {
+    if (this.state.is('loading', 'error')) return;
+    if (!this.state.is('menu', 'cutscene')) {
+      const minute = Math.floor(this.clock.minuteOfDay);
+      if (minute !== this.lightMinute) {
+        this.lightMinute = minute;
+        this.workshop.setTimeOfDay(minute);
+        this.city.setTimeOfDay(minute);
+        this.needsRender = true;
+      }
+    } else if (this.state.is('menu')) {
+      this.lightMinute = -1;
+    }
+    if (this.state.is('playing', 'cutscene', 'menu') && !this.city.active) {
+      if (!this.settings.reduceMotion) this.characterTime += dt;
+      this.workshop.updateCharacters(this.characterTime, this.settings.reduceMotion);
+    }
   }
 
   private pause(): void {
