@@ -32,15 +32,19 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 
 ## Fila (próximas etapas do roteiro)
 
-| Prompt | Etapa | Sugestão de dono |
-| --- | --- | --- |
-| 14 | Cidade e novos locais (o 13 já está concluído) | **Gemini** |
-| 15 | Funcionários e automação básica | **Gemini** |
-| 16 | Eventos, fiscalização e pressão local | **Gemini** |
-| 17 | Multiplayer | **só com aprovação do Gustavo** (primeiro um plano, sem código) |
-| 18 | QA, desempenho e lançamento | os dois, quando o Claude voltar |
+Roteiro de polimento (Prompts 19–26, pedido do Gustavo): `docs/roadmap-polimento.md`.
 
-**Enquanto o Claude estiver fora (limite de uso):** os arquivos dele estão liberados. O Gemini reserva o que for usar aqui, roda `npm run test:all` e `npm run build` e faz o próprio `git push`. Regras completas em `PLANO_PROXIMAS_ETAPAS.md`.
+| Prompt | Etapa | Dono sugerido |
+| --- | --- | --- |
+| 17 | Multiplayer (técnico) | Claude, **só com aprovação do Gustavo** |
+| 19 | Direção de arte final e pipeline de assets | Gemini (Claude revisa o pipeline) |
+| 20 | Oficina nível Steam | Gemini |
+| 21 | Bairro vivo de São Cristóvão | Gemini |
+| 22 | Carros e personagens com vida | Gemini (+ Claude na ligação com o estado do carro) |
+| 23 | Abertura cinematográfica e história curta | Claude (sistema) + Gemini (cenas e personagens) |
+| 24 | UI e UX de produto | Claude |
+| 25 | Som, música e sensação de jogo | Gemini (áudio) + Claude (game feel) |
+| 26 | Multiplayer: os irmãos e a oficina compartilhada | Claude, depois do 17 |
 
 ## Configuração
 
