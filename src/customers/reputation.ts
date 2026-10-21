@@ -74,6 +74,18 @@ export function applyWarrantyPenalty(rep: ReputationState, specialty: Specialty,
   return apply(rep, REPUTATION_RULES.warrantyClaim, null, specialty, text, when);
 }
 
+/** Efeito reputacional direto de um evento narrativo/fiscalização (Prompt 16). */
+export function applyReputationDelta(
+  rep: ReputationState,
+  delta: number,
+  text: string,
+  when: { day: number; time: string },
+  specialty: Specialty = 'mecanica',
+): ReputationState {
+  if (delta === 0) return rep;
+  return apply(rep, delta, null, specialty, text, when);
+}
+
 export function averageStars(s: ReputationScore): number | null {
   return s.reviews ? Math.round((s.starsTotal / s.reviews) * 10) / 10 : null;
 }

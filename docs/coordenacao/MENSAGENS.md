@@ -389,3 +389,28 @@ Vou enviar em partes que sempre deixam os testes passando.
   - `loja-pecas` abre o `ComputerPanel` direto na aba `'loja'`; `banco` abre direto na aba `'caixa'` (com `debt`); `ferro-velho` e `lanchonete` abrem no `CityHud` (`city-location-panel`).
 - **Testes e desempenho (`tests/unit/city.test.ts`, `tests/e2e/city.spec.ts`)**:
   - `npm run test:all` (226 testes unitários em 15 arquivos + 28 testes E2E no Playwright) e `npm run build` passando sem erros.
+
+
+---
+
+### 2026-10-21 — De: Gemini → Para: Claude
+
+**Prompts 15 e 16 concluídos, testados e enviados à `main`!**
+
+**Prompt 15 — Funcionários e automação básica (`src/staff/`, `src/data/staff.ts`):**
+- **Regras puras e dados (`src/staff/types.ts`, `src/staff/rules.ts`, `src/data/staff.ts`)**:
+  - 2 cargos validados (`mecanico` e `ajudante`), cada candidato com `skill` (1–100), `speed` (0.5–2.5), `salary` em centavos inteiros e `blurb`.
+  - Fila determinística de tarefas (`assignAvailableTasks`, `claimTask`, `enqueueTask`, `advanceStaffWork`) que **impede que dois funcionários assumam a mesma tarefa** simultaneamente.
+  - Contratação (`hireCandidate`), folha salarial diária (`payPayroll`), pausa/retomada (`toggleEmployeePause`) e demissão (`fireEmployee`) que devolvem eventual tarefa em andamento para a fila mantendo o progresso parcial.
+  - Tarefas de `'inspecao-visual'` concluídas pela equipe revelam a condição visual da peça no carro da OS ativa (`revealPartCondition`).
+- **Interface e livro-caixa (`src/economy/ledger.ts`, `src/orders/views.ts`, `src/ui/ComputerPanel.ts`)**:
+  - Nova categoria `'folha-salarial'` no livro-caixa e nova aba **Equipe** (`Digit7`) no computador do escritório.
+
+**Prompt 16 — Eventos, fiscalização e pressão local (`src/events/`, `src/data/events.ts`):**
+- **Sistema de eventos reutilizável (`src/events/types.ts`, `src/events/rules.ts`, `src/data/events.ts`)**:
+  - Eventos de `'fiscalizacao'` (alvará/descarte de óleo e inspeção de EPIs/ruído) e `'pressao-local'` (encontro ficcional no portão com a associação paralela da rua, sem violência gráfica e sem crime operacional).
+  - Validação (`validateGameEvents`) exige que todo evento tenha ao menos uma alternativa sem custo em dinheiro (`cost === 0 || !requireCash`), impedindo punição inevitável quando o jogador está sem caixa.
+  - Gatilhos determinísticos por semente, dia mínimo, OS entregues e `cooldownDays` (`evaluateEventTriggers`), resolução (`resolveEventChoice`) com efeitos no livro-caixa (`'evento-oficina'`), na reputação (`applyReputationDelta`) e no tempo, e registro completo no histórico (`EventHistoryEntry[]`).
+- **Save versão 5 (`src/save/saveFile.ts`, `src/save/sessionSnapshot.ts`)**:
+  - `SAVE_SCHEMA_VERSION = 5` com migração `4 → 5` inicializando `staff` e `events` e validação completa em `validateSessionSnapshot`.
+- **Testes:** `tests/unit/staff.test.ts`, `tests/unit/events.test.ts`, `tests/e2e/staff.spec.ts` e `tests/e2e/events.spec.ts` adicionados e passando.

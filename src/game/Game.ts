@@ -130,6 +130,8 @@ export class Game {
   private cityPanelMode: 'ferro-velho' | 'lanchonete' | 'mapa' = 'ferro-velho';
   private readonly cityHud: CityHud;
   private smoothedFps = 60;
+  private lastStaffClockMinute = NEW_GAME.startMinuteOfDay;
+  private lastEventCheckDay = 1;
   private readonly inspection: InspectionPanel;
   private readonly stockPanel: StockPanel;
   private readonly computer: ComputerPanel;
@@ -281,6 +283,14 @@ export class Game {
       onWait: () => this.waitForDelivery(),
       onPayDebt: () => this.act(this.session.payDebtInstallment(this.moment()), 'concluido'),
       onBuyUpgrade: (id) => this.buyUpgrade(id),
+      onHire: (id) => this.act(this.session.hireEmployee(id, this.moment()), 'concluido'),
+      onTogglePause: (id) => this.act(this.session.togglePauseEmployee(id), 'ok'),
+      onFire: (id) => this.act(this.session.fireEmployee(id), 'ok'),
+      onPayPayroll: () => this.act(this.session.payStaffPayroll(this.moment()), 'concluido'),
+      onEnqueueTask: (stdId) => this.act(this.session.enqueueStandardStaffTask(stdId), 'ok'),
+      onAdvanceStaff: () => this.advanceStaffTurn(15),
+      onTriggerEvent: (eventId) => this.act(this.session.triggerEvent(eventId, this.clock.day), 'ok'),
+      onResolveEvent: (optionId) => this.act(this.session.resolveActiveEvent(optionId, this.moment()), 'concluido'),
       onTab: (tab) => {
         if (tab === 'caixa') this.markFlag('viu-caixa');
       },
@@ -458,8 +468,11 @@ export class Game {
         void this.autosave();
       }
     }
-    // Pedidos de peças chegam conforme o relógio do jogo.
-    if (this.state.is('playing', 'panel')) this.receiveDeliveries();
+    // Pedidos de peças e trabalho da equipe avançam conforme o relógio do jogo.
+    if (this.state.is('playing', 'panel')) {
+      this.receiveDeliveries();
+      this.syncStaffProgress();
+    }
     if (this.state.is('panel') && this.session.version !== this.panelVersion) this.refreshPanels();
 
     if (DEBUG) this.updateDiagnostics();
@@ -561,6 +574,38 @@ export class Game {
     const waited = Math.max(0, next - this.clock.absoluteMinutes);
     this.clock.advanceTo(next);
     this.computer.notify(`Você esperou ${waited} min.`, 'ok');
+    this.receiveDeliveries();
+    this.syncStaffProgress();
+  }
+
+  /** Avança as tarefas da equipe sempre que o relógio de jogo avançar. */
+  private syncStaffProgress(): void {
+    const now = this.clock.absoluteMinutes;
+    if (now <= this.lastStaffClockMinute) {
+      this.lastStaffClockMinute = now;
+      return;
+    }
+    const delta = now - this.lastStaffClockMinute;
+    this.lastStaffClockMinute = now;
+    const completed = this.session.advanceStaff(delta, this.moment());
+    if (completed.length > 0) {
+      const text = completed.map((t) => t.resultText).filter(Boolean).join(' · ');
+      if (text) this.notifyAnywhere(text);
+      this.sfx.play('concluido');
+    }
+    if (this.clock.day > this.lastEventCheckDay) {
+      this.lastEventCheckDay = this.clock.day;
+      const triggered = this.session.checkEventTriggers(this.clock.day);
+      if (triggered) {
+        this.notifyAnywhere(`Ocorrência na oficina: ${triggered.title} (abra o computador → aba Oficina)`);
+      }
+    }
+  }
+
+  /** Acompanha o turno da equipe pelo computador (+15 min). */
+  private advanceStaffTurn(minutes: number): void {
+    this.clock.addMinutes(minutes);
+    this.syncStaffProgress();
     this.receiveDeliveries();
   }
 
@@ -1153,6 +1198,8 @@ export class Game {
       this.cityVisited.add('oficina');
       this.player.respawn();
       this.clock.reset();
+      this.lastStaffClockMinute = this.clock.absoluteMinutes;
+      this.lastEventCheckDay = this.clock.day;
       this.equipment.reset();
       this.session = this.newSession();
       this.resetMissions(new MissionTracker(this.missionLib));
@@ -1329,6 +1376,8 @@ export class Game {
     this.session = restored.session;
     this.resetMissions(new MissionTracker(this.missionLib, game.missions));
     this.clock.setAbsolute(game.clockMinutes);
+    this.lastStaffClockMinute = this.clock.absoluteMinutes;
+    this.lastEventCheckDay = this.clock.day;
     this.equipment.restore(game.equipment);
     const inside = Math.abs(game.player.x) < WORKSHOP_SIZE.halfX - 0.3 && Math.abs(game.player.z) < WORKSHOP_SIZE.halfZ - 0.3;
     if (inside) this.player.teleport(game.player.x, game.player.z, game.player.yaw, game.player.pitch);
@@ -1428,6 +1477,29 @@ export class Game {
       },
       debt: { balance: this.session.debt.balance, paidCount: this.session.debt.paidCount, nextDueDay: this.session.debt.nextDueDay },
       upgrades: { ...this.session.upgrades },
+      staff: {
+        employees: this.session.staff.employees.map((e) => ({
+          id: e.id,
+          role: e.role,
+          state: e.state,
+          currentTaskId: e.currentTaskId,
+          completedTasks: e.completedTasks,
+        })),
+        tasks: this.session.staff.tasks.map((t) => ({
+          id: t.id,
+          status: t.status,
+          assignedTo: t.assignedTo,
+          progressMinutes: t.progressMinutes,
+          totalMinutes: t.totalMinutes,
+        })),
+        lastPayrollDay: this.session.staff.lastPayrollDay,
+      },
+      events: {
+        activeEventId: this.session.events.activeEventId,
+        lastTriggeredDay: this.session.events.lastTriggeredDay,
+        historyCount: this.session.events.history.length,
+        historyIds: this.session.events.history.map((h) => h.eventId),
+      },
       driving: this.drive
         ? {
             speedKmh: Math.round(kmh(this.drive.state.speed) * 10) / 10,

@@ -1,6 +1,6 @@
 import { decideOnQuote, counterIsPriceOnly } from '../customers/decision';
 import { evaluateService } from '../customers/evaluation';
-import { applyReview, applyWarrantyPenalty, initialReputation, specialtyOf, type ReputationState } from '../customers/reputation';
+import { applyReputationDelta, applyReview, applyWarrantyPenalty, initialReputation, specialtyOf, type ReputationState } from '../customers/reputation';
 import type { CustomerProfile } from '../customers/types';
 import {
   concludeDiagnosis,
@@ -33,6 +33,29 @@ import type { RepairSpeed } from '../repairs/rules';
 import { generateCase, parseGeneratedId, toolsMet, validateServiceTemplates, type GeneratorContent } from '../procedural/generator';
 import type { ServiceTemplate } from '../procedural/types';
 import { validateSessionSnapshot, type SessionSnapshot } from '../save/sessionSnapshot';
+import { STANDARD_STAFF_TASKS, STAFF_CANDIDATES } from '../data/staff';
+import {
+  advanceStaffWork,
+  enqueueTask,
+  fireEmployee,
+  hireCandidate,
+  initialStaffState,
+  payPayroll,
+  payrollTotal,
+  toggleEmployeePause,
+  validateStaffCandidates,
+  type EnqueueTaskInput,
+} from '../staff/rules';
+import { STAFF_ROLE_LABEL, type StaffCandidateDef, type StaffState, type StaffTask } from '../staff/types';
+import { GAME_EVENTS } from '../data/events';
+import {
+  evaluateEventTriggers,
+  initialEventState,
+  resolveEventChoice,
+  triggerSpecificEvent,
+  validateGameEvents,
+} from '../events/rules';
+import type { EventState, GameEventDef } from '../events/types';
 
 /** Momento do jogo: dia, hora formatada e minuto absoluto (para prazos e entregas). */
 export interface GameMoment {
@@ -69,6 +92,10 @@ export interface SessionContent {
   takePartMinutes: number;
   /** Moldes de serviço, nomes e cores para gerar OS depois das de demonstração (Prompt 12). */
   generator: { templates: readonly ServiceTemplate[]; names: readonly string[]; colors: ReadonlyArray<readonly [string, string]> };
+  /** Candidatos a funcionário (Prompt 15). */
+  staffCandidates?: readonly StaffCandidateDef[];
+  /** Eventos, fiscalização e pressão local (Prompt 16). */
+  gameEvents?: readonly GameEventDef[];
 }
 
 const KNOWN_BAD = new Set(['gasta', 'critica', 'falhou']);
@@ -114,6 +141,8 @@ export class GameSession {
   private debtState: DebtState = { balance: 0, nextDueDay: 0, pendingFee: 0, paidCount: 0 };
   private upgradeLevels: Record<string, number> = {};
   private seedValue = 1;
+  private staffState: StaffState = initialStaffState();
+  private eventState: EventState = initialEventState();
 
   constructor(
     readonly catalogs: Catalogs,
@@ -132,6 +161,8 @@ export class GameSession {
     this.validateContent(content, followUps);
     validateUpgrades(content.upgrades);
     validateServiceTemplates(GameSession.generatorContent(content, catalogs));
+    validateStaffCandidates(content.staffCandidates ?? STAFF_CANDIDATES);
+    validateGameEvents(content.gameEvents ?? GAME_EVENTS);
     this.cashValue = content.economy.startingCash;
     this.debtState = initialDebt(content.debt);
     for (const s of content.initialStock) this.addLot(s.partId, s.qty, 0, 'Herdada do tio');
@@ -814,6 +845,255 @@ export class GameSession {
     return this.rep;
   }
 
+  // --- Funcionários e fila de tarefas (Prompt 15) ----------------------------
+
+  get staff(): StaffState {
+    return this.staffState;
+  }
+
+  get staffCandidates(): readonly StaffCandidateDef[] {
+    return this.content?.staffCandidates ?? STAFF_CANDIDATES;
+  }
+
+  get dailyPayroll(): Cents {
+    return payrollTotal(this.staffState);
+  }
+
+  /** Contrata um candidato disponível, cobrando o primeiro dia de salário no livro-caixa. */
+  hireEmployee(candidateId: string, when: GameMoment): ActionOutcome {
+    const candidate = this.staffCandidates.find((c) => c.id === candidateId);
+    if (!candidate) return this.fail('Candidato não encontrado.');
+    const result = hireCandidate(this.staffState, candidate, this.cash, this.creditLimit, when.day);
+    if (!result.ok) return this.fail(result.message);
+    this.record(
+      'despesa',
+      'folha-salarial',
+      result.cost,
+      `Adiantamento salarial: ${candidate.name} (${STAFF_ROLE_LABEL[candidate.role]})`,
+      'Equipe',
+      when,
+    );
+    this.staffState = result.state;
+    this.revision++;
+    const assigned = result.employee.currentTaskId ? ` Já assumiu a tarefa ${result.employee.currentTaskId}.` : '';
+    return {
+      ok: true,
+      message: `${candidate.name} contratado(a) como ${STAFF_ROLE_LABEL[candidate.role]} (${formatBRL(result.cost)}).${assigned}`,
+      minutes: 0,
+    };
+  }
+
+  /** Pausa ou retoma o trabalho de um funcionário contratado. */
+  togglePauseEmployee(employeeId: string): ActionOutcome {
+    const result = toggleEmployeePause(this.staffState, employeeId);
+    if (!result.ok) return this.fail(result.message);
+    this.staffState = result.state;
+    this.revision++;
+    return {
+      ok: true,
+      message: result.paused
+        ? `${result.employee.name} foi pausado(a).`
+        : `${result.employee.name} voltou ao trabalho.`,
+      minutes: 0,
+    };
+  }
+
+  /** Demite um funcionário contratado (devolvendo eventual tarefa em execução para a fila). */
+  fireEmployee(employeeId: string): ActionOutcome {
+    const result = fireEmployee(this.staffState, employeeId);
+    if (!result.ok) return this.fail(result.message);
+    this.staffState = result.state;
+    this.revision++;
+    return {
+      ok: true,
+      message: `${result.fired.name} foi desligado(a) da oficina.`,
+      minutes: 0,
+      tone: 'warn',
+    };
+  }
+
+  /** Paga a folha salarial diária de todos os funcionários contratados. */
+  payStaffPayroll(when: GameMoment): ActionOutcome {
+    const result = payPayroll(this.staffState, this.cash, this.creditLimit, when.day);
+    if (!result.ok) return this.fail(result.message);
+    this.record(
+      'despesa',
+      'folha-salarial',
+      result.total,
+      `Folha salarial do dia ${when.day} (${result.count} funcionário(s))`,
+      'Equipe',
+      when,
+    );
+    this.staffState = result.state;
+    this.revision++;
+    return {
+      ok: true,
+      message: `Folha salarial do dia ${when.day} paga: ${formatBRL(result.total)} (${result.count} funcionário(s)).`,
+      minutes: 0,
+    };
+  }
+
+  /** Coloca uma tarefa na fila da equipe e já atribui a um funcionário disponível compatível, se houver. */
+  enqueueStaffTask(input: EnqueueTaskInput): ActionOutcome {
+    const result = enqueueTask(this.staffState, input);
+    if (!result.ok) return this.fail(result.message);
+    this.staffState = result.state;
+    this.revision++;
+    const worker = result.task.assignedTo
+      ? this.staffState.employees.find((e) => e.id === result.task.assignedTo)
+      : null;
+    const suffix = worker ? ` ${worker.name} já assumiu (${result.task.totalMinutes} min).` : ' Aguardando funcionário compatível disponível.';
+    return {
+      ok: true,
+      message: `Tarefa ${result.task.id} na fila: ${result.task.title}.${suffix}`,
+      minutes: 0,
+    };
+  }
+
+  /** Enfileira uma tarefa padrão da oficina pelo ID (`STANDARD_STAFF_TASKS`). */
+  enqueueStandardStaffTask(stdId: string): ActionOutcome {
+    const std = STANDARD_STAFF_TASKS.find((t) => t.id === stdId);
+    if (!std) return this.fail('Tarefa padrão desconhecida.');
+    const active = this.activeCase;
+    let targetSlot: string | null = null;
+    let title = std.title;
+    if (std.kind === 'inspecao-visual' && active) {
+      const v = this.getVehicle(active.vehicle.id);
+      const pendingSlots = new Set(
+        this.staffState.tasks
+          .filter((t) => t.status !== 'concluida' && t.kind === 'inspecao-visual' && t.targetCaseId === active.id)
+          .map((t) => t.targetSlot),
+      );
+      const uninspected = Object.entries(v.knowledge).find(
+        ([slot, k]) => k.status === 'desconhecido' && !pendingSlots.has(slot),
+      );
+      if (uninspected) {
+        targetSlot = uninspected[0];
+        const slotName = this.catalogs.slots.get(targetSlot)?.name ?? targetSlot;
+        title = `Inspeção visual: ${slotName} (OS #${active.orderNumber})`;
+      }
+    }
+    return this.enqueueStaffTask({
+      kind: std.kind,
+      title,
+      minSkill: std.minSkill,
+      baseMinutes: std.baseMinutes,
+      targetCaseId: active?.id ?? null,
+      targetSlot,
+    });
+  }
+
+  /** Avança o progresso das tarefas da equipe pelos minutos informados e aplica efeitos concluídos. */
+  advanceStaff(minutes: number, when: GameMoment): StaffTask[] {
+    if (minutes <= 0) return [];
+    const res = advanceStaffWork(this.staffState, minutes, when.at);
+    const changed =
+      res.completed.length > 0 ||
+      res.state.tasks.some((t, i) => t.progressMinutes !== this.staffState.tasks[i]?.progressMinutes || t.status !== this.staffState.tasks[i]?.status);
+    if (!changed) return [];
+    this.staffState = res.state;
+    for (const done of res.completed) {
+      if (done.kind === 'inspecao-visual' && done.targetSlot) {
+        const c = done.targetCaseId ? this.cases.find((x) => x.id === done.targetCaseId) : this.activeCase;
+        if (c) {
+          const v = this.getVehicle(c.vehicle.id);
+          const rev = revealPartCondition(v, done.targetSlot, 'inspecao', this.catalogs);
+          if (rev.ok) this.vehicles.set(v.id, rev.value);
+        }
+      }
+    }
+    this.revision++;
+    return res.completed;
+  }
+
+  // --- Eventos, fiscalização e pressão local (Prompt 16) --------------------
+
+  get events(): EventState {
+    return this.eventState;
+  }
+
+  get gameEvents(): readonly GameEventDef[] {
+    return this.content?.gameEvents ?? GAME_EVENTS;
+  }
+
+  get activeEvent(): GameEventDef | null {
+    return this.eventState.activeEventId
+      ? (this.gameEvents.find((e) => e.id === this.eventState.activeEventId) ?? null)
+      : null;
+  }
+
+  /**
+   * Avalia de forma determinística (semente + dia + OS entregues + cooldown)
+   * se um evento de fiscalização ou pressão local deve ocorrer.
+   */
+  checkEventTriggers(day: number): GameEventDef | null {
+    const prevId = this.eventState.activeEventId;
+    const res = evaluateEventTriggers(this.gameEvents, this.eventState, {
+      day,
+      deliveredCount: this.deliveredOrders().length,
+      seed: this.seedValue,
+    });
+    if (res.state.activeEventId !== prevId) {
+      this.eventState = res.state;
+      this.revision++;
+      return res.triggered;
+    }
+    return null;
+  }
+
+  /** Dispara um evento específico pelo ID (para atendimento direto no painel ou testes). */
+  triggerEvent(eventId: string, day: number): ActionOutcome {
+    const res = triggerSpecificEvent(this.gameEvents, this.eventState, eventId, day);
+    if (!res.ok) return this.fail(res.message);
+    this.eventState = res.state;
+    this.revision++;
+    return {
+      ok: true,
+      message: `${res.event.title} — ${res.event.speaker}`,
+      minutes: 0,
+      tone: 'warn',
+    };
+  }
+
+  /** Resolve o evento ativo com a opção escolhida pelo jogador, aplicando efeitos em caixa, reputação e tempo. */
+  resolveActiveEvent(optionId: string, when: GameMoment): ActionOutcome {
+    const res = resolveEventChoice(
+      this.gameEvents,
+      this.eventState,
+      optionId,
+      this.cash,
+      this.creditLimit,
+      when,
+    );
+    if (!res.ok) return this.fail(res.message);
+    if (res.option.cost > 0) {
+      this.record(
+        'despesa',
+        'evento-oficina',
+        res.option.cost,
+        `${res.event.title}: ${res.option.label}`,
+        res.entry.id,
+        when,
+      );
+    }
+    if (res.option.reputationDelta !== 0) {
+      this.rep = applyReputationDelta(
+        this.rep,
+        res.option.reputationDelta,
+        `${res.event.title}: ${res.option.label}`,
+        when,
+      );
+    }
+    this.eventState = res.state;
+    this.revision++;
+    return {
+      ok: true,
+      message: res.option.outcomeText,
+      minutes: res.option.timeMinutes,
+      tone: res.option.reputationDelta < 0 ? 'warn' : 'ok',
+    };
+  }
+
   // --- Save -------------------------------------------------------------------
 
   /** Foto do estado (cópia profunda): o que vai para o arquivo de save. */
@@ -836,6 +1116,8 @@ export class GameSession {
       debt: this.debtState,
       upgrades: this.upgradeLevels,
       seed: this.seedValue,
+      staff: this.staffState,
+      events: this.eventState,
     });
   }
 
@@ -910,6 +1192,8 @@ export class GameSession {
     s.seq = snap.seq;
     s.debtState = snap.debt;
     s.upgradeLevels = snap.upgrades;
+    s.staffState = snap.staff;
+    s.eventState = snap.events;
     s.revision = 0;
     return { ok: true, session: s };
   }

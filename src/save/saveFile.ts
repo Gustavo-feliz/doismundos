@@ -1,7 +1,9 @@
 import { MINUTES_PER_DAY } from '../core/GameClock';
 import { BANK_DEBT } from '../data/economy';
 import { initialDebt } from '../economy/debt';
+import { initialEventState } from '../events/rules';
 import { initialMissionState, type MissionState } from '../missions/MissionTracker';
+import { initialStaffState } from '../staff/rules';
 import type { SessionSnapshot } from './sessionSnapshot';
 
 /**
@@ -9,7 +11,7 @@ import type { SessionSnapshot } from './sessionSnapshot';
  * schemaVersion, data/hora, resumo (para listar slots sem carregar tudo) e
  * uma soma de verificação do conteúdo, que detecta arquivos corrompidos.
  */
-export const SAVE_SCHEMA_VERSION = 4;
+export const SAVE_SCHEMA_VERSION = 5;
 
 export type SlotId = 'auto' | 'slot1' | 'slot2' | 'slot3';
 export const MANUAL_SLOTS: readonly SlotId[] = ['slot1', 'slot2', 'slot3'];
@@ -91,6 +93,13 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   /** 3 → 4 (Prompt 12): entra a semente das OS geradas. Saves antigos usam a semente 1. */
   3: (env) => {
     (env.game as { session: Record<string, unknown> }).session.seed = 1;
+    return env;
+  },
+  /** 4 → 5 (Prompts 15 e 16): entram os funcionários, a fila de tarefas e os eventos da oficina. */
+  4: (env) => {
+    const session = (env.game as { session: Record<string, unknown> }).session;
+    session.staff = initialStaffState();
+    session.events = initialEventState();
     return env;
   },
 };

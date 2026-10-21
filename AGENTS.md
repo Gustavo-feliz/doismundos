@@ -23,7 +23,7 @@
 | `npm run test:e2e` | Testes no navegador (Playwright). |
 | `npm run test:all` | Tipos + regras + navegador. |
 
-## 2. Estado atual: Prompts 1 a 14 concluídos
+## 2. Estado atual: Prompts 1 a 16 concluídos
 
 | Prompt | Entrega |
 | --- | --- |
@@ -41,8 +41,10 @@
 | 12 | 10 carros fictícios (6 categorias), peças em linhas com compatibilidade por modelo/ano e checagem de cobertura, 9 serviços, OS geradas por semente que nunca saem impossíveis (`src/procedural/`), enciclopédia (aba Catálogo), evento `vehicle:changed`. Save versão 4. |
 | 13 | Test drive pelo portão: física própria em `src/driving/` (avaliação em `docs/fisica.md`), estado real das peças muda a direção, estado de jogo `driving`, pátio carregado sob demanda (`src/world/TestTrack.ts`), painel com velocímetro, conta-giros e luzes. |
 | 14 | Cidade e novos locais (`src/city/`, `src/data/city.ts`, `src/world/CityNeighborhood.ts`, `src/world/CityLocationDetails.ts`, `src/ui/CityHud.ts`): bairro com oficina, loja de peças, ferro-velho (venda de sucata e garimpo diário por semente), banco e lanchonete; mapa com marcadores; carregamento sob demanda; trânsito e pedestres mínimos controlados. |
+| 15 | Funcionários e automação básica (`src/staff/`, `src/data/staff.ts`, aba Equipe no `ComputerPanel`): 2 cargos (`mecanico` e `ajudante`), fila de tarefas com proteção de concorrência, contratação, folha salarial, pausa/demissão. Save versão 5. |
+| 16 | Eventos, fiscalização e pressão local (`src/events/`, `src/data/events.ts`, seção na aba Oficina do `ComputerPanel`): sistema de eventos reutilizável com gatilho, cooldown, escolhas sempre recuperáveis, histórico e efeitos no caixa e reputação. |
 
-**Testes atuais:** 226 testes de regras e 28 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 15 (funcionários e automação básica).**
+**Testes atuais:** 239 testes de regras e 30 no navegador, todos passando. **O modo solo (Prompts 1 a 16) está concluído; o Prompt 17 (multiplayer) exige aprovação prévia do Gustavo e plano de rede.**
 
 Detalhes: `README.md` (estrutura, controles, roteiro de teste manual) e `docs/formato-de-dados.md` (formato de todos os dados).
 

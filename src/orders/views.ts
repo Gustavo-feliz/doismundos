@@ -14,6 +14,10 @@ import { toolsMet } from '../procedural/generator';
 import { CATEGORY_LABEL as VEHICLE_CATEGORY_LABEL } from '../vehicles/types';
 import { WEAR_BAND_LABEL } from '../vehicles/state';
 import { isOrderClosed, ORDER_STATUS_LABEL, QUALITY_LABEL_TEXT, type OrderStatus } from './types';
+import { STANDARD_STAFF_TASKS } from '../data/staff';
+import { TASK_ALLOWED_ROLES } from '../staff/rules';
+import { STAFF_ROLE_LABEL, STAFF_STATE_LABEL, STAFF_TASK_STATUS_LABEL } from '../staff/types';
+import { GAME_EVENT_CATEGORY_LABEL } from '../events/types';
 
 /**
  * Visões das abas Orçamento e Serviço e do painel de Estoque.
@@ -396,6 +400,103 @@ export interface ComputerView {
     events: Array<{ text: string; delta: number; when: string }>;
     warranties: Array<{ id: string; orderNumber: string; covered: string; validity: string; active: boolean }>;
   };
+  /** Gestão da equipe e fila de tarefas (Prompt 15). */
+  staff: StaffView;
+  /** Eventos, fiscalização e pressão local (Prompt 16). */
+  events: EventsView;
+}
+
+export interface EventsView {
+  active: null | {
+    id: string;
+    category: string;
+    categoryLabel: string;
+    title: string;
+    speaker: string;
+    message: string;
+    options: Array<{
+      id: string;
+      label: string;
+      description: string;
+      costText: string;
+      reputationText: string;
+      timeText: string;
+      affordable: boolean;
+      blockedReason: string | null;
+    }>;
+  };
+  catalog: Array<{
+    id: string;
+    categoryLabel: string;
+    title: string;
+    speaker: string;
+    triggerText: string;
+    canTriggerNow: boolean;
+  }>;
+  history: Array<{
+    id: string;
+    title: string;
+    categoryLabel: string;
+    optionLabel: string;
+    costText: string;
+    reputationText: string;
+    outcomeText: string;
+    when: string;
+  }>;
+}
+
+export interface StaffView {
+  payroll: {
+    totalText: string;
+    employeeCount: number;
+    paidToday: boolean;
+    canPay: boolean;
+    blockedReason: string | null;
+  };
+  employees: Array<{
+    id: string;
+    name: string;
+    role: string;
+    roleLabel: string;
+    skill: number;
+    speedText: string;
+    salaryText: string;
+    state: string;
+    stateLabel: string;
+    paused: boolean;
+    currentTaskText: string | null;
+    completedTasks: number;
+  }>;
+  candidates: Array<{
+    id: string;
+    name: string;
+    role: string;
+    roleLabel: string;
+    skill: number;
+    speedText: string;
+    salaryText: string;
+    blurb: string;
+    affordable: boolean;
+    blockedReason: string | null;
+  }>;
+  standardTasks: Array<{
+    id: string;
+    title: string;
+    roleText: string;
+    minSkill: number;
+    minutes: number;
+    description: string;
+  }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    statusLabel: string;
+    assignedName: string | null;
+    progressText: string;
+    resultText: string | null;
+  }>;
+  hasActiveTasks: boolean;
 }
 
 const PURCHASE_LABEL = { 'a-caminho': 'A caminho', recebido: 'Recebido', cancelado: 'Cancelado' } as const;
@@ -483,6 +584,8 @@ export function buildComputerView(session: GameSession, now: number, activeVehic
     debt: debtView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
     upgrades: upgradesView(session),
     catalog: buildCatalogView(session),
+    staff: buildStaffView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
+    events: buildEventsView(session),
     reputation: {
       generalScore: rep.general.score,
       generalStars: starsText(averageStars(rep.general)),
@@ -590,6 +693,135 @@ export function buildCatalogView(session: GameSession): CatalogView {
       title: t.title,
       causeName: catalogs.slots.get(t.cause)?.name ?? t.cause,
       toolsText: t.requiredTools.length ? t.requiredTools.map((r) => `${session.upgradeDefs.find((u) => u.id === r.upgradeId)?.name ?? r.upgradeId} nível ${r.level}`).join(', ') : null,
+    })),
+  };
+}
+
+/** Visão da aba Equipe (Prompt 15): funcionários, candidatos, folha salarial e fila de tarefas. */
+export function buildStaffView(session: GameSession, day: number): StaffView {
+  const s = session.staff;
+  const hiredIds = new Set(s.employees.map((e) => e.id));
+  const taskMap = new Map(s.tasks.map((t) => [t.id, t]));
+  const empMap = new Map(s.employees.map((e) => [e.id, e]));
+  const totalPayroll = session.dailyPayroll;
+  const paidToday = s.lastPayrollDay >= day;
+  const payrollAffordable = canSpend(session.cash, totalPayroll, session.creditLimit);
+  let payrollBlocked: string | null = null;
+  if (s.employees.length === 0) payrollBlocked = 'Contrate ao menos 1 funcionário.';
+  else if (paidToday) payrollBlocked = `Folha do dia ${day} já quitada.`;
+  else if (!payrollAffordable) payrollBlocked = 'Caixa insuficiente para a folha salarial.';
+
+  return {
+    payroll: {
+      totalText: formatBRL(totalPayroll),
+      employeeCount: s.employees.length,
+      paidToday,
+      canPay: s.employees.length > 0 && !paidToday && payrollAffordable,
+      blockedReason: payrollBlocked,
+    },
+    employees: s.employees.map((e) => {
+      const current = e.currentTaskId ? taskMap.get(e.currentTaskId) : null;
+      return {
+        id: e.id,
+        name: e.name,
+        role: e.role,
+        roleLabel: STAFF_ROLE_LABEL[e.role],
+        skill: e.skill,
+        speedText: `${Math.round(e.speed * 100)}%`,
+        salaryText: `${formatBRL(e.salary)}/dia`,
+        state: e.state,
+        stateLabel: STAFF_STATE_LABEL[e.state],
+        paused: e.state === 'pausado',
+        currentTaskText: current ? `${current.title} (${current.progressMinutes}/${current.totalMinutes} min)` : null,
+        completedTasks: e.completedTasks,
+      };
+    }),
+    candidates: session.staffCandidates
+      .filter((c) => !hiredIds.has(c.id))
+      .map((c) => {
+        const affordable = canSpend(session.cash, c.salary, session.creditLimit);
+        return {
+          id: c.id,
+          name: c.name,
+          role: c.role,
+          roleLabel: STAFF_ROLE_LABEL[c.role],
+          skill: c.skill,
+          speedText: `${Math.round(c.speed * 100)}%`,
+          salaryText: `${formatBRL(c.salary)}/dia`,
+          blurb: c.blurb,
+          affordable,
+          blockedReason: affordable ? null : `Exige ${formatBRL(c.salary)} no caixa para o 1º dia.`,
+        };
+      }),
+    standardTasks: STANDARD_STAFF_TASKS.map((std) => ({
+      id: std.id,
+      title: std.title,
+      roleText: TASK_ALLOWED_ROLES[std.kind].map((r) => STAFF_ROLE_LABEL[r]).join(' ou '),
+      minSkill: std.minSkill,
+      minutes: std.baseMinutes,
+      description: std.description,
+    })),
+    tasks: [...s.tasks].reverse().map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      statusLabel: STAFF_TASK_STATUS_LABEL[t.status],
+      assignedName: t.assignedTo ? (empMap.get(t.assignedTo)?.name ?? t.assignedTo) : null,
+      progressText: `${t.progressMinutes}/${t.totalMinutes} min`,
+      resultText: t.resultText,
+    })),
+    hasActiveTasks: s.tasks.some((t) => t.status === 'em-andamento'),
+  };
+}
+
+/** Visão do sistema de eventos, fiscalização e pressão local (Prompt 16). */
+export function buildEventsView(session: GameSession): EventsView {
+  const active = session.activeEvent;
+  const cash = session.cash;
+  const credit = session.creditLimit;
+  const repFmt = (d: number) => (d > 0 ? `+${d} rep` : d < 0 ? `${d} rep` : '0 rep');
+
+  return {
+    active: active
+      ? {
+          id: active.id,
+          category: active.category,
+          categoryLabel: GAME_EVENT_CATEGORY_LABEL[active.category],
+          title: active.title,
+          speaker: active.speaker,
+          message: active.message,
+          options: active.options.map((o) => {
+            const affordable = !o.requireCash || o.cost === 0 || canSpend(cash, o.cost, credit);
+            return {
+              id: o.id,
+              label: o.label,
+              description: o.description,
+              costText: o.cost > 0 ? formatBRL(o.cost) : 'Sem custo',
+              reputationText: repFmt(o.reputationDelta),
+              timeText: o.timeMinutes > 0 ? `+${o.timeMinutes} min` : 'Imediato',
+              affordable,
+              blockedReason: affordable ? null : `Exige ${formatBRL(o.cost)} no caixa`,
+            };
+          }),
+        }
+      : null,
+    catalog: session.gameEvents.map((ev) => ({
+      id: ev.id,
+      categoryLabel: GAME_EVENT_CATEGORY_LABEL[ev.category],
+      title: ev.title,
+      speaker: ev.speaker,
+      triggerText: `Gatilho automático: a partir do dia ${ev.trigger.minDay} (${ev.trigger.minDeliveredOrders} OS entregue(s), intervalo de ${ev.trigger.cooldownDays} dia(s))`,
+      canTriggerNow: session.activeEvent === null,
+    })),
+    history: [...session.events.history].reverse().map((h) => ({
+      id: h.id,
+      title: h.title,
+      categoryLabel: GAME_EVENT_CATEGORY_LABEL[h.category],
+      optionLabel: h.optionLabel,
+      costText: h.cost > 0 ? `− ${formatBRL(h.cost)}` : 'R$ 0,00',
+      reputationText: repFmt(h.reputationDelta),
+      outcomeText: h.outcomeText,
+      when: `Dia ${h.day} · ${h.time}`,
     })),
   };
 }

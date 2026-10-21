@@ -44,6 +44,29 @@ interface GameDiagnostics {
   };
   debt: { balance: number; paidCount: number; nextDueDay: number };
   upgrades: Record<string, number>;
+  staff: {
+    employees: Array<{
+      id: string;
+      role: string;
+      state: string;
+      currentTaskId: string | null;
+      completedTasks: number;
+    }>;
+    tasks: Array<{
+      id: string;
+      status: string;
+      assignedTo: string | null;
+      progressMinutes: number;
+      totalMinutes: number;
+    }>;
+    lastPayrollDay: number;
+  };
+  events: {
+    activeEventId: string | null;
+    lastTriggeredDay: number;
+    historyCount: number;
+    historyIds: string[];
+  };
   driving: null | {
     speedKmh: number;
     rpm: number;

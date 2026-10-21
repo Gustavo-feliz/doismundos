@@ -15,7 +15,9 @@ export type TransactionCategory =
   | 'missao'
   | 'investimento'
   | 'sucata'
-  | 'despesa-bairro';
+  | 'despesa-bairro'
+  | 'folha-salarial'
+  | 'evento-oficina';
 
 export const CATEGORY_LABEL: Readonly<Record<TransactionCategory, string>> = {
   sinal: 'Sinal de serviço',
@@ -27,6 +29,8 @@ export const CATEGORY_LABEL: Readonly<Record<TransactionCategory, string>> = {
   investimento: 'Ferramentas e melhorias da oficina',
   sucata: 'Venda de sucata no ferro-velho',
   'despesa-bairro': 'Despesa no bairro (lanchonete)',
+  'folha-salarial': 'Folha salarial da equipe',
+  'evento-oficina': 'Fiscalização e eventos da oficina',
 };
 
 export interface Transaction {

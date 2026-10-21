@@ -284,6 +284,28 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
   - `snacks[]`: itens da Lanchonete da Tia Léa (`price` em centavos, `minutes` e `gossip`);
   - `scrapRecoveryFactor` e `salvagePriceFactor`: fatores do Ferro-Velho do Tião (`scrapLotValue` e `dailySalvageOffers`).
 
+## Funcionários e fila de tarefas (`src/data/staff.ts`)
+
+Tipos em `src/staff/types.ts`; validação e regras puras em `src/staff/rules.ts` (erro `DataValidationError` ao abrir o jogo).
+
+- **`STAFF_CANDIDATES` (`StaffCandidateDef[]`):**
+  - `id`, `name`, `role` (`'mecanico'` ou `'ajudante'`), `skill` (1–100), `speed` (0.5–2.5), `salary` (centavos inteiros por dia) e `blurb`.
+- **`STANDARD_STAFF_TASKS` (`StandardStaffTaskDef[]`):**
+  - `id`, `kind` (`'inspecao-visual' | 'organizar-bancada' | 'desmontagem-auxiliar' | 'revisao-preventiva'`), `title`, `minSkill`, `baseMinutes` e `description`.
+- **`StaffState` (no save versão 5):**
+  - `employees[]`, `tasks[]`, `lastPayrollDay` e `nextTaskSeq`, validado por `staffStateProblems` (incluindo checagem de que dois funcionários nunca ocupam a mesma `currentTaskId`).
+
+## Eventos, fiscalização e pressão local (`src/data/events.ts`)
+
+Tipos em `src/events/types.ts`; validação e regras puras em `src/events/rules.ts` (erro `DataValidationError` ao abrir o jogo).
+
+- **`GAME_EVENTS` (`GameEventDef[]`):**
+  - `id`, `category` (`'fiscalizacao'` ou `'pressao-local'`), `title`, `speaker`, `message`, `trigger { minDay, minDeliveredOrders, cooldownDays, repeatable }` e `options[]`.
+  - Cada opção (`GameEventOptionDef`) tem `id`, `label`, `description`, `cost` (centavos), `requireCash`, `reputationDelta` (-25 a +25), `timeMinutes` e `outcomeText`.
+  - Todo evento é obrigado a ter ao menos uma alternativa com `cost === 0` ou `requireCash === false`, garantindo que nenhum evento vire punição inevitável.
+- **`EventState` (no save versão 5):**
+  - `activeEventId`, `history[]` (`EventHistoryEntry`), `lastTriggeredDay` e `nextEventSeq`, validado por `eventStateProblems`.
+
 ## Missões e diálogos (`src/data/missions.ts`)
 
 Tipos em `src/missions/types.ts`; validação em `src/missions/validate.ts` (erro `DataValidationError` ao abrir o jogo).

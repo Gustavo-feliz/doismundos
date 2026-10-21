@@ -1,11 +1,17 @@
 import type { ReputationState } from '../customers/reputation';
+import { GAME_EVENTS } from '../data/events';
+import { STAFF_CANDIDATES } from '../data/staff';
 import type { CaseProgress, DiagnosisRecord, DiagnosticCaseDef } from '../diagnostics/types';
 import { debtProblems, type DebtState } from '../economy/debt';
+import { eventStateProblems } from '../events/rules';
+import type { EventState, GameEventDef } from '../events/types';
 import { upgradeLevelsProblems, type UpgradeDef } from '../upgrades/rules';
 import { CATEGORY_LABEL, type Transaction } from '../economy/ledger';
 import type { HeldPart, PurchaseOrder, StockLot } from '../inventory/types';
 import { ORDER_STATUS_LABEL, type OrderState } from '../orders/types';
 import type { WarrantyRecord } from '../orders/warranty';
+import { staffStateProblems } from '../staff/rules';
+import type { StaffCandidateDef, StaffState } from '../staff/types';
 import type { Catalogs } from '../vehicles/catalogs';
 import { findVehicleStateProblems, type VehicleState } from '../vehicles/state';
 
@@ -35,6 +41,10 @@ export interface SessionSnapshot {
   upgrades: Record<string, number>;
   /** Semente das OS geradas (desde o save versão 4). */
   seed: number;
+  /** Funcionários e fila de tarefas da oficina (desde o save versão 5). */
+  staff: StaffState;
+  /** Eventos, fiscalização e histórico de decisões (desde o save versão 5). */
+  events: EventState;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -54,6 +64,8 @@ export function validateSessionSnapshot(
   catalogs: Catalogs,
   resolveCase: (id: string) => DiagnosticCaseDef | null,
   upgrades: readonly UpgradeDef[] = [],
+  staffCandidates: readonly StaffCandidateDef[] = STAFF_CANDIDATES,
+  gameEvents: readonly GameEventDef[] = GAME_EVENTS,
 ): string[] {
   const p: string[] = [];
   if (!isObj(raw)) return ['estado da sessão ausente'];
@@ -145,5 +157,7 @@ export function validateSessionSnapshot(
   p.push(...debtProblems(s.debt));
   p.push(...upgradeLevelsProblems(s.upgrades, upgrades));
   if (!isInt(s.seed) || s.seed! < 0 || s.seed! > 0xffffffff) p.push('semente inválida');
+  p.push(...staffStateProblems(s.staff, staffCandidates));
+  p.push(...eventStateProblems(s.events, gameEvents));
   return p;
 }
