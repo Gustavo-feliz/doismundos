@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type { EventBus } from '../core/EventBus';
+import type { GameEvents } from '../core/events';
 import type { SpawnPoint } from '../player/FirstPersonController';
 import { buildPlaceholderCar, type CarAppearance } from '../vehicles/PlaceholderCar';
 import type { VehicleDefinition } from '../vehicles/types';
@@ -13,6 +15,12 @@ import { createSeededRandom, range } from '../utils/random';
 import { EQUIPMENT_IDS } from '../data/equipment';
 import { tagInteractable } from '../interaction/resolveTarget';
 import { boxFromCenter, type Box2D } from './collision';
+
+export type WorkshopUpgradeId = 'iluminacao' | 'armario-ferramentas' | 'organizacao-estoque';
+export type WorkshopUpgradeLevel = 0 | 1 | 2 | 3;
+type UpgradeBusEvents = GameEvents & {
+  'upgrade:changed': { upgradeId: WorkshopUpgradeId; level: WorkshopUpgradeLevel };
+};
 
 /**
  * OFICINA TEMPORÁRIA (GDD §2.2: "uma oficina compacta e um carro").
@@ -60,6 +68,12 @@ export interface WorkshopParts {
   hallLights: HallLights;
   /** Troca cor e placa do carro do box 1. */
   setCarLook(look: CarAppearance): void;
+  /** Destaca um equipamento no tutorial (id de EQUIPMENT_IDS) ou apaga com null. */
+  setHighlight(targetId: string | null, reduceMotion?: boolean): void;
+  /** Atualiza a preferência de reduzir movimento para o destaque do tutorial. */
+  setReduceMotion(reduceMotion: boolean): void;
+  /** Atualiza o visual de um upgrade da oficina (nível 0 a 3). */
+  setUpgradeLevel(upgradeId: WorkshopUpgradeId, level: WorkshopUpgradeLevel): void;
 }
 
 export interface Workshop {
@@ -71,6 +85,14 @@ export interface Workshop {
   raycastTargets: THREE.Object3D[];
   /** Liga/desliga sombras e define a resolução do mapa de sombra. */
   setShadowQuality(enabled: boolean, mapSize: number): void;
+  /** Destaca um equipamento no tutorial (id de EQUIPMENT_IDS) ou apaga com null. */
+  setHighlight(targetId: string | null, reduceMotion?: boolean): void;
+  /** Atualiza a preferência de reduzir movimento para o destaque do tutorial. */
+  setReduceMotion(reduceMotion: boolean): void;
+  /** Atualiza o visual de um upgrade da oficina (nível 0 a 3). */
+  setUpgradeLevel(upgradeId: WorkshopUpgradeId, level: WorkshopUpgradeLevel): void;
+  /** Conecta o barramento de eventos (`tutorial:highlight`, `settings:changed`, `upgrade:changed`) à oficina. */
+  bindEvents(bus: EventBus<GameEvents>): () => void;
 }
 
 interface Mats {
@@ -204,10 +226,12 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
 
   // --- Lateral direita: estantes, pneus ---
   // As estantes são o estoque de peças (as peças das OS aprovadas chegam aqui).
+  const shelves: THREE.Group[] = [];
   for (const z of [-4.6, -2.2]) {
     const shelf = buildShelf(m, S.halfX - 0.35, z, rng, colliders);
     tagInteractable(shelf, EQUIPMENT_IDS.stock);
     root.add(shelf);
+    shelves.push(shelf);
   }
   root.add(buildTireStack(m, 5.7, -7.9, 4, colliders));
   root.add(buildTireStack(m, 6.35, -7.0, 3, colliders));
@@ -229,6 +253,10 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
 
   const raycastTargets = root.children.filter((child) => child.name !== 'PLACEHOLDER_rua' && child.name !== 'iluminacao');
 
+  // --- Destaque visual do tutorial e visuais de upgrades (fora do raycast) ---
+  const highlight = buildHighlightSystem(root, car.group);
+  const upgrades = buildUpgradeVisuals(m, lift.group, cabinet.group, shelves, lighting.hall);
+
   return {
     root,
     colliders,
@@ -246,6 +274,9 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       benchLamp: bench.lamp,
       hallLights: lighting.hall,
       setCarLook: car.setLook,
+      setHighlight: highlight.setHighlight,
+      setReduceMotion: highlight.setReduceMotion,
+      setUpgradeLevel: upgrades.setUpgradeLevel,
     },
     setShadowQuality(enabled: boolean, mapSize: number) {
       for (const light of lighting.shadowLights) {
@@ -256,6 +287,25 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
           light.shadow.map = null;
         }
       }
+    },
+    setHighlight: highlight.setHighlight,
+    setReduceMotion: highlight.setReduceMotion,
+    setUpgradeLevel: upgrades.setUpgradeLevel,
+    bindEvents(bus: EventBus<GameEvents>): () => void {
+      const offHighlight = bus.on('tutorial:highlight', ({ targetId }) => {
+        highlight.setHighlight(targetId);
+      });
+      const offSettings = bus.on('settings:changed', ({ settings }) => {
+        highlight.setReduceMotion(settings.reduceMotion);
+      });
+      const offUpgrade = (bus as EventBus<UpgradeBusEvents>).on('upgrade:changed', ({ upgradeId, level }) => {
+        upgrades.setUpgradeLevel(upgradeId, level);
+      });
+      return () => {
+        offHighlight();
+        offSettings();
+        offUpgrade();
+      };
     },
   };
 }
@@ -732,6 +782,261 @@ function buildLighting(
       tube: m.tube,
       tubeOnIntensity: m.tube.emissiveIntensity,
       ambientOffFactor: 0.35,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Destaque visual do tutorial (GDD Prompt 10) e upgrades visuais (Prompt 11)
+// ---------------------------------------------------------------------------
+
+interface HighlightAnchor {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+  d: number;
+  beaconY: number;
+  followCarY?: boolean;
+}
+
+const HIGHLIGHT_ANCHORS: Readonly<Record<string, HighlightAnchor>> = {
+  [EQUIPMENT_IDS.car]: { x: -1.6, y: 0.02, z: -1.2, w: 2.1, d: 4.1, beaconY: 1.95, followCarY: true },
+  [EQUIPMENT_IDS.hood]: { x: -1.6, y: 0.55, z: 0.35, w: 1.55, d: 1.15, beaconY: 1.65, followCarY: true },
+  [EQUIPMENT_IDS.lift]: { x: -3.7, y: 0.02, z: -1.2, w: 0.75, d: 0.75, beaconY: 1.85 },
+  [EQUIPMENT_IDS.benchLamp]: { x: -4.1, y: 0.02, z: -8.55, w: 2.7, d: 0.9, beaconY: 2.25 },
+  [EQUIPMENT_IDS.drawer]: { x: 0.6, y: 0.02, z: -8.67, w: 1.38, d: 0.7, beaconY: 1.95 },
+  [EQUIPMENT_IDS.stock]: { x: 6.65, y: 0.02, z: -3.4, w: 0.75, d: 4.65, beaconY: 2.65 },
+  [EQUIPMENT_IDS.computer]: { x: -5.4, y: 0.76, z: 6.8, w: 0.7, d: 0.65, beaconY: 1.55 },
+  [EQUIPMENT_IDS.lightSwitch]: { x: -3.2, y: 1.1, z: 8.95, w: 0.35, d: 0.2, beaconY: 1.65 },
+  [EQUIPMENT_IDS.gate]: { x: 0, y: 0.02, z: 8.85, w: 4.8, d: 0.35, beaconY: 1.55 },
+};
+
+function disableRaycast(obj: THREE.Object3D): void {
+  obj.traverse((child) => {
+    child.raycast = () => {};
+  });
+}
+
+function buildHighlightSystem(
+  root: THREE.Group,
+  carGroup: THREE.Group,
+): {
+  setHighlight(targetId: string | null, reduceMotion?: boolean): void;
+  setReduceMotion(reduceMotion: boolean): void;
+} {
+  const group = new THREE.Group();
+  group.name = 'destaque_tutorial';
+  group.visible = false;
+  root.add(group);
+
+  const glowMat = new THREE.MeshStandardMaterial({
+    color: 0xffb703,
+    emissive: 0xf59e0b,
+    emissiveIntensity: 2.0,
+    roughness: 0.25,
+    metalness: 0.1,
+  });
+
+  // Moldura de base no contorno do equipamento destacado.
+  const frameGroup = new THREE.Group();
+  frameGroup.name = 'moldura_destaque';
+  const barThickness = 0.045;
+  const barHeight = 0.025;
+  const sideLeft = new THREE.Mesh(new THREE.BoxGeometry(barThickness, barHeight, 1), glowMat);
+  const sideRight = new THREE.Mesh(new THREE.BoxGeometry(barThickness, barHeight, 1), glowMat);
+  const sideFront = new THREE.Mesh(new THREE.BoxGeometry(1, barHeight, barThickness), glowMat);
+  const sideBack = new THREE.Mesh(new THREE.BoxGeometry(1, barHeight, barThickness), glowMat);
+  frameGroup.add(sideLeft, sideRight, sideFront, sideBack);
+  group.add(frameGroup);
+
+  // Marcador flutuante (anel + seta apontando para baixo).
+  const beaconGroup = new THREE.Group();
+  beaconGroup.name = 'marcador_destaque';
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 4), glowMat);
+  cone.rotation.x = Math.PI; // ponta para baixo
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.024, 8, 24), glowMat);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = -0.14;
+  beaconGroup.add(cone, ring);
+  group.add(beaconGroup);
+
+  let currentTargetId: string | null = null;
+  let currentAnchor: HighlightAnchor | null = null;
+  let reduceMotionEnabled = false;
+
+  // Atualiza animação sutil durante a renderização se reduceMotion estiver desligado.
+  cone.onBeforeRender = () => {
+    if (!group.visible || !currentAnchor) return;
+    const carOffsetY = currentAnchor.followCarY ? carGroup.position.y : 0;
+    frameGroup.position.y = currentAnchor.y + carOffsetY;
+    if (reduceMotionEnabled) {
+      beaconGroup.position.y = currentAnchor.beaconY + carOffsetY;
+      cone.rotation.y = Math.PI / 4;
+      glowMat.emissiveIntensity = 2.0;
+      return;
+    }
+    const t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) * 0.001;
+    beaconGroup.position.y = currentAnchor.beaconY + carOffsetY + Math.sin(t * 3.2) * 0.07;
+    cone.rotation.y = t * 1.4;
+    glowMat.emissiveIntensity = 1.65 + 0.55 * Math.sin(t * 4.0);
+  };
+
+  disableRaycast(group);
+
+  return {
+    setHighlight(targetId: string | null, reduceMotion?: boolean): void {
+      if (reduceMotion !== undefined) reduceMotionEnabled = reduceMotion;
+      currentTargetId = targetId;
+      const anchor = targetId ? (HIGHLIGHT_ANCHORS[targetId] ?? null) : null;
+      currentAnchor = anchor;
+      if (!anchor) {
+        group.visible = false;
+        return;
+      }
+      const carOffsetY = anchor.followCarY ? carGroup.position.y : 0;
+      frameGroup.position.set(anchor.x, anchor.y + carOffsetY, anchor.z);
+      sideLeft.scale.z = anchor.d;
+      sideRight.scale.z = anchor.d;
+      sideLeft.position.set(-anchor.w / 2, 0, 0);
+      sideRight.position.set(anchor.w / 2, 0, 0);
+      sideFront.scale.x = anchor.w + barThickness;
+      sideBack.scale.x = anchor.w + barThickness;
+      sideFront.position.set(0, 0, anchor.d / 2);
+      sideBack.position.set(0, 0, -anchor.d / 2);
+
+      beaconGroup.position.set(anchor.x, anchor.beaconY + carOffsetY, anchor.z);
+      cone.rotation.y = Math.PI / 4;
+      glowMat.emissiveIntensity = 2.0;
+      group.visible = true;
+    },
+    setReduceMotion(reduceMotion: boolean): void {
+      reduceMotionEnabled = reduceMotion;
+      if (reduceMotionEnabled && currentTargetId && currentAnchor) {
+        const carOffsetY = currentAnchor.followCarY ? carGroup.position.y : 0;
+        beaconGroup.position.y = currentAnchor.beaconY + carOffsetY;
+        cone.rotation.y = Math.PI / 4;
+        glowMat.emissiveIntensity = 2.0;
+      }
+    },
+  };
+}
+
+function buildUpgradeVisuals(
+  m: Mats,
+  liftGroup: THREE.Group,
+  cabinetGroup: THREE.Group,
+  shelves: THREE.Group[],
+  hallLights: HallLights,
+): {
+  setUpgradeLevel(upgradeId: WorkshopUpgradeId, level: WorkshopUpgradeLevel): void;
+} {
+  const baseIntensities = hallLights.entries.map((e) => e.on);
+  const baseTubeOn = hallLights.tubeOnIntensity;
+
+  // 1. Iluminação: réguas de LED nas colunas do elevador e refletores extras.
+  const ledStripMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xe8f4ff,
+    emissiveIntensity: 2.6,
+  });
+  const liftLedL1 = new THREE.Group();
+  liftLedL1.name = 'upgrade_iluminacao_1';
+  liftLedL1.visible = false;
+  for (const side of [-1, 1]) {
+    box(liftLedL1, ledStripMat, 0.03, 1.5, 0.04, -1.6 + side * (1.75 - side * 0.18), 1.8, -1.2, { cast: false, receive: false });
+  }
+  liftGroup.add(liftLedL1);
+  disableRaycast(liftLedL1);
+
+  // 2. Armário de ferramentas: bandeja lateral (nv 1), painel superior (nv 2), torquímetro/acabamento (nv 3).
+  const cabX = 0.6;
+  const cabZ = -WORKSHOP_SIZE.halfZ + 0.33;
+  const cabL1 = new THREE.Group();
+  cabL1.name = 'upgrade_armario_1';
+  cabL1.visible = false;
+  box(cabL1, m.redCabinet, 0.22, 0.08, 0.42, cabX + 0.74, 0.92, cabZ, { cast: false, receive: true });
+  for (let i = 0; i < 4; i++) {
+    box(cabL1, m.chrome, 0.025, 0.16, 0.025, cabX + 0.74, 0.88, cabZ - 0.14 + i * 0.09, { cast: false, receive: false });
+  }
+
+  const cabL2 = new THREE.Group();
+  cabL2.name = 'upgrade_armario_2';
+  cabL2.visible = false;
+  box(cabL2, m.darkSteel, 1.22, 0.42, 0.06, cabX, 1.53, cabZ - 0.22, { cast: false, receive: true });
+  for (let i = 0; i < 7; i++) {
+    box(cabL2, m.chrome, 0.04, 0.09, 0.04, cabX - 0.45 + i * 0.15, 1.68, cabZ - 0.17, { cast: false, receive: false });
+  }
+
+  const cabL3 = new THREE.Group();
+  cabL3.name = 'upgrade_armario_3';
+  cabL3.visible = false;
+  box(cabL3, m.yellowPaint, 1.24, 0.04, 0.08, cabX, 1.95, cabZ - 0.21, { cast: false, receive: false });
+  box(cabL3, m.chrome, 0.68, 0.035, 0.035, cabX, 1.82, cabZ - 0.17, { cast: false, receive: false });
+
+  cabinetGroup.add(cabL1, cabL2, cabL3);
+  disableRaycast(cabL1);
+  disableRaycast(cabL2);
+  disableRaycast(cabL3);
+
+  // 3. Organização do estoque: faixas de identificação (nv 1), caixas organizadoras azuis (nv 2), topo identificado (nv 3).
+  const stockL1: THREE.Group[] = [];
+  const stockL2: THREE.Group[] = [];
+  const stockL3: THREE.Group[] = [];
+  const shelfX = WORKSHOP_SIZE.halfX - 0.35;
+  for (const [idx, z] of [-4.6, -2.2].entries()) {
+    const s1 = new THREE.Group();
+    s1.name = `upgrade_estoque_1_${idx}`;
+    s1.visible = false;
+    for (const y of [0.15, 0.75, 1.35, 1.95]) {
+      box(s1, m.yellowPaint, 0.015, 0.032, 2.06, shelfX - 0.28, y, z, { cast: false, receive: false });
+    }
+    const s2 = new THREE.Group();
+    s2.name = `upgrade_estoque_2_${idx}`;
+    s2.visible = false;
+    for (const dz of [-0.65, 0, 0.65]) {
+      box(s2, m.drumBlue, 0.38, 0.18, 0.28, shelfX - 0.04, 0.78, z + dz, { cast: false, receive: true });
+    }
+    const s3 = new THREE.Group();
+    s3.name = `upgrade_estoque_3_${idx}`;
+    s3.visible = false;
+    box(s3, m.liftPaint, 0.04, 0.18, 2.08, shelfX - 0.26, 2.4, z, { cast: false, receive: false });
+    box(s3, m.yellowPaint, 0.045, 0.04, 1.8, shelfX - 0.265, 2.47, z, { cast: false, receive: false });
+
+    const targetShelf = shelves[idx]!;
+    targetShelf.add(s1, s2, s3);
+    disableRaycast(s1);
+    disableRaycast(s2);
+    disableRaycast(s3);
+    stockL1.push(s1);
+    stockL2.push(s2);
+    stockL3.push(s3);
+  }
+
+  return {
+    setUpgradeLevel(upgradeId: WorkshopUpgradeId, level: WorkshopUpgradeLevel): void {
+      const lv = Math.max(0, Math.min(3, level)) as WorkshopUpgradeLevel;
+      if (upgradeId === 'iluminacao') {
+        const mult = [1.0, 1.18, 1.36, 1.55][lv]!;
+        const tubeMult = [1.0, 1.15, 1.3, 1.5][lv]!;
+        const lightsCurrentlyOn = hallLights.tube.emissiveIntensity > 0.01;
+        hallLights.entries.forEach((entry, i) => {
+          entry.on = baseIntensities[i]! * mult;
+          if (lightsCurrentlyOn) entry.light.intensity = entry.on;
+        });
+        hallLights.tubeOnIntensity = baseTubeOn * tubeMult;
+        if (lightsCurrentlyOn) hallLights.tube.emissiveIntensity = hallLights.tubeOnIntensity;
+        liftLedL1.visible = lv >= 1;
+        ledStripMat.emissiveIntensity = 2.0 + lv * 0.5;
+      } else if (upgradeId === 'armario-ferramentas') {
+        cabL1.visible = lv >= 1;
+        cabL2.visible = lv >= 2;
+        cabL3.visible = lv >= 3;
+      } else if (upgradeId === 'organizacao-estoque') {
+        for (const g of stockL1) g.visible = lv >= 1;
+        for (const g of stockL2) g.visible = lv >= 2;
+        for (const g of stockL3) g.visible = lv >= 3;
+      }
     },
   };
 }

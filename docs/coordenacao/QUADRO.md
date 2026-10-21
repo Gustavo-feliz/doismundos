@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | em andamento: referências visuais para o Gustavo escolher | `main` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
+| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | em andamento: item 1 (`setHighlight`, `Sfx.bindEvents`, `setUpgradeLevel`) pronto; aguardando confirmação da direção visual | `main` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
 
 ### Por que essa divisão
 
