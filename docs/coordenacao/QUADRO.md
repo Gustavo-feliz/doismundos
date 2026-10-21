@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | em andamento: item 1 (`setHighlight`, `Sfx.bindEvents`, `setUpgradeLevel`) pronto; aguardando confirmação da direção visual | `main` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
+| *(nenhuma tarefa em andamento no momento)* | — | — | — | — |
 
 ### Por que essa divisão
 
@@ -41,7 +41,7 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 ## Configuração
 
 - [x] Os dois agentes trabalham na mesma pasta (`jogo mecanico`), na `main`, cada um nos seus arquivos. A pasta separada (worktree) foi descartada: o Antigravity não a abria.
-- [x] Direção visual: o Gustavo autorizou o Gemini a gerar as duas imagens de referência; ele escolhe depois.
+- [x] Direção visual escolhida pelo Gustavo: **Híbrida (A + B)** — geometria limpa e legível da Direção A + materiais PBR, reflexos e atmosfera carioca da Direção B.
 
 ## Concluídas
 
@@ -50,3 +50,4 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | Prompts 1–9 | Claude | `654a5a3`, `4b8434b`, `a50e205` |
 | Prompt 10: tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos, dívida do banco, save v2) | Claude | `9d1f42b` |
 | Prompt 11: ferramentas e upgrades (5 itens × 3 níveis, efeitos nas regras, aba Oficina, save v3) | Claude | ver `git log` |
+| Passe de arte e som (GDD §20, Direção Híbrida A+B) + destaque do tutorial (`setHighlight`) + som/ambiência no barramento (`Sfx.bindEvents`) + visuais dos 5 upgrades (`setUpgradeLevel`) | Gemini | `e4ede73` + commit final |

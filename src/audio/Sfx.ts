@@ -73,19 +73,35 @@ const MISSION_HARMONIC_TAIL: readonly Tone[] = [
   { freq: 1046.5, at: 0.22, dur: 0.3, type: 'sine', gain: 0.28 },
 ];
 
+const UPGRADE_CHIME: readonly Tone[] = [
+  { freq: 440, at: 0, dur: 0.09, type: 'triangle', gain: 0.34 },
+  { freq: 554.37, at: 0.08, dur: 0.1, type: 'triangle', gain: 0.34 },
+  { freq: 659.25, at: 0.16, dur: 0.12, type: 'triangle', gain: 0.36 },
+  { freq: 880, at: 0.25, dur: 0.22, type: 'sine', gain: 0.32 },
+];
+
+type UpgradeAudioEvents = GameEvents & {
+  'upgrade:changed': { upgradeId: string; level: number };
+};
+
 export class Sfx {
   private ctx: AudioContext | null = null;
   private volume = 0.6;
   private lastConcluidoAt = -Infinity;
+  private ambientGain: GainNode | null = null;
+  private ambientOsc: OscillatorNode | null = null;
+  private inPlayingState = false;
 
   /** 0–1 */
   setVolume(volume: number): void {
     this.volume = Math.min(1, Math.max(0, volume));
+    this.syncAmbientGain();
   }
 
   /**
    * Conecta os eventos do barramento (`dialogue:line`, `mission:step`,
-   * `mission:completed` e `settings:changed`) aos efeitos sonoros.
+   * `mission:completed`, `upgrade:changed`, `state:changed` e `settings:changed`)
+   * aos efeitos sonoros e ambiência da oficina.
    * Retorna função de limpeza para remover os ouvintes.
    */
   bindEvents(bus: EventBus<GameEvents>): () => void {
@@ -104,6 +120,13 @@ export class Sfx {
         this.play('concluido');
       }
     });
+    const offUpgrade = (bus as EventBus<UpgradeAudioEvents>).on('upgrade:changed', ({ level }) => {
+      if (level > 0) this.playTones(UPGRADE_CHIME);
+    });
+    const offState = bus.on('state:changed', ({ to }) => {
+      this.inPlayingState = to === 'playing';
+      this.syncAmbientGain();
+    });
     const offSettings = bus.on('settings:changed', ({ settings }) => {
       this.setVolume(settings.sfxVolume);
     });
@@ -111,6 +134,8 @@ export class Sfx {
       offDialogue();
       offStep();
       offMission();
+      offUpgrade();
+      offState();
       offSettings();
     };
   }
@@ -145,7 +170,42 @@ export class Sfx {
     }
   }
 
+  private syncAmbientGain(): void {
+    const active = this.inPlayingState && this.volume > 0;
+    if (!active) {
+      if (this.ambientGain && this.ctx) {
+        this.ambientGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.08);
+      }
+      return;
+    }
+    const ctx = this.context();
+    if (!ctx) return;
+    if (!this.ambientGain) {
+      try {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 110; // Ressonância suave de oficina/transformador distante
+        gain.gain.value = 0;
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        this.ambientOsc = osc;
+        this.ambientGain = gain;
+      } catch {
+        return;
+      }
+    }
+    this.ambientGain.gain.setTargetAtTime(this.volume * 0.012, ctx.currentTime, 0.15);
+  }
+
   dispose(): void {
+    try {
+      this.ambientOsc?.stop();
+    } catch {
+      // ignora se já parado
+    }
+    this.ambientOsc = null;
+    this.ambientGain = null;
     void this.ctx?.close();
     this.ctx = null;
   }

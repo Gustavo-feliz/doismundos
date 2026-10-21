@@ -5,22 +5,29 @@ import type { SpawnPoint } from '../player/FirstPersonController';
 import { buildPlaceholderCar, type CarAppearance } from '../vehicles/PlaceholderCar';
 import type { VehicleDefinition } from '../vehicles/types';
 import {
+  concreteFloorRoughnessTexture,
   concreteFloorTexture,
   pegboardTexture,
+  posterTexture,
   rollingDoorTexture,
+  sidewalkTexture,
   signTexture,
   wallTexture,
+  woodWorkbenchTexture,
 } from '../utils/canvasTextures';
 import { createSeededRandom, range } from '../utils/random';
 import { EQUIPMENT_IDS } from '../data/equipment';
 import { tagInteractable } from '../interaction/resolveTarget';
 import { boxFromCenter, type Box2D } from './collision';
 
-export type WorkshopUpgradeId = 'iluminacao' | 'armario-ferramentas' | 'organizacao-estoque';
-export type WorkshopUpgradeLevel = 0 | 1 | 2 | 3;
-type UpgradeBusEvents = GameEvents & {
-  'upgrade:changed': { upgradeId: WorkshopUpgradeId; level: WorkshopUpgradeLevel };
-};
+export type WorkshopUpgradeId =
+  | 'iluminacao'
+  | 'armario-ferramentas'
+  | 'organizacao-estoque'
+  | 'chave-impacto'
+  | 'scanner'
+  | (string & {});
+export type WorkshopUpgradeLevel = number;
 
 /**
  * OFICINA TEMPORÁRIA (GDD §2.2: "uma oficina compacta e um carro").
@@ -124,29 +131,34 @@ interface Mats {
 function createMaterials(): Mats {
   const S = WORKSHOP_SIZE;
   return {
-    floor: new THREE.MeshStandardMaterial({ map: concreteFloorTexture(S.halfX * 2, S.halfZ * 2), roughness: 0.82, metalness: 0 }),
-    wall: new THREE.MeshStandardMaterial({ map: wallTexture(S.height, 1.3), roughness: 0.9 }),
+    floor: new THREE.MeshStandardMaterial({
+      map: concreteFloorTexture(S.halfX * 2, S.halfZ * 2),
+      roughnessMap: concreteFloorRoughnessTexture(),
+      roughness: 1.0,
+      metalness: 0.05,
+    }),
+    wall: new THREE.MeshStandardMaterial({ map: wallTexture(S.height, 1.3), roughness: 0.88 }),
     ceiling: new THREE.MeshStandardMaterial({ color: 0x4b4f52, roughness: 0.7, metalness: 0.3 }),
-    steel: new THREE.MeshStandardMaterial({ color: 0x8c9196, roughness: 0.45, metalness: 0.75 }),
-    darkSteel: new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.55, metalness: 0.6 }),
-    liftPaint: new THREE.MeshStandardMaterial({ color: 0x24518a, roughness: 0.45, metalness: 0.3 }),
-    yellowPaint: new THREE.MeshStandardMaterial({ color: 0xe8b923, roughness: 0.6 }),
-    blackPaint: new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.6 }),
-    redCabinet: new THREE.MeshStandardMaterial({ color: 0xb3261e, roughness: 0.35, metalness: 0.45 }),
-    chrome: new THREE.MeshStandardMaterial({ color: 0xd6d9dc, roughness: 0.18, metalness: 1 }),
-    wood: new THREE.MeshStandardMaterial({ color: 0x8a6239, roughness: 0.75 }),
-    rubber: new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.93 }),
-    cardboard: new THREE.MeshStandardMaterial({ color: 0xa47c4e, roughness: 0.95 }),
-    drumBlue: new THREE.MeshStandardMaterial({ color: 0x1f4e8c, roughness: 0.5, metalness: 0.4 }),
-    beige: new THREE.MeshStandardMaterial({ color: 0xcfc6ad, roughness: 0.7 }),
-    fixture: new THREE.MeshStandardMaterial({ color: 0xd9dcdf, roughness: 0.5, metalness: 0.3 }),
+    steel: new THREE.MeshStandardMaterial({ color: 0x8c9196, roughness: 0.42, metalness: 0.78 }),
+    darkSteel: new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.52, metalness: 0.62 }),
+    liftPaint: new THREE.MeshStandardMaterial({ color: 0x24518a, roughness: 0.42, metalness: 0.32 }),
+    yellowPaint: new THREE.MeshStandardMaterial({ color: 0xe8b923, roughness: 0.55 }),
+    blackPaint: new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.58 }),
+    redCabinet: new THREE.MeshStandardMaterial({ color: 0xb3261e, roughness: 0.34, metalness: 0.46 }),
+    chrome: new THREE.MeshStandardMaterial({ color: 0xd8dce0, roughness: 0.16, metalness: 1 }),
+    wood: new THREE.MeshStandardMaterial({ map: woodWorkbenchTexture(), roughness: 0.68, metalness: 0.04 }),
+    rubber: new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.92 }),
+    cardboard: new THREE.MeshStandardMaterial({ color: 0xa47c4e, roughness: 0.94 }),
+    drumBlue: new THREE.MeshStandardMaterial({ color: 0x1f4e8c, roughness: 0.46, metalness: 0.42 }),
+    beige: new THREE.MeshStandardMaterial({ color: 0xcfc6ad, roughness: 0.68 }),
+    fixture: new THREE.MeshStandardMaterial({ color: 0xd9dcdf, roughness: 0.48, metalness: 0.32 }),
     tube: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf2f6ff, emissiveIntensity: 2.2 }),
     windowGlow: new THREE.MeshStandardMaterial({ color: 0xdfe9f2, emissive: 0xcfe0f0, emissiveIntensity: 1.3, roughness: 0.3 }),
-    door: new THREE.MeshStandardMaterial({ map: rollingDoorTexture(), roughness: 0.5, metalness: 0.6 }),
-    pegboard: new THREE.MeshStandardMaterial({ map: pegboardTexture(), roughness: 0.85 }),
-    sign: new THREE.MeshStandardMaterial({ map: signTexture('AUTO MECÂNICA', 'SERVIÇOS GERAIS  ·  DESDE 1987'), roughness: 0.7 }),
-    asphalt: new THREE.MeshStandardMaterial({ color: 0x3b3b3d, roughness: 0.95 }),
-    sidewalk: new THREE.MeshStandardMaterial({ color: 0xa9a49a, roughness: 0.9 }),
+    door: new THREE.MeshStandardMaterial({ map: rollingDoorTexture(), roughness: 0.48, metalness: 0.62 }),
+    pegboard: new THREE.MeshStandardMaterial({ map: pegboardTexture(), roughness: 0.82 }),
+    sign: new THREE.MeshStandardMaterial({ map: signTexture('OFICINA DO SEU ZÉ', 'MECÂNICA GERAL  ·  DESDE 1987'), roughness: 0.65 }),
+    asphalt: new THREE.MeshStandardMaterial({ color: 0x38393c, roughness: 0.94 }),
+    sidewalk: new THREE.MeshStandardMaterial({ map: sidewalkTexture(), roughness: 0.88 }),
   };
 }
 
@@ -255,7 +267,7 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
 
   // --- Destaque visual do tutorial e visuais de upgrades (fora do raycast) ---
   const highlight = buildHighlightSystem(root, car.group);
-  const upgrades = buildUpgradeVisuals(m, lift.group, cabinet.group, shelves, lighting.hall);
+  const upgrades = buildUpgradeVisuals(m, lift.group, bench.group, cabinet.group, shelves, lighting.hall);
 
   return {
     root,
@@ -298,7 +310,7 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       const offSettings = bus.on('settings:changed', ({ settings }) => {
         highlight.setReduceMotion(settings.reduceMotion);
       });
-      const offUpgrade = (bus as EventBus<UpgradeBusEvents>).on('upgrade:changed', ({ upgradeId, level }) => {
+      const offUpgrade = bus.on('upgrade:changed', ({ upgradeId, level }) => {
         upgrades.setUpgradeLevel(upgradeId, level);
       });
       return () => {
@@ -361,6 +373,28 @@ function buildShell(root: THREE.Group, m: Mats, colliders: Box2D[]): void {
     box(shell, m.darkSteel, 0.06, 0.06, 2.3, -S.halfX + 0.03, 3.42, z, { cast: false, receive: false });
   }
 
+  // Cartazes fictícios de oficina nas paredes (LubriMax, Baterias Trovão, Tabela de Revisão).
+  const posterGeo = new THREE.PlaneGeometry(0.76, 1.02);
+  const addPoster = (kind: 'lubrimax' | 'trovao' | 'tabela', px: number, py: number, pz: number, rotY: number) => {
+    const poster = new THREE.Mesh(posterGeo, new THREE.MeshStandardMaterial({ map: posterTexture(kind), roughness: 0.72 }));
+    poster.position.set(px, py, pz);
+    poster.rotation.y = rotY;
+    shell.add(poster);
+  };
+  addPoster('lubrimax', -S.halfX + 0.015, 2.15, -4.2, Math.PI / 2);
+  addPoster('trovao', -1.8, 2.2, -S.halfZ + 0.015, 0);
+  addPoster('tabela', S.halfX - 0.015, 2.15, 1.6, -Math.PI / 2);
+
+  // Extintor de incêndio na parede frontal direita.
+  const ext = new THREE.Group();
+  ext.name = 'extintor';
+  const extBody = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.44, 14), m.redCabinet);
+  extBody.position.set(DOOR.halfWidth + 0.85, 1.15, S.halfZ - 0.1);
+  const extTop = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.08, 10), m.darkSteel);
+  extTop.position.set(DOOR.halfWidth + 0.85, 1.4, S.halfZ - 0.1);
+  ext.add(extBody, extTop);
+  shell.add(ext);
+
   // Portão de enrolar (parcialmente erguido) e caixa do rolo.
   const curtainH = DOOR.height - DOOR.curtainBottom;
   const curtain = new THREE.Mesh(new THREE.PlaneGeometry(DOOR.halfWidth * 2, curtainH), m.door);
@@ -404,7 +438,7 @@ function buildShell(root: THREE.Group, m: Mats, colliders: Box2D[]): void {
   );
 }
 
-/** Rua vista pelo portão: só cenário, sem colisão nem lógica. */
+/** Rua vista pelo portão: cenário de bairro carioca (Direção Híbrida A+B), sem colisão nem lógica. */
 function buildOutside(root: THREE.Group, m: Mats): void {
   const S = WORKSHOP_SIZE;
   const outside = placeholderGroup('rua', 'Rua vista do portão (cenário temporário)');
@@ -419,6 +453,44 @@ function buildOutside(root: THREE.Group, m: Mats): void {
   street.position.set(0, 0, S.halfZ + 3.3 + 8); // vai até debaixo das fachadas
   street.receiveShadow = true;
   outside.add(sidewalk, street);
+
+  // Meio-fio de concreto e faixa tracejada amarela na rua.
+  box(outside, m.beige, 60, 0.12, 0.18, 0, 0, S.halfZ + 3.3, { cast: false, receive: true });
+  box(outside, m.beige, 60, 0.12, 0.18, 0, 0, S.halfZ + 17.8, { cast: false, receive: true });
+  for (let dx = -24; dx <= 24; dx += 4.5) {
+    box(outside, m.yellowPaint, 2.1, 0.006, 0.14, dx, 0.002, S.halfZ + 10.6, { cast: false, receive: true });
+  }
+
+  // Postes de concreto na calçada e fiação aérea típica do Rio.
+  for (const px of [-5.2, 6.4]) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.15, 7.2, 10), m.steel);
+    pole.position.set(px, 3.6, S.halfZ + 3.05);
+    outside.add(pole);
+    box(outside, m.darkSteel, 1.4, 0.08, 0.08, px, 6.6, S.halfZ + 3.05, { cast: false, receive: false });
+  }
+  for (const wy of [6.35, 6.6, 6.85]) {
+    box(outside, m.blackPaint, 24, 0.018, 0.018, 0, wy, S.halfZ + 3.05, { cast: false, receive: false });
+  }
+
+  // Vegetação tropical (amendoeiras estilizadas na calçada oposta).
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c432d, roughness: 0.9 });
+  const canopyMat = new THREE.MeshStandardMaterial({ color: 0x4d8b46, roughness: 0.85 });
+  for (const tx of [-3.4, 4.8]) {
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 2.4, 8), trunkMat);
+    trunk.position.set(tx, 1.2, S.halfZ + 17.2);
+    const canopy = new THREE.Mesh(new THREE.DodecahedronGeometry(1.45, 1), canopyMat);
+    canopy.position.set(tx, 3.1, S.halfZ + 17.1);
+    canopy.scale.set(1.2, 0.85, 1.0);
+    outside.add(trunk, canopy);
+  }
+
+  // Silhueta dos morros do Rio ao fundo.
+  const hillMat = new THREE.MeshStandardMaterial({ color: 0x6c857d, roughness: 0.95 });
+  const hillLeft = new THREE.Mesh(new THREE.ConeGeometry(16, 15, 7), hillMat);
+  hillLeft.position.set(-14, 6, S.halfZ + 44);
+  const hillRight = new THREE.Mesh(new THREE.ConeGeometry(19, 19, 8), hillMat);
+  hillRight.position.set(12, 8.5, S.halfZ + 48);
+  outside.add(hillLeft, hillRight);
 
   // Fachadas coloridas do outro lado da rua (inspiração: casario do Rio).
   const colors = [0xe9c46a, 0xf4a261, 0x90be6d, 0xa8dadc, 0xe76f51, 0xf1faee, 0x84a59d];
@@ -541,11 +613,29 @@ function buildWorkbench(m: Mats, x: number, z: number, colliders: Box2D[]): { gr
   bench.add(can);
   box(bench, m.redCabinet, 0.5, 0.2, 0.25, x + 0.05, topY + 0.06, z - 0.12);
   box(bench, m.cardboard, 0.3, 0.25, 0.3, x - 0.2, 0.25, z);
-  // Painel de ferramentas na parede
+  // Painel de ferramentas na parede + ferramentas 3D penduradas (Direção Híbrida A+B)
   const peg = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), m.pegboard);
   peg.position.set(x, 1.85, -S.halfZ + 0.015);
   peg.receiveShadow = true;
   bench.add(peg);
+  for (let i = 0; i < 5; i++) {
+    const wx = x - 0.88 + i * 0.14;
+    const wLen = 0.24 + i * 0.035;
+    box(bench, m.chrome, 0.028, wLen, 0.012, wx, 2.08 - wLen, -S.halfZ + 0.025, { cast: false, receive: false });
+  }
+  for (let i = 0; i < 4; i++) {
+    const sx = x + 0.35 + i * 0.11;
+    box(bench, i % 2 === 0 ? m.redCabinet : m.yellowPaint, 0.032, 0.1, 0.028, sx, 2.0, -S.halfZ + 0.026, { cast: false, receive: false });
+    box(bench, m.chrome, 0.012, 0.18, 0.012, sx, 1.82, -S.halfZ + 0.026, { cast: false, receive: false });
+  }
+  // Scanner OBD-II portátil sobre a ponta direita da bancada
+  box(bench, m.darkSteel, 0.26, 0.18, 0.22, x + 0.96, topY + 0.06, z - 0.05);
+  const scannerScreen = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.18, 0.11),
+    new THREE.MeshStandardMaterial({ color: 0x0d2818, emissive: 0x16a34a, emissiveIntensity: 0.75, roughness: 0.25 }),
+  );
+  scannerScreen.position.set(x + 0.96, topY + 0.16, z + 0.062);
+  bench.add(scannerScreen);
 
   // Luminária própria da bancada (começa apagada).
   const tube = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, emissive: 0xfff4e0, emissiveIntensity: 0 });
@@ -659,6 +749,12 @@ function buildDrum(m: Mats, x: number, z: number, colliders: Box2D[]): THREE.Gro
   body.castShadow = true;
   body.receiveShadow = true;
   drum.add(body);
+  // Faixa amarela central LubriMax e bujão metálico na tampa
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.292, 0.292, 0.22, 24, 1, true), m.yellowPaint);
+  band.position.set(x, 0.45, z);
+  const bung = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.025, 10), m.chrome);
+  bung.position.set(x + 0.14, 0.89, z + 0.08);
+  drum.add(band, bung);
   for (const y of [0.3, 0.6]) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.295, 0.012, 6, 24), m.darkSteel);
     ring.rotation.x = Math.PI / 2;
@@ -688,6 +784,10 @@ function buildOfficeCorner(m: Mats, x: number, z: number, colliders: Box2D[]): T
   box(pc, m.beige, 0.4, 0.025, 0.14, x - 0.2, 0.79, z - 0.25);
   tagInteractable(pc, EQUIPMENT_IDS.computer);
   office.add(pc);
+  // Prancheta de ordens de serviço sobre a mesa
+  box(office, m.cardboard, 0.24, 0.012, 0.32, x + 0.36, 0.79, z - 0.12, { cast: false, receive: true });
+  box(office, m.beige, 0.21, 0.006, 0.27, x + 0.36, 0.802, z - 0.13, { cast: false, receive: true });
+  box(office, m.chrome, 0.09, 0.014, 0.03, x + 0.36, 0.804, z + 0.01, { cast: false, receive: false });
   // Cadeira
   box(office, m.blackPaint, 0.45, 0.06, 0.45, x - 0.2, 0.45, z - 0.75);
   box(office, m.blackPaint, 0.45, 0.5, 0.05, x - 0.2, 0.51, z - 0.97);
@@ -925,6 +1025,7 @@ function buildHighlightSystem(
 function buildUpgradeVisuals(
   m: Mats,
   liftGroup: THREE.Group,
+  benchGroup: THREE.Group,
   cabinetGroup: THREE.Group,
   shelves: THREE.Group[],
   hallLights: HallLights,
@@ -1013,9 +1114,27 @@ function buildUpgradeVisuals(
     stockL3.push(s3);
   }
 
+  // 4. Chave de impacto e Scanner na bancada (-4.1, -8.55).
+  const impactGroup = new THREE.Group();
+  impactGroup.name = 'upgrade_chave_impacto';
+  impactGroup.visible = false;
+  box(impactGroup, m.redCabinet, 0.18, 0.09, 0.08, -4.65, 0.96, -8.42, { cast: false, receive: true });
+  box(impactGroup, m.chrome, 0.09, 0.045, 0.045, -4.52, 0.98, -8.42, { cast: false, receive: false });
+  box(impactGroup, m.rubber, 0.06, 0.05, 0.14, -4.68, 0.96, -8.32, { cast: false, receive: false });
+  benchGroup.add(impactGroup);
+  disableRaycast(impactGroup);
+
+  const scannerProGroup = new THREE.Group();
+  scannerProGroup.name = 'upgrade_scanner_pro';
+  scannerProGroup.visible = false;
+  box(scannerProGroup, m.yellowPaint, 0.28, 0.03, 0.24, -3.14, 1.14, -8.6, { cast: false, receive: false });
+  box(scannerProGroup, m.chrome, 0.02, 0.22, 0.02, -3.02, 1.14, -8.68, { cast: false, receive: false });
+  benchGroup.add(scannerProGroup);
+  disableRaycast(scannerProGroup);
+
   return {
     setUpgradeLevel(upgradeId: WorkshopUpgradeId, level: WorkshopUpgradeLevel): void {
-      const lv = Math.max(0, Math.min(3, level)) as WorkshopUpgradeLevel;
+      const lv = Math.max(0, Math.min(3, Math.floor(level)));
       if (upgradeId === 'iluminacao') {
         const mult = [1.0, 1.18, 1.36, 1.55][lv]!;
         const tubeMult = [1.0, 1.15, 1.3, 1.5][lv]!;
@@ -1036,6 +1155,10 @@ function buildUpgradeVisuals(
         for (const g of stockL1) g.visible = lv >= 1;
         for (const g of stockL2) g.visible = lv >= 2;
         for (const g of stockL3) g.visible = lv >= 3;
+      } else if (upgradeId === 'chave-impacto') {
+        impactGroup.visible = lv >= 1;
+      } else if (upgradeId === 'scanner') {
+        scannerProGroup.visible = lv >= 1;
       }
     },
   };
