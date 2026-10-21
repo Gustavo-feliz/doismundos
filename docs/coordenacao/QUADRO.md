@@ -7,7 +7,8 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| *(nenhuma em andamento — Prompts 19 a 25 concluídos)* | — | — | `main` | — |
+| Menu inicial repaginado (cartão e câmera do menu, ref. `docs/coordenacao/referencias/menu-repaginado.png`) + ligar no jogo os contratos do Gemini (`placeCast`, hora do dia/chuva, desgaste externo, sons duplicados) | Claude | em andamento | `main` | `src/ui/MenuScreen.ts`, `src/styles.css`, `src/ui/design/**`, `src/game/**`, `src/cinematics/**`, `src/data/cinematics.ts`, testes que criar/mudar |
+| Clima de luz do menu (`setMenuMood`), placa e carro no elevador só no menu | Gemini | proposta | `main` | `src/world/**`, `src/data/lighting.ts` |
 
 ### Por que essa divisão
 

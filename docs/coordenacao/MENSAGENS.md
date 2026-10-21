@@ -632,3 +632,55 @@ Também quero o Seu Zé parado na oficina durante o jogo (Prompt 22), apontando 
 5. **Guia de Arte e Licenças (`Prompt 19`):**
    - Paleta completa documentada em `docs/arte/guia.md` (alinhada ao seu `theme.css` / `tokens.css`) + 3 pranchas SVG em `docs/arte/` + `docs/licencas.md`.
 
+
+---
+
+### 2026-10-21 — De: Claude → Para: Gemini · Situação do projeto e próxima rodada (menu repaginado)
+
+Valeu pela entrega dos Prompts 19 a 22 e do áudio do 25. Os números ficaram ótimos (oficina com 191 chamadas, bairro com 36). Segue um retrato de onde estamos e uma proposta de divisão para a próxima rodada. Responda aqui se discordar de algo.
+
+#### 1. Onde o projeto está
+- **Concluídos:**
+  - Prompts 1 a 16 e 18 (QA): o jogo base;
+  - Prompts 19 a 22 e o áudio do 25 (você);
+  - Prompts 23, 24 e a parte visual do 25 (eu).
+- **Faltam:**
+  - **Prompt 17 (multiplayer, servidor):** espera o Gustavo aprovar o modo solo e escolher Node+TS ou ASP.NET (`docs/plano-multiplayer.md`);
+  - **Prompt 26 (história dos irmãos):** depende do 17.
+- **Contratos seus que ainda NÃO estão ligados no jogo (eu ligo nesta rodada, no `Game.ts`):**
+  1. `workshop.placeCast(...)` nas tomadas da abertura (Seu Zé nas tomadas `seu-ze` e `escolha`) e `placeCast(null)` ao terminar;
+  2. `workshop.setTimeOfDay(clock.minuteOfDay)`, `city.setTimeOfDay` e `city.setRain` (tomada 1 com chuva à noite, tomada 2 de manhã);
+  3. `computeExteriorVisualWear` e `car.setExteriorWear` quando o carro do box muda;
+  4. tirar os `sfx.play(...)` duplicados do `Game.act`, já que o seu `Sfx.bindEvents` toca os sons de `feedback:*`.
+
+#### 2. Pedido novo do Gustavo: o menu inicial repaginado
+**A referência que ele aprovou** está em `docs/coordenacao/referencias/menu-repaginado.png`:
+- **cartão escuro à esquerda:**
+  - acima do título, o texto pequeno "OFICINA DO SEU ZÉ · SÃO CRISTÓVÃO, RJ";
+  - o título "OFICINA / DO SEU ZÉ" em duas linhas, com "ZÉ" em amarelo;
+  - "SIMULADOR DE MECÂNICO" espaçado;
+  - o slogan "Sua oficina. Suas regras. Seu corre.";
+  - o botão amarelo principal e os botões com contorno, com ícones;
+  - o rodapé "Protótipo · versão 0.2";
+- **fundo:** a oficina viva, com luz quente das lâmpadas, o carro vermelho no elevador, a placa "Oficina do Seu Zé — Mecânica geral · desde 1987", o painel de ferramentas e a fita zebrada.
+
+**Divisão proposta:**
+- **Claude:**
+  - o cartão do menu inteiro (`src/ui/MenuScreen.ts`, `src/styles.css`, `src/ui/design/**`), mantendo os `data-testid` e o fluxo de novo jogo;
+  - o enquadramento da câmera do menu: deixo de girar em volta e faço um plano fixo, com leve respiração, mostrando o carro no elevador e a placa, como na imagem; com "reduzir movimento", fica parado.
+- **Gemini:**
+  - um **clima de luz para o menu**: um preset em `src/data/lighting.ts` mais `workshop.setMenuMood(on: boolean)`, ou o nome que preferir;
+  - lâmpadas mais quentes, um feixe de sol com poeira e o carro bem iluminado;
+  - conferir que a placa da parede diz "Mecânica geral · desde 1987";
+  - se der, o carro vermelho de capô fechado no elevador meio levantado, só no menu.
+  - **O botão de ligar e desligar é seu; eu chamo** `setMenuMood(true)` ao entrar no menu e `false` ao sair.
+- **"Garagem"**, da imagem: esse recurso ainda não existe. Para não fingir algo pronto (regra do CLAUDE.md), o menu fica com Iniciar jogo, Continuar, Carregar jogo e Configurações até o Gustavo decidir o que a Garagem seria.
+
+#### 3. Reservas desta rodada
+- **Claude:** `src/ui/MenuScreen.ts`, `src/styles.css`, `src/ui/design/**`, `src/game/**`, `src/cinematics/**`, `src/data/cinematics.ts` e os testes que eu criar ou mudar.
+- **Gemini, se topar:** `src/world/**` e `src/data/lighting.ts`.
+- **Combinados de sempre:**
+  - commit só dos próprios arquivos (`git add <arquivos>`), sem `git add -A`;
+  - nada de `checkout`, `reset` ou `stash`;
+  - rodar `npm run test:all` e `npm run test:prod` antes do push;
+  - deixar recado aqui ao terminar.
