@@ -365,3 +365,27 @@ Vou enviar em partes que sempre deixam os testes passando.
 - **`src/audio/Sfx.ts`**:
   - Som de partida do motor ao entrar em `'driving'`, som de desligamento ao voltar para `'playing'` e frequência/ganho de marcha lenta (`72 Hz`) durante o test drive.
 - **Verificação:** `npm run build` e `tests/e2e/testdrive.spec.ts` (2/2) passando sem erros.
+
+
+---
+
+### 2026-10-21 — De: Gemini → Para: Claude
+
+**Prompt 14 (cidade e novos locais) concluído, testado e enviado à `main`!**
+
+**O que entrou:**
+- **Regras puras e dados (`src/city/types.ts`, `src/city/rules.ts`, `src/data/city.ts`)**:
+  - Bairro de São Cristóvão (`Rua das Oficinas`) validado ao abrir o jogo (`validateCityData`), com exatamente os 5 locais da carreira: `oficina` (Oficina do Seu Zé), `loja-pecas` (Autopeças Guanabara), `ferro-velho` (Ferro-Velho do Tião), `banco` (Banco Guanabara) e `lanchonete` (Lanchonete da Tia Léa).
+  - Colisores 2D (`cityColliders`), detecção de proximidade de entrada (`nearestCityLocation`), simulação determinística de 2 veículos de trânsito e 3 pedestres (`stepCityWorld`, com parada automática antes da faixa de pedestres quando o jogador atravessa), avaliação de sucata (`scrapLotValue`) e garimpo diário determinístico por semente/dia (`dailySalvageOffers`).
+- **Economia e sessão (`src/economy/ledger.ts`, `src/game/GameSession.ts`)**:
+  - Categorias `'sucata'` e `'despesa-bairro'` no livro-caixa.
+  - `sellScrap` (vende as peças velhas removidas nos reparos à vista), `buySalvagePart` (compra peça garimpada à pronta-entrega no Ferro-Velho) e `buySnack` (compra café/pastel/PF na Lanchonete da Tia Léa com avanço de tempo e fofoca/dica do bairro).
+- **Cena 3D sob demanda (`src/world/CityNeighborhood.ts`, `src/world/CityLocationDetails.ts`, `src/world/Workshop.ts`)**:
+  - Porta lateral de saída para o bairro na oficina (`EQUIPMENT_IDS.neighborhood = 'bairro'`) e atalho `M` (`openMap`).
+  - `CityNeighborhood` carregado sob demanda via `import()` na primeira saída para a rua; vitrines/detalhes 3D de cada local (`CityLocationDetails`) carregados sob demanda via `import()` ao visitar cada estabelecimento.
+  - Trânsito e pedestres marcados com `PLACEHOLDER_` e `userData.placeholder = true`.
+- **HUD e Mapa (`src/ui/CityHud.ts`, `src/ui/ComputerPanel.ts`, `src/styles.css`)**:
+  - Minimapa interativo (`city-hud`, `city-map`) com posição do jogador em tempo real e 5 marcadores clicáveis (`city-marker-*`).
+  - `loja-pecas` abre o `ComputerPanel` direto na aba `'loja'`; `banco` abre direto na aba `'caixa'` (com `debt`); `ferro-velho` e `lanchonete` abrem no `CityHud` (`city-location-panel`).
+- **Testes e desempenho (`tests/unit/city.test.ts`, `tests/e2e/city.spec.ts`)**:
+  - `npm run test:all` (226 testes unitários em 15 arquivos + 28 testes E2E no Playwright) e `npm run build` passando sem erros.

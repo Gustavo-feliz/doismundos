@@ -3,7 +3,7 @@
  * então WASD funciona igual em teclado ABNT2, US etc.
  * Remapeamento pelo jogador fica para depois (GDD §20.4).
  */
-export type Action = 'forward' | 'backward' | 'left' | 'right' | 'run' | 'interact' | 'choice1' | 'choice2' | 'choice3' | 'skipLine' | 'toggleTips' | 'handbrake' | 'resetCar' | 'exitDrive';
+export type Action = 'forward' | 'backward' | 'left' | 'right' | 'run' | 'interact' | 'choice1' | 'choice2' | 'choice3' | 'skipLine' | 'toggleTips' | 'handbrake' | 'resetCar' | 'exitDrive' | 'openMap';
 
 /** Código usado para o botão esquerdo do mouse no mapa de teclas. */
 export const MOUSE_LEFT = 'Mouse0';
@@ -25,6 +25,7 @@ export const DEFAULT_BINDINGS: KeyBindings = {
   handbrake: ['Space'],
   resetCar: ['KeyR'],
   exitDrive: ['KeyF'],
+  openMap: ['KeyM'],
 };
 
 /** Texto exibido na tela de controles. */
@@ -33,6 +34,7 @@ export const CONTROL_HINTS: ReadonlyArray<readonly [string, string]> = [
   ['Shift', 'Correr'],
   ['Mouse', 'Olhar ao redor'],
   ['E / clique', 'Interagir com o que está na mira'],
+  ['M', 'Ir para o bairro / abrir mapa de locais'],
   ['1 / 2 / 3', 'Escolher resposta num diálogo'],
   ['Enter', 'Pular fala'],
   ['H', 'Mostrar ou ocultar dicas do tutorial'],

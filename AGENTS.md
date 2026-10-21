@@ -23,7 +23,7 @@
 | `npm run test:e2e` | Testes no navegador (Playwright). |
 | `npm run test:all` | Tipos + regras + navegador. |
 
-## 2. Estado atual: Prompts 1 a 13 concluídos
+## 2. Estado atual: Prompts 1 a 14 concluídos
 
 | Prompt | Entrega |
 | --- | --- |
@@ -40,8 +40,9 @@
 | 11 | Ferramentas e upgrades (`src/upgrades/`, `src/data/upgrades.ts`): 5 itens × 3 níveis, efeito em tempo aplicado nas regras, aba Oficina no computador, evento `upgrade:changed`. Save versão 3. |
 | 12 | 10 carros fictícios (6 categorias), peças em linhas com compatibilidade por modelo/ano e checagem de cobertura, 9 serviços, OS geradas por semente que nunca saem impossíveis (`src/procedural/`), enciclopédia (aba Catálogo), evento `vehicle:changed`. Save versão 4. |
 | 13 | Test drive pelo portão: física própria em `src/driving/` (avaliação em `docs/fisica.md`), estado real das peças muda a direção, estado de jogo `driving`, pátio carregado sob demanda (`src/world/TestTrack.ts`), painel com velocímetro, conta-giros e luzes. |
+| 14 | Cidade e novos locais (`src/city/`, `src/data/city.ts`, `src/world/CityNeighborhood.ts`, `src/world/CityLocationDetails.ts`, `src/ui/CityHud.ts`): bairro com oficina, loja de peças, ferro-velho (venda de sucata e garimpo diário por semente), banco e lanchonete; mapa com marcadores; carregamento sob demanda; trânsito e pedestres mínimos controlados. |
 
-**Testes atuais:** 218 testes de regras e 27 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 14 (cidade e novos locais).**
+**Testes atuais:** 226 testes de regras e 28 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 15 (funcionários e automação básica).**
 
 Detalhes: `README.md` (estrutura, controles, roteiro de teste manual) e `docs/formato-de-dados.md` (formato de todos os dados).
 

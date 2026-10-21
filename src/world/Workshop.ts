@@ -257,6 +257,7 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
   // --- Frente esquerda: escritório improvisado e interruptor ---
   root.add(buildOfficeCorner(m, -5.2, 6.8, colliders));
   root.add(buildLightSwitch(m, -(DOOR.halfWidth + 0.7), S.halfZ));
+  root.add(buildNeighborhoodDoor(m, 4.6, S.halfZ));
 
   // --- Iluminação ---
   const lighting = buildLighting(root, m, bay1);
@@ -821,6 +822,19 @@ function buildLightSwitch(m: Mats, x: number, wallZ: number): THREE.Group {
   box(sw, m.darkSteel, 0.03, 3.6, 0.03, x, 1.4, wallZ - 0.02, { cast: false, receive: false });
   tagInteractable(sw, EQUIPMENT_IDS.lightSwitch);
   return sw;
+}
+
+/** Porta lateral de pedestres e quadro do mapa do bairro na parede da frente (Prompt 14). */
+function buildNeighborhoodDoor(m: Mats, x: number, wallZ: number): THREE.Group {
+  const door = placeholderGroup('porta_bairro', 'Saída para o bairro');
+  // Moldura e folha da porta de rua
+  box(door, m.darkSteel, 1.05, 2.18, 0.06, x, 0, wallZ - 0.03, { cast: false, receive: true });
+  box(door, m.liftPaint, 0.92, 2.08, 0.04, x, 0.04, wallZ - 0.045, { cast: false, receive: true });
+  // Visor superior e maçaneta cromada
+  box(door, m.windowGlow, 0.56, 0.48, 0.02, x, 1.42, wallZ - 0.068, { cast: false, receive: false });
+  box(door, m.chrome, 0.12, 0.03, 0.04, x - 0.34, 1.02, wallZ - 0.075, { cast: false, receive: false });
+  tagInteractable(door, EQUIPMENT_IDS.neighborhood);
+  return door;
 }
 
 function buildLighting(

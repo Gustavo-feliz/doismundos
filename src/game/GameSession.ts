@@ -644,6 +644,51 @@ export class GameSession {
     return { ok: true, message: `${this.partName(partId)} devolvida à estante.`, minutes: 0 };
   }
 
+  /** Vende as peças velhas acumuladas (`scrap`) no Ferro-Velho do Tião (Prompt 14). */
+  sellScrap(factor: number, when: GameMoment): ActionOutcome {
+    if (this.scrapped.length === 0) return this.fail('Não há sucata acumulada na oficina para vender.');
+    let total = 0;
+    let count = 0;
+    for (const id of this.scrapped) {
+      const part = this.catalogs.parts.get(id);
+      if (!part) continue;
+      total += part.scrapValue > 0 ? part.scrapValue : Math.max(50, Math.round(part.baseCost * factor));
+      count++;
+    }
+    this.scrapped.length = 0;
+    if (total <= 0 || count === 0) return this.fail('Nenhuma sucata com valor comercial encontrada.');
+    this.record('receita', 'sucata', total, `Venda de ${count} sucata(s) no Ferro-Velho do Tião`, 'Ferro-Velho', when);
+    this.revision++;
+    return { ok: true, message: `Tião pagou ${formatBRL(total)} por ${count} peça(s) de sucata (+10 min).`, minutes: 10 };
+  }
+
+  /** Compra peça garimpada à pronta-entrega no Ferro-Velho do Tião (Prompt 14). */
+  buySalvagePart(partId: string, unitPrice: Cents, when: GameMoment): ActionOutcome {
+    const part = this.catalogs.parts.get(partId);
+    if (!part) return this.fail('Peça desconhecida.');
+    if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) return this.fail('Preço de garimpo inválido.');
+    if (!canSpend(this.cash, unitPrice, this.creditLimit)) {
+      return this.fail(`Caixa insuficiente: a peça custa ${formatBRL(unitPrice)} e há ${formatBRL(this.cash)} no caixa.`);
+    }
+    this.addLot(partId, 1, unitPrice, 'Ferro-Velho do Tião (garimpo)');
+    this.record('despesa', 'compra-pecas', unitPrice, `1× ${part.name} — Ferro-Velho do Tião`, 'Ferro-Velho', when);
+    this.revision++;
+    return { ok: true, message: `Garimpo: 1× ${part.name} levada para o estoque por ${formatBRL(unitPrice)} (+15 min).`, minutes: 15 };
+  }
+
+  /** Compra café ou refeição na Lanchonete da Tia Léa (Prompt 14). */
+  buySnack(name: string, price: Cents, minutes: number, gossip: string, when: GameMoment): ActionOutcome {
+    if (!name.trim() || !Number.isSafeInteger(price) || price <= 0 || !Number.isSafeInteger(minutes) || minutes <= 0) {
+      return this.fail('Pedido inválido na lanchonete.');
+    }
+    if (!canSpend(this.cash, price, this.creditLimit)) {
+      return this.fail(`Caixa insuficiente: ${name} custa ${formatBRL(price)} e há ${formatBRL(this.cash)} no caixa.`);
+    }
+    this.record('despesa', 'despesa-bairro', price, `${name} — Lanchonete da Tia Léa`, 'Lanchonete', when);
+    this.revision++;
+    return { ok: true, message: `${name} (${formatBRL(price)}, +${minutes} min). ${gossip}`, minutes };
+  }
+
   // --- Reparo ------------------------------------------------------------------
 
   removeOldPart(slot: string, ctx: EquipmentContext, when: GameMoment): ActionOutcome {

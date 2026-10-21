@@ -13,6 +13,7 @@ export const EQUIPMENT_IDS = {
   gate: 'portao',
   computer: 'computador',
   stock: 'estoque',
+  neighborhood: 'bairro',
 } as const;
 
 export const EQUIPMENT = {
@@ -101,5 +102,11 @@ export const EQUIPMENT = {
     name: 'Computador do escritório',
     action: 'Abrir computador de gestão',
     detail: 'Loja de peças, pedidos, caixa e reputação',
+  },
+
+  neighborhood: {
+    name: 'Saída para o bairro',
+    action: 'Ir para a Rua das Oficinas',
+    detail: 'Autopeças, Ferro-Velho, Banco e Lanchonete (ou tecla M)',
   },
 } as const;

@@ -96,6 +96,12 @@ export class ComputerPanel {
     this.tabButtons.get(this.tab)?.focus({ preventScroll: true });
   }
 
+  openAtTab(view: ComputerView, tab: Tab): void {
+    this.tab = tab;
+    this.open(view);
+    this.callbacks.onTab?.(tab);
+  }
+
   refresh(view: ComputerView): void {
     if (!this.isOpen) return;
     this.view = view;

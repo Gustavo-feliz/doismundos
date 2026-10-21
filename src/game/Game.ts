@@ -43,6 +43,18 @@ import type { DriveState, DrivingCondition, DrivingProfile, WarningLight } from 
 import type { TestTrack } from '../world/TestTrack';
 import type { Box2D } from '../world/collision';
 import { DrivingHud } from '../ui/DrivingHud';
+import { CITY_NEIGHBORHOOD } from '../data/city';
+import {
+  dailySalvageOffers,
+  initialCityWorldState,
+  nearestCityLocation,
+  scrapLotValue,
+  stepCityWorld,
+  validateCityData,
+} from '../city/rules';
+import type { CityLocationId, CityWorldState } from '../city/types';
+import type { CityNeighborhood } from '../world/CityNeighborhood';
+import { CityHud, type CityPanelView } from '../ui/CityHud';
 import { FUNCTIONAL_TESTS, SCANNER } from '../data/diagnostics';
 import { EQUIPMENT, EQUIPMENT_IDS } from '../data/equipment';
 import { NEW_GAME } from '../data/newGame';
@@ -106,6 +118,18 @@ export class Game {
   /** Pátio de teste: carregado sob demanda no primeiro test drive. */
   private track: TestTrack | null = null;
   private trackLoading = false;
+  /** Bairro de São Cristóvão (Prompt 14): carregado sob demanda na primeira saída para a rua. */
+  private city: CityNeighborhood | null = null;
+  private cityLoading = false;
+  private cityActive = false;
+  private cityWorld: CityWorldState = initialCityWorldState(CITY_NEIGHBORHOOD);
+  private cityPlayer: FirstPersonController | null = null;
+  private cityInteraction: InteractionSystem | null = null;
+  private readonly cityVisited = new Set<CityLocationId>(['oficina']);
+  private cityLoadMs = 0;
+  private cityPanelMode: 'ferro-velho' | 'lanchonete' | 'mapa' = 'ferro-velho';
+  private readonly cityHud: CityHud;
+  private smoothedFps = 60;
   private readonly inspection: InspectionPanel;
   private readonly stockPanel: StockPanel;
   private readonly computer: ComputerPanel;
@@ -146,6 +170,7 @@ export class Game {
     this.catalogs = buildCatalogs(VEHICLES, PARTS, PART_SLOTS);
     const gaps = findCoverageGaps(VEHICLES, PARTS);
     if (gaps.length) throw new DataValidationError('cobertura do catálogo de peças', gaps);
+    validateCityData(CITY_NEIGHBORHOOD);
     this.content = {
       cases: DIAGNOSTIC_CASES,
       diagnostics: this.diagnosticData,
@@ -206,6 +231,7 @@ export class Game {
       },
       testDriveBlocked: () => this.testDriveBlocked(),
       onTestDrive: () => void this.startTestDrive(),
+      onExitToCity: () => void this.enterNeighborhood(),
     });
     this.interaction = new InteractionSystem(this.workshop.raycastTargets, EQUIPMENT.interactionRange);
     for (const interactable of this.equipment.createInteractables()) this.interaction.register(interactable);
@@ -215,6 +241,13 @@ export class Game {
 
     this.hud = new Hud(uiRoot);
     this.drivingHud = new DrivingHud(uiRoot);
+    this.cityHud = new CityHud(uiRoot, CITY_NEIGHBORHOOD, {
+      onSelectMarker: (id) => void this.visitCityLocation(id),
+      onSellScrap: () => this.act(this.session.sellScrap(CITY_NEIGHBORHOOD.scrapRecoveryFactor, this.moment()), 'concluido'),
+      onBuySalvage: (partId, unitPrice) => this.act(this.session.buySalvagePart(partId, unitPrice, this.moment()), 'pegar'),
+      onBuySnack: (snack) => this.act(this.session.buySnack(snack.name, snack.price, snack.minutes, snack.gossip, this.moment()), 'ok'),
+      onClosePanel: (reason) => this.closePanel(reason),
+    });
     this.inspection = new InspectionPanel(uiRoot, (reason) => this.closePanel(reason), {
       diagnosis: {
         onRunTest: (id) => this.runDiagnosticTest(id),
@@ -299,7 +332,9 @@ export class Game {
     this.bus.clear();
     this.hud.dispose();
     this.drivingHud.dispose();
+    this.cityHud.dispose();
     this.track?.dispose();
+    this.city?.dispose();
     this.inspection.dispose();
     this.stockPanel.dispose();
     this.computer.dispose();
@@ -318,21 +353,72 @@ export class Game {
   /** Ordem explícita: entrada → equipamentos → jogador → relógio → câmera → mira/interação → HUD. */
   private update(dt: number): void {
     this.frame++;
+    if (dt > 0.001 && dt < 0.5) {
+      this.smoothedFps = Math.round(this.smoothedFps * 0.85 + (1 / dt) * 0.15);
+    }
     if (this.state.is('playing')) {
       const mouse = this.input.consumeMouseDelta();
-      // Equipamentos antes do jogador: os colisores (carro no alto, gaveta) já valem neste quadro.
-      this.equipment.update(dt, this.player.position);
-      this.player.update(dt, this.input.getMoveIntent(), mouse, this.settings);
-      this.clock.advance(dt);
-      this.player.applyToCamera(this.camera);
-      this.camera.updateMatrixWorld();
-      this.hud.setPrompt(this.interaction.update(this.camera));
-      if (this.input.wasActionPressed('interact')) {
-        const result = this.interaction.interact();
-        if (result) this.hud.notify(result.message, result.ok ? 'ok' : 'blocked');
+      if (this.cityActive && this.city && this.cityPlayer && this.cityInteraction) {
+        if (this.input.wasActionPressed('exitDrive')) {
+          this.exitNeighborhood();
+          return;
+        }
+        if (this.input.wasActionPressed('openMap')) {
+          this.openCityPanel('mapa');
+          return;
+        }
+        this.cityPlayer.update(dt, this.input.getMoveIntent(), mouse, this.settings);
+        this.cityWorld = stepCityWorld(this.cityWorld, dt, this.cityPlayer.position, CITY_NEIGHBORHOOD);
+        this.city.syncWorldState(this.cityWorld, this.settings.reduceMotion);
+        this.clock.advance(dt);
+        this.cityPlayer.applyToCamera(this.camera);
+        this.camera.updateMatrixWorld();
+        const rayPrompt = this.cityInteraction.update(this.camera);
+        const nearby = nearestCityLocation(this.cityPlayer.position, CITY_NEIGHBORHOOD);
+        this.hud.setPrompt(
+          rayPrompt ??
+            (nearby
+              ? {
+                  name: nearby.name,
+                  status: 'available',
+                  action: nearby.actionLabel,
+                  detail: nearby.subtitle,
+                }
+              : null),
+        );
+        if (this.input.wasActionPressed('interact')) {
+          if (rayPrompt) {
+            const result = this.cityInteraction.interact();
+            if (result?.message) this.hud.notify(result.message, result.ok ? 'ok' : 'blocked');
+          } else if (nearby) {
+            void this.visitCityLocation(nearby.id);
+          }
+        }
+        this.cityHud.updateHud({
+          playerX: this.cityPlayer.position.x,
+          playerZ: this.cityPlayer.position.z,
+          nearbyLocation: nearby,
+          visited: this.cityVisited,
+        });
+        this.needsRender = true;
+      } else {
+        // Equipamentos antes do jogador: os colisores (carro no alto, gaveta) já valem neste quadro.
+        this.equipment.update(dt, this.player.position);
+        this.player.update(dt, this.input.getMoveIntent(), mouse, this.settings);
+        this.clock.advance(dt);
+        this.player.applyToCamera(this.camera);
+        this.camera.updateMatrixWorld();
+        this.hud.setPrompt(this.interaction.update(this.camera));
+        if (this.input.wasActionPressed('interact')) {
+          const result = this.interaction.interact();
+          if (result) this.hud.notify(result.message, result.ok ? 'ok' : 'blocked');
+        }
+        if (this.input.wasActionPressed('openMap')) {
+          void this.enterNeighborhood();
+        }
+        this.updatePlayerMissionInput(dt);
+        this.needsRender = true;
       }
-      this.updatePlayerMissionInput(dt);
-      this.needsRender = true;
     } else if (this.state.is('driving')) {
       this.interaction.clearFocus();
       this.input.consumeMouseDelta(); // no test drive o mouse não gira a câmera
@@ -454,6 +540,7 @@ export class Game {
     if (this.inspection.isOpen) this.inspection.refresh(this.currentPanelViews());
     if (this.stockPanel.isOpen) this.stockPanel.refresh(buildStockView(this.session));
     if (this.computer.isOpen) this.computer.refresh(this.computerView());
+    if (this.cityHud.isPanelOpen) this.cityHud.refreshPanel(this.cityPanelView());
     this.panelVersion = this.session.version;
   }
 
@@ -478,6 +565,7 @@ export class Game {
   }
 
   private activePanel(): { notify(text: string, kind: 'ok' | 'warn' | 'blocked'): void } {
+    if (this.cityHud.isPanelOpen) return this.cityHud;
     if (this.computer.isOpen) return this.computer;
     if (this.stockPanel.isOpen) return this.stockPanel;
     return this.inspection;
@@ -738,6 +826,167 @@ export class Game {
     this.hud.notify(`Test drive: ${km.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km, máxima de ${Math.round(d.topKmh)} km/h${hits}.`, 'ok');
   }
 
+  // --- Bairro e novos locais (Prompt 14) -----------------------------------
+
+  /** Sai da oficina para a Rua das Oficinas, carregando o bairro sob demanda. */
+  private async enterNeighborhood(): Promise<boolean> {
+    if (!this.state.is('playing') || this.cityLoading || this.cityActive || this.drive) return false;
+    if (!this.city) {
+      this.cityLoading = true;
+      const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      try {
+        const { buildCityNeighborhood } = await import('../world/CityNeighborhood');
+        this.city = buildCityNeighborhood(CITY_NEIGHBORHOOD);
+        this.city.root.visible = false;
+        this.scene.add(this.city.root);
+        this.cityPlayer = new FirstPersonController(this.city.colliders, CITY_NEIGHBORHOOD.spawn);
+        this.cityInteraction = new InteractionSystem(this.city.raycastTargets, CITY_NEIGHBORHOOD.interactRadius);
+        for (const it of this.city.createInteractables((id) => void this.visitCityLocation(id))) {
+          this.cityInteraction.register(it);
+        }
+        const elapsed = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
+        this.cityLoadMs = Math.max(1, Math.round(elapsed));
+      } finally {
+        this.cityLoading = false;
+      }
+    }
+    if (!this.state.is('playing') || !this.city || !this.cityPlayer) return false;
+    await this.city.ensureLocationLoaded('oficina');
+    this.cityActive = true;
+    this.cityVisited.add('oficina');
+    this.cityWorld = initialCityWorldState(CITY_NEIGHBORHOOD);
+    this.workshop.root.visible = false;
+    this.city.root.visible = true;
+    this.player.halt();
+    this.cityPlayer.respawn();
+    this.cityPlayer.applyToCamera(this.camera);
+    this.camera.updateMatrixWorld();
+    this.city.syncWorldState(this.cityWorld, this.settings.reduceMotion);
+    this.cityHud.setHudVisible(true);
+    this.cityHud.updateHud({
+      playerX: this.cityPlayer.position.x,
+      playerZ: this.cityPlayer.position.z,
+      nearbyLocation: nearestCityLocation(this.cityPlayer.position, CITY_NEIGHBORHOOD),
+      visited: this.cityVisited,
+    });
+    this.sfx.play('ok');
+    this.hud.notify('Bairro de São Cristóvão: caminhe até os locais ou aperte M para o mapa.', 'ok');
+    this.needsRender = true;
+    return true;
+  }
+
+  /** Volta da rua para dentro da oficina, preservando todo o estado. */
+  private exitNeighborhood(): boolean {
+    if (!this.cityActive) return false;
+    this.cityActive = false;
+    if (this.city) this.city.root.visible = false;
+    this.workshop.root.visible = true;
+    this.cityHud.setHudVisible(false);
+    this.cityHud.closePanel();
+    if (this.state.is('panel')) {
+      this.inspection.close();
+      this.stockPanel.close();
+      this.computer.close();
+      this.state.transition('playing');
+    }
+    this.player.applyToCamera(this.camera);
+    this.camera.updateMatrixWorld();
+    this.hud.setPrompt(null);
+    this.sfx.play('ok');
+    this.hud.notify('De volta à Oficina do Seu Zé.', 'ok');
+    this.needsRender = true;
+    return true;
+  }
+
+  /** Visita um dos 5 locais do bairro (carregando seus detalhes 3D sob demanda). */
+  private async visitCityLocation(id: CityLocationId): Promise<boolean> {
+    if (!this.cityActive) {
+      const entered = await this.enterNeighborhood();
+      if (!entered) return false;
+    }
+    if (id === 'oficina') {
+      return this.exitNeighborhood();
+    }
+    const loc = CITY_NEIGHBORHOOD.locations.find((l) => l.id === id);
+    if (!loc || !this.city || !this.cityPlayer) return false;
+
+    // Se já estiver com um painel aberto (ex.: clicou no Mapa Expandido), fecha antes de abrir o do local.
+    if (this.state.is('panel')) {
+      this.cityHud.closePanel();
+      this.computer.close();
+      this.stockPanel.close();
+      this.inspection.close();
+      this.state.transition('playing');
+    }
+
+    this.cityPlayer.teleport(loc.entrance.x, loc.entrance.z, loc.entrance.yaw, 0);
+    this.cityPlayer.applyToCamera(this.camera);
+    this.camera.updateMatrixWorld();
+    await this.city.ensureLocationLoaded(id);
+    this.cityVisited.add(id);
+    this.cityHud.updateHud({
+      playerX: this.cityPlayer.position.x,
+      playerZ: this.cityPlayer.position.z,
+      nearbyLocation: loc,
+      visited: this.cityVisited,
+    });
+
+    switch (loc.actionKind) {
+      case 'open-shop':
+        if (this.enterPanel()) {
+          this.markFlag('abriu-computador');
+          this.computer.openAtTab(this.computerView(), 'loja');
+        }
+        break;
+      case 'open-bank':
+        if (this.enterPanel()) {
+          this.markFlag('abriu-computador');
+          this.markFlag('viu-caixa');
+          this.computer.openAtTab(this.computerView(), 'caixa');
+        }
+        break;
+      case 'open-scrapyard':
+        this.openCityPanel('ferro-velho');
+        break;
+      case 'open-snack':
+        this.openCityPanel('lanchonete');
+        break;
+      case 'return-workshop':
+        return this.exitNeighborhood();
+    }
+    this.needsRender = true;
+    return true;
+  }
+
+  private openCityPanel(mode: 'ferro-velho' | 'lanchonete' | 'mapa'): void {
+    this.cityPanelMode = mode;
+    if (!this.state.is('panel') && !this.enterPanel()) return;
+    this.cityHud.openPanel(this.cityPanelView());
+  }
+
+  private cityPanelView(): CityPanelView {
+    const scrap = scrapLotValue(this.session.scrap, this.catalogs, CITY_NEIGHBORHOOD.scrapRecoveryFactor);
+    const activeModelId = this.session.activeCase
+      ? this.session.getVehicle(this.session.activeCase.vehicle.id).modelId
+      : null;
+    return {
+      mode: this.cityPanelMode,
+      cashText: formatBRL(this.session.cash),
+      scrapCount: scrap.count,
+      scrapTotalText: formatBRL(scrap.totalCents),
+      salvageOffers: dailySalvageOffers(
+        this.clock.day,
+        this.session.seed,
+        this.catalogs,
+        CITY_NEIGHBORHOOD.salvagePriceFactor,
+        activeModelId,
+      ),
+      snacks: CITY_NEIGHBORHOOD.snacks,
+      locations: CITY_NEIGHBORHOOD.locations,
+      visited: this.cityVisited,
+    };
+  }
+
   // --- Ferramentas e upgrades (Prompt 11) ------------------------------------
 
   private buyUpgrade(id: string): void {
@@ -899,6 +1148,9 @@ export class Game {
       return;
     }
     if (fresh && this.state.is('menu')) {
+      this.exitNeighborhood();
+      this.cityVisited.clear();
+      this.cityVisited.add('oficina');
       this.player.respawn();
       this.clock.reset();
       this.equipment.reset();
@@ -914,6 +1166,7 @@ export class Game {
   private pause(): void {
     if (this.state.transition('paused')) {
       this.player.halt();
+      this.cityPlayer?.halt();
       this.input.exitPointerLock();
       void this.autosave();
     }
@@ -921,6 +1174,7 @@ export class Game {
 
   private quitToTitle(): void {
     this.endTestDrive(false);
+    this.exitNeighborhood();
     if (this.state.transition('menu')) {
       this.input.exitPointerLock();
       void this.autosave().finally(() => void this.refreshContinue());
@@ -931,10 +1185,12 @@ export class Game {
     document.body.dataset.state = state;
     this.hud.setVisible(state === 'playing' || state === 'panel' || (state === 'paused' && !this.drive));
     this.drivingHud.setVisible(state === 'driving' || (state === 'paused' && this.drive !== null));
+    this.cityHud.setHudVisible(this.cityActive && (state === 'playing' || state === 'paused'));
     if (state !== 'panel') {
       this.inspection.close();
       this.stockPanel.close();
       this.computer.close();
+      this.cityHud.closePanel();
     }
     const showMenu = state === 'menu' || state === 'paused';
     if (state === 'menu') this.menu.setMode('title');
@@ -1069,6 +1325,7 @@ export class Game {
     const restored = GameSession.fromSnapshot(this.catalogs, this.content, game.session);
     if (!restored.ok) return { ok: false, message: restored.problems.slice(0, 3).join('; ') };
     this.endTestDrive(false);
+    this.exitNeighborhood();
     this.session = restored.session;
     this.resetMissions(new MissionTracker(this.missionLib, game.missions));
     this.clock.setAbsolute(game.clockMinutes);
@@ -1129,16 +1386,20 @@ export class Game {
   private updateDiagnostics(): void {
     const info = this.renderer.info;
     const canvas = this.renderer.domElement;
+    const activePlayer = this.cityActive && this.cityPlayer ? this.cityPlayer : this.player;
+    const activeInteraction = this.cityActive && this.cityInteraction ? this.cityInteraction : this.interaction;
+    const perfMem = (performance as unknown as { memory?: { usedJSHeapSize?: number } }).memory;
+    const memoryMb = perfMem?.usedJSHeapSize ? Math.round((perfMem.usedJSHeapSize / (1024 * 1024)) * 10) / 10 : null;
     window.__GAME_DIAGNOSTICS__ = {
       frame: this.frame,
       state: this.state.current,
       clock: `Dia ${this.clock.day} ${this.clock.formatTime()}`,
       player: {
-        x: this.player.position.x,
-        z: this.player.position.z,
-        yaw: this.player.view.yaw,
-        pitch: this.player.view.pitch,
-        speed: this.player.speed,
+        x: activePlayer.position.x,
+        z: activePlayer.position.z,
+        yaw: activePlayer.view.yaw,
+        pitch: activePlayer.view.pitch,
+        speed: activePlayer.speed,
       },
       renderer: {
         calls: info.render.calls,
@@ -1146,9 +1407,9 @@ export class Game {
         geometries: info.memory.geometries,
         textures: info.memory.textures,
       },
-      interaction: { focus: this.interaction.focusedId },
+      interaction: { focus: activeInteraction.focusedId },
       vehicle: this.vehicleDiagnostics(),
-      panelOpen: this.inspection.isOpen,
+      panelOpen: this.inspection.isOpen || this.cityHud.isPanelOpen,
       stockOpen: this.stockPanel.isOpen,
       held: this.session.heldPartId,
       cash: this.session.cash,
@@ -1178,6 +1439,20 @@ export class Game {
             distance: this.drive.state.distance,
             lights: this.driveLights(),
             cannotStart: this.drive.condition.cannotStart,
+          }
+        : null,
+      city: this.cityActive && this.city && this.cityPlayer
+        ? {
+            active: true,
+            nearbyLocation: nearestCityLocation(this.cityPlayer.position, CITY_NEIGHBORHOOD)?.id ?? null,
+            visited: [...this.cityVisited],
+            loadedLocations: [...this.city.loadedLocations],
+            trafficCount: this.cityWorld.traffic.length,
+            pedestrianCount: this.cityWorld.pedestrians.length,
+            trafficStopped: this.cityWorld.traffic.some((t) => t.stoppedForPlayer),
+            loadMs: this.cityLoadMs,
+            fps: this.smoothedFps,
+            memoryMb,
           }
         : null,
       diagnosis: this.diagnosisDiagnostics(),
@@ -1256,11 +1531,15 @@ export class Game {
         return this.state.current;
       },
       testDriveBlocked: () => this.testDriveBlocked(),
+      enterNeighborhood: () => this.enterNeighborhood(),
+      visitCityLocation: (id) => this.visitCityLocation(id as CityLocationId),
+      exitNeighborhood: () => this.exitNeighborhood(),
       skipDialogueLine: () => this.handleDialogueStep(this.dialogue.skip()),
       bypassPointerLock: () => this.input.setLockBypass(true),
       teleport: (x, z, yaw, pitch = 0) => {
-        this.player.teleport(x, z, yaw, pitch);
-        this.player.applyToCamera(this.camera);
+        const target = this.cityActive && this.cityPlayer ? this.cityPlayer : this.player;
+        target.teleport(x, z, yaw, pitch);
+        target.applyToCamera(this.camera);
         return this.state.current;
       },
     };

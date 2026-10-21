@@ -275,6 +275,15 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
 - **`TEST_TRACK`:** tamanho do pátio (`halfX`, `halfZ`), espessura dos muros, `speedLimitKmh`, largada, `cones[]`, `coneRadius` e `pillars[]`. A mesma definição desenha a cena (`src/world/TestTrack.ts`) e cria os colisores (`trackColliders`).
 - **Regras puras:** em `src/driving/`, com `physics.ts` (passo fixo de 1/60 s) e `condition.ts` (estado das peças → comportamento).
 
+## Bairro e locais (`src/data/city.ts`, `src/city/`)
+
+- **`CITY_NEIGHBORHOOD` (`CityNeighborhoodDef`):**
+  - `id`, `name`, `halfX`, `halfZ`, `spawn { x, z, yaw }`, `crosswalk { minX, maxX, minZ, maxZ }` e `interactRadius`;
+  - `locations[]` (`CityLocationDef`): os 5 locais obrigatórios (`oficina`, `loja-pecas`, `ferro-velho`, `banco`, `lanchonete`), cada um com `building { x, z, width, depth, height }` (vira colisor em `cityColliders`) e `entrance { x, z, yaw }` (validado para nunca ficar dentro do colisor do prédio);
+  - `trafficLanes[]` e `pedestrians[]`: trânsito e pedestres mínimos e determinísticos (`stepCityWorld`);
+  - `snacks[]`: itens da Lanchonete da Tia Léa (`price` em centavos, `minutes` e `gossip`);
+  - `scrapRecoveryFactor` e `salvagePriceFactor`: fatores do Ferro-Velho do Tião (`scrapLotValue` e `dailySalvageOffers`).
+
 ## Missões e diálogos (`src/data/missions.ts`)
 
 Tipos em `src/missions/types.ts`; validação em `src/missions/validate.ts` (erro `DataValidationError` ao abrir o jogo).

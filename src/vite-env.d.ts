@@ -55,6 +55,18 @@ interface GameDiagnostics {
     lights: string[];
     cannotStart: string | null;
   };
+  city: null | {
+    active: boolean;
+    nearbyLocation: string | null;
+    visited: string[];
+    loadedLocations: string[];
+    trafficCount: number;
+    pedestrianCount: number;
+    trafficStopped: boolean;
+    loadMs: number;
+    fps: number;
+    memoryMb: number | null;
+  };
   canvas: { width: number; height: number; clientWidth: number; clientHeight: number };
 }
 
@@ -89,6 +101,12 @@ interface GameTestHooks {
   startTestDrive(): Promise<string>;
   /** Motivo de o test drive estar bloqueado (null = pode). */
   testDriveBlocked(): string | null;
+  /** Sai para o bairro (Prompt 14), carregando a cena sob demanda. */
+  enterNeighborhood(): Promise<boolean>;
+  /** Visita um dos 5 locais do bairro (ou volta à oficina se for 'oficina'). */
+  visitCityLocation(id: string): Promise<boolean>;
+  /** Volta imediatamente do bairro para a oficina. */
+  exitNeighborhood(): boolean;
 }
 
 interface Window {

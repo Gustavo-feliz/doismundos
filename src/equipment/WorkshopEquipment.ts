@@ -36,6 +36,8 @@ export interface EquipmentCallbacks {
   testDriveBlocked(): string | null;
   /** O jogador saiu pelo portão para o test drive. */
   onTestDrive(): void;
+  /** O jogador saiu para o bairro de São Cristóvão (Prompt 14). */
+  onExitToCity?(): void;
 }
 
 /**
@@ -226,6 +228,15 @@ export class WorkshopEquipment {
         evaluate: () => ({ status: 'available', action: E.computer.action, detail: E.computer.detail }),
         perform: () => {
           this.callbacks.onOpenComputer();
+          return '';
+        },
+      }),
+      createInteractable({
+        id: EQUIPMENT_IDS.neighborhood,
+        name: E.neighborhood.name,
+        evaluate: () => ({ status: 'available', action: E.neighborhood.action, detail: E.neighborhood.detail }),
+        perform: () => {
+          this.callbacks.onExitToCity?.();
           return '';
         },
       }),

@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| _(nenhuma no momento — pronto para iniciar o Prompt 14)_ | — | — | `main` | — |
+| _(nenhuma no momento — pronto para iniciar o Prompt 15)_ | — | — | `main` | — |
 
 ### Por que essa divisão
 
@@ -58,4 +58,5 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | Prompt 13: test drive (física própria, estado `driving`, pátio sob demanda, painel do carro) | Claude | ver `git log` |
 | Passe de arte e som (GDD §20, Direção Híbrida A+B) + destaque do tutorial (`setHighlight`) + som/ambiência no barramento (`Sfx.bindEvents`) + visuais dos 5 upgrades (`setUpgradeLevel`) | Gemini | `e4ede73`, `4a3c499` |
 | Carroceria 3D por categoria (`popular`, `hatch`, `sedan`, `suv`, `picape`, `van`) e dimensões por modelo (`VEHICLES`) escutando `vehicle:changed` | Gemini | `5f3e9b5` |
-| Prompt 13 (passe de arte e som): carroceria 3D por categoria e visual Híbrido A+B em `src/world/TestTrack.ts` + partida/ronco de motor em `src/audio/Sfx.ts` | Gemini | ver `git log` |
+| Prompt 13 (passe de arte e som): carroceria 3D por categoria e visual Híbrido A+B em `src/world/TestTrack.ts` + partida/ronco de motor em `src/audio/Sfx.ts` | Gemini | `11df490` |
+| Prompt 14: cidade e novos locais (bairro com oficina, loja de peças, ferro-velho, banco e lanchonete; mapa com marcadores; carregamento sob demanda; trânsito e pedestres controlados) | Gemini | ver `git log` |

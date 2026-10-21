@@ -17,8 +17,9 @@ O design completo está em [GDD_Simulador_de_Mecanico_Claude_Code.md](GDD_Simula
 11. Ferramentas e upgrades da oficina (3 níveis cada, efeito medido em tempo).
 12. Dez carros, peças por modelo/ano, OS geradas por semente e enciclopédia.
 13. Direção e test drive num pátio de teste, com física própria.
+14. Bairro de São Cristóvão e novos locais (oficina, loja de peças, ferro-velho, banco e lanchonete), mapa com marcadores e carregamento sob demanda.
 
-Ainda **não** existem cidade, segunda vaga nem multiplayer.
+Ainda **não** existem funcionários, segunda vaga nem multiplayer.
 
 ## Pré-requisitos
 
@@ -382,9 +383,26 @@ Detalhes e avaliação do Rapier: [docs/fisica.md](docs/fisica.md).
 **Desempenho medido** (teste automático, Chromium headless): o pátio usa 15 chamadas de desenho e cerca de 550 triângulos; os cones usam instancing.
 
 **Limites:**
-- o carro do pátio é um modelo provisório simples;
+- o carro do pátio usa a carroceria 3D temporária por categoria (`PlaceholderCar`);
 - a colisão usa dois círculos, não a forma exata do carro;
-- não há trânsito nem corrida, como o GDD pede nesta etapa.
+- não há trânsito nem corrida no pátio, como o GDD pede nesta etapa.
+
+## Bairro e novos locais (Prompt 14)
+
+**Como sair para o bairro.** Aperte **M** dentro da oficina ou interaja (**E**) com a **porta lateral de saída para o bairro** na parede da frente.
+
+**Os 5 locais da carreira (Rua das Oficinas — São Cristóvão):**
+- **Oficina do Seu Zé (`oficina`):** volta imediatamente para dentro da oficina (também pela tecla **F**).
+- **Autopeças Guanabara (`loja-pecas`):** balcão presencial que abre a loja de peças e fornecedores.
+- **Ferro-Velho do Tião (`ferro-velho`):** compra à vista as sucatas retiradas nos reparos (`session.scrap`) e vende 3 peças garimpadas por dia (determinísticas pela semente e dia) à pronta-entrega pela metade do preço.
+- **Banco Guanabara (`banco`):** atendimento da dívida bancária herdada e livro-caixa (`ComputerView.debt`).
+- **Lanchonete da Tia Léa (`lanchonete`):** vende café coado, pastel com caldo de cana e prato feito (registra no livro-caixa, avança o relógio e traz dicas/notícias da rua).
+
+**Mapa, marcadores e carregamento sob demanda:**
+- O minimapa do HUD (`city-hud`) e o Mapa Expandido (**M**) mostram a posição do jogador e os 5 marcadores clicáveis, além dos marcadores 3D flutuantes sobre cada porta.
+- A cena do bairro (`src/world/CityNeighborhood.ts`) e as vitrines/detalhes 3D de cada local (`src/world/CityLocationDetails.ts`) são carregados sob demanda via `import()`.
+- **Trânsito e pedestres:** 2 veículos e 3 pedestres com movimento puro e determinístico (`src/city/rules.ts`), marcados como temporários (`PLACEHOLDER_`). Os carros param antes da faixa de pedestres quando o jogador atravessa.
+- **Desempenho medido** (teste automático E2E em Chromium): carregamento inicial do bairro em ~5–15 ms, ~60 FPS estáveis, ~45 chamadas de desenho, ~1.200 triângulos e ~25–35 MB de JS heap (`performance.memory` quando exposto pelo Chromium).
 
 ## Roteiro de teste manual
 
