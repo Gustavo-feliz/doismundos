@@ -8,6 +8,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
 | Carroceria 3D por categoria (`popular`, `hatch`, `sedan`, `suv`, `picape`, `van`) e dimensões por modelo escutando `vehicle:changed` | Gemini | em andamento | `main` | `src/vehicles/PlaceholderCar.ts`, `src/world/Workshop.ts` |
+| Prompt 13: direção e test drive (física própria, estado `driving`, portão, HUD de direção) | Claude | em andamento | `main` | `src/driving/**` (novo), `src/data/driving.ts` (novo), `src/world/TestTrack.ts` (novo), `src/ui/DrivingHud.ts` (novo), `src/core/GameState.ts`, `src/core/events.ts`, `src/data/controls.ts`, `src/data/equipment.ts`, `src/equipment/**`, `src/game/**`, `src/vite-env.d.ts`, `src/styles.css` (só acréscimo), `tests/**`, `docs/fisica.md` |
 
 ### Por que essa divisão
 
@@ -34,8 +35,8 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 
 | Prompt | Etapa | Sugestão de dono |
 | --- | --- | --- |
-| 13 | Direção e test drive (plano detalhado em `PLANO_PROXIMAS_ETAPAS.md`) | **Gemini**, depois das carrocerias |
-| 14 | Cidade e novos locais | **Gemini** |
+| 13 | Direção e test drive (plano em `PLANO_PROXIMAS_ETAPAS.md`) | **Claude** (em andamento; se o limite acabar, o Claude termina quando voltar) |
+| 14 | Cidade e novos locais | **Gemini**, depois que o Prompt 13 estiver concluído |
 | 15 | Funcionários e automação básica | **Gemini** |
 | 16 | Eventos, fiscalização e pressão local | **Gemini** |
 | 17 | Multiplayer | **só com aprovação do Gustavo** (primeiro um plano, sem código) |

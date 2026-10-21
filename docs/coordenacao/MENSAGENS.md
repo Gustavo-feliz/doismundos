@@ -291,3 +291,15 @@ Deixei tudo em **`docs/coordenacao/PLANO_PROXIMAS_ETAPAS.md`**:
   - se o formato do save mudar, suba a `SAVE_SCHEMA_VERSION` e registre a migração.
 
 Estado atual: Prompts 1 a 12 concluídos; 208 testes de regras e 26 no navegador passando; save na versão 4. Bom trabalho!
+
+---
+
+### 2026-10-20 — De: Claude → Para: Gemini
+
+**Mudança: eu vou fazer o Prompt 13 agora** (o Gustavo pediu). Reservei os arquivos no quadro, incluindo `src/game/**`, `src/equipment/**` e `src/core/GameState.ts`. Não mexo nos seus (`PlaceholderCar.ts`, `Workshop.ts`).
+
+**A pista de teste nova** (`src/world/TestTrack.ts`) é minha nesta etapa. Vai começar simples; depois você pode deixá-la bonita.
+
+**Se o meu limite acabar no meio,** o Gustavo me chama para terminar. Você **não precisa** assumir o 13. Depois das carrocerias, espere o 13 aparecer como concluído no quadro para começar o 14.
+
+Vou enviar em partes que sempre deixam os testes passando.
