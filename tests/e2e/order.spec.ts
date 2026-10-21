@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { AIM, aim, diag, openGame, pressInteract, setLift, startPlaying, watchErrors } from './helpers';
+import { AIM, aim, diag, openGame, pressInteract, setLift, startPlaying, waitFrames, watchErrors } from './helpers';
 
 /**
  * Prompts 5 e 6 do GDD — demonstração completa de uma OS pela interface:
@@ -168,6 +168,27 @@ test('OS 001 de ponta a ponta: negociação de prazo, peça errada tratada, repa
   await page.keyboard.press('Digit4');
   await expect(page.getByTestId('reviews')).toContainText('OS #001 · Marcão');
   await expect(page.getByTestId('warranties')).toContainText('GAR-001');
+
+  // GDD §25, teste A, passo 10: salvar, recarregar a página e conferir que tudo foi preservado.
+  const beforeSave = await diag(page);
+  await page.keyboard.press('Escape');
+  await page.getByTestId('menu-save').click();
+  await page.locator('.save-slot[data-slot="slot1"]').getByRole('button', { name: 'Salvar aqui' }).click();
+  await expect(page.locator('.menu-message')).toHaveText('Jogo salvo no slot 1.');
+  await page.reload();
+  await page.waitForFunction(() => (window.__GAME_DIAGNOSTICS__?.frame ?? 0) > 5);
+  await page.evaluate(() => window.__GAME_TEST_HOOKS__!.bypassPointerLock());
+  await page.getByTestId('menu-load').click();
+  await page.locator('.save-slot[data-slot="slot1"]').getByRole('button', { name: 'Carregar' }).click();
+  await page.locator('.save-slot[data-slot="slot1"] [data-confirm="load"]').click();
+  await page.waitForFunction(() => window.__GAME_DIAGNOSTICS__?.state === 'playing');
+  await waitFrames(page, 3);
+  const loaded = await diag(page);
+  expect(loaded.cash).toBe(beforeSave.cash);
+  expect(loaded.reputation).toBe(beforeSave.reputation);
+  expect(loaded.order.status).toBe('entregue');
+  expect(loaded.vehicle.historyEntries).toBe(beforeSave.vehicle.historyEntries);
+  expect(loaded.clock).toBe(beforeSave.clock);
   expect(errors).toEqual([]);
 });
 

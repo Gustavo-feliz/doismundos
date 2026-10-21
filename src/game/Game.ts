@@ -726,6 +726,13 @@ export class Game {
 
   // --- Test drive (Prompt 13) ----------------------------------------------
 
+  /** Conteúdo carregado sob demanda falhou (rede, arquivo ausente): avisa e continua na oficina. */
+  private assetFailed(what: string, error: unknown): void {
+    console.warn(`[jogo] falha ao carregar ${what}`, error);
+    this.hud.notify(`Não foi possível carregar ${what}. Verifique a conexão e recarregue a página.`, 'blocked');
+    this.sfx.play('erro');
+  }
+
   /** Por que o test drive não pode começar (o portão já confere elevador e capô). */
   private testDriveBlocked(): string | null {
     if (!this.session.activeCase) return 'Nenhum carro no box';
@@ -744,6 +751,10 @@ export class Game {
         this.track = buildTestTrack(TEST_TRACK);
         this.track.root.visible = false;
         this.scene.add(this.track.root);
+      } catch (error) {
+        // GDD §25, teste B: asset que falha ao carregar não pode travar a oficina.
+        this.assetFailed('o pátio de teste', error);
+        return;
       } finally {
         this.trackLoading = false;
       }
@@ -890,12 +901,20 @@ export class Game {
         }
         const elapsed = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
         this.cityLoadMs = Math.max(1, Math.round(elapsed));
+      } catch (error) {
+        this.assetFailed('o bairro', error);
+        return false;
       } finally {
         this.cityLoading = false;
       }
     }
     if (!this.state.is('playing') || !this.city || !this.cityPlayer) return false;
-    await this.city.ensureLocationLoaded('oficina');
+    try {
+      await this.city.ensureLocationLoaded('oficina');
+    } catch (error) {
+      this.assetFailed('a rua da oficina', error);
+      return false;
+    }
     this.cityActive = true;
     this.cityVisited.add('oficina');
     this.cityWorld = initialCityWorldState(CITY_NEIGHBORHOOD);
@@ -966,7 +985,8 @@ export class Game {
     this.cityPlayer.teleport(loc.entrance.x, loc.entrance.z, loc.entrance.yaw, 0);
     this.cityPlayer.applyToCamera(this.camera);
     this.camera.updateMatrixWorld();
-    await this.city.ensureLocationLoaded(id);
+    // Os detalhes 3D do local são enfeite: se falharem, o local funciona do mesmo jeito.
+    await this.city.ensureLocationLoaded(id).catch((error: unknown) => this.assetFailed('os detalhes deste local', error));
     this.cityVisited.add(id);
     this.cityHud.updateHud({
       playerX: this.cityPlayer.position.x,
