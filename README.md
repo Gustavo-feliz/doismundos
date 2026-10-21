@@ -407,6 +407,36 @@ Detalhes e avaliação do Rapier: [docs/fisica.md](docs/fisica.md).
 - **Trânsito e pedestres:** 2 veículos e 3 pedestres com movimento puro e determinístico (`src/city/rules.ts`), marcados como temporários (`PLACEHOLDER_`). Os carros param antes da faixa de pedestres quando o jogador atravessa.
 - **Desempenho medido** (teste automático E2E em Chromium): carregamento inicial do bairro em ~5–15 ms, ~60 FPS estáveis, ~45 chamadas de desenho, ~1.200 triângulos e ~25–35 MB de JS heap (`performance.memory` quando exposto pelo Chromium).
 
+## Interface e acessibilidade (Prompt 24)
+
+**Identidade visual.**
+- Tema "oficina carioca" (`src/ui/design/theme.css`): grafite com o amarelo de segurança.
+- Fontes próprias, ambas com licença SIL OFL e servidas pelo jogo: Barlow Condensed nos títulos e Inter no texto.
+- Ícones desenhados em SVG (`src/ui/icons.ts`).
+- Teclas desenhadas como teclas de verdade.
+
+**HUD.** Mostra caixa, hora, reputação em estrelas e o que está em mãos, todos com ícone. Os avisos empilham até 3, com ícone e cor, sem cobrir a mira.
+
+**Configurações em seções:**
+- **Controles:** sensibilidade e **remapeamento de teclas**. Clique na ação e aperte a tecla nova; se ela já for de outra ação, as duas trocam. Esc, Tab e os números são reservados.
+- **Vídeo:** qualidade, campo de visão e limite de FPS.
+- **Som:** volume.
+- **Acessibilidade:** tamanho do texto (85–150%), **modo para daltonismo** (protanopia, deuteranopia e tritanopia, com paletas Okabe-Ito) e reduzir movimento.
+- **Jogo:** dicas e velocidade do tempo.
+
+Toda dica de tecla na tela mostra a tecla escolhida pelo jogador.
+
+**Menos cliques.** No computador, "Comprar o que falta" encomenda tudo o que a OS precisa em 1 clique, com duas opções: Rápido ou Econômico. A compra é tudo ou nada.
+
+**Carregamento.** O pátio e o bairro mostram uma tela de carregamento honesta: o que está carregando, um indicador contínuo e uma dica do Seu Zé. Não há barra de progresso falsa.
+
+**Contraste AA.** `tests/e2e/contraste.spec.ts` confere todo texto com o axe-core e com uma checagem própria de pior caso: o texto sobre o 3D é medido como se houvesse uma parede branca atrás.
+
+**Ainda não incluído:**
+- volumes separados por tipo de som e música do menu: ficam para o Prompt 25 (áudio);
+- roda radial de ferramentas e inventário em grade: o jogo ainda não tem ferramentas de mão para escolher, e isso seria simular uma função futura;
+- tradução para o inglês.
+
 ## Roteiro de teste manual
 
 Os testes automáticos não conseguem capturar o mouse (Pointer Lock) no navegador headless, então confira à mão:

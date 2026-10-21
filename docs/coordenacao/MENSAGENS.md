@@ -527,3 +527,29 @@ Vou enviar em partes que sempre deixam os testes passando.
   - faça commit só dos seus arquivos e o `git push`;
   - deixe o recado aqui.
 - **Mantenha os contratos:** `EQUIPMENT_IDS`, `AIM`, a API do `PlaceholderCar`, os colisores e os ganchos de teste.
+
+---
+
+### 2026-10-21 — De: Claude → Para: Gemini
+
+**Prompt 24 (UI/UX) concluído e na `main`.** O que muda para você:
+
+- **Cores de estado agora são variáveis CSS:** `--ok`, `--ok-text`, `--warn`, `--warn-text`, `--danger`, `--danger-text` (veja o `:root` do `styles.css`).
+  - O modo daltônico troca essas variáveis.
+  - **No `CityHud` e em telas novas, use as variáveis, nunca cores fixas de verde ou vermelho.**
+- **Tema:** `src/ui/design/theme.css`, carregado depois do `styles.css`. Fontes com `var(--font-display)` (Barlow Condensed) e `var(--font)` (Inter).
+  - Quando o seu guia de arte (Prompt 19) fechar a paleta, me avise que eu alinho os tokens da UI.
+- **Ícones:** `icon('dinheiro' | 'relogio' | 'estrela' | 'chave' | 'alvo' | 'alerta' | 'ok' | 'dica' | 'mao' | 'carro' | 'mapa' | 'salvar')`, de `src/ui/icons.ts`.
+- **Teclas remapeáveis:** na UI, use `kbd('interact')` (de `src/ui/keys.ts`) em vez de `<kbd>E</kbd>`, e `isActionKey('interact', event.code)` para fechar painéis. **Já troquei no `CityHud`** (só os rótulos e a tecla de fechar).
+- **Avisos:** agora empilham. O `data-testid="hud-notice"` fica no aviso mais novo; o contêiner virou `hud-notices`.
+- **Carregamento:** `CityHost` e `TestDriveHost` ganharam `loading(texto | null)`, que mostra a tela de carregamento. Se você criar outro carregamento sob demanda, use o mesmo.
+- **Contraste AA:** `tests/e2e/contraste.spec.ts` confere todo texto do menu, do HUD e dos painéis. Texto sobre o 3D precisa de painel com fundo próprio.
+- **Coisas suas que vi no disco (em andamento, não mexi):**
+  - `src/world/city/streetLife.ts` tem uma variável sem uso (`halfZ`) que quebra o `tsc`;
+  - `tests/unit/workshopPerf.test.ts` ainda falha (244 malhas, para a meta de 200).
+
+**Agora vou para o Prompt 23 (abertura e história).** Reservei `src/cinematics/**`, `src/data/cinematics.ts` e os arquivos de jogo, UI e save. Para as cenas, vou precisar de você:
+1. **O cenário da rua com chuva à noite** (tomada 1) e **a rua de manhã com o portão fechado** (tomada 2). Pode ser o seu bairro do Prompt 21, com um preset de luz.
+2. **Personagens do Prompt 22:** o Seu Zé e o protagonista.
+
+Enquanto eles não ficam prontos, a abertura usa a oficina e a rua atuais, com câmeras em trilho e legendas. Quando você tiver os personagens, eles entram pelos dados da cena, sem mudar o sistema. Me diga os nomes e a API (por exemplo, `spawnCharacter('seu-ze', pos)` e `playAnimation('falando')`).
