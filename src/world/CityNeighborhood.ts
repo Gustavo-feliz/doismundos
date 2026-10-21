@@ -3,13 +3,16 @@ import { cityColliders } from '../city/rules';
 import type { CityLocationDef, CityLocationId, CityNeighborhoodDef, CityWorldState } from '../city/types';
 import { tagInteractable } from '../interaction/resolveTarget';
 import { createInteractable, type Interactable } from '../interaction/types';
+import { asphaltRoadTexture, portugueseStoneTexture } from '../utils/canvasTextures';
+import { mergeStaticMeshes } from '../utils/mergeStatic';
+import { buildCariocaStreetAmbience } from './city/streetLife';
 import type { Box2D } from './collision';
 
 /**
- * Cena 3D do Bairro de São Cristóvão — Rua das Oficinas (GDD §7, Prompt 14).
+ * Cena 3D do Bairro de São Cristóvão — Rua das Oficinas (GDD §7, Prompts 14 e 21).
  * Carregada sob demanda (`import()`) na primeira saída para a rua.
- * Inclui os 5 locais da carreira, marcadores 3D, trânsito mínimo e pedestres
- * controlados marcados como assets temporários (`PLACEHOLDER_`).
+ * Inclui os 5 locais da carreira, calçada de pedra portuguesa, sobrados cariocas,
+ * marcadores 3D, trânsito, pedestres, cachorro caramelo, hora do dia e chuva.
  */
 export interface CityNeighborhood {
   root: THREE.Group;
@@ -19,15 +22,27 @@ export interface CityNeighborhood {
   createInteractables(onVisit: (id: CityLocationId) => void): Interactable[];
   ensureLocationLoaded(id: CityLocationId): Promise<void>;
   syncWorldState(state: CityWorldState, reduceMotion: boolean): void;
+  setTimeOfDay?(minuteOfDay: number): void;
+  setRain?(raining: boolean): void;
   dispose(): void;
 }
 
 /** Letreiro pintado em canvas para a fachada de cada estabelecimento. */
 function makeFacadeSignTexture(loc: CityLocationDef): THREE.CanvasTexture {
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+    const tex = new THREE.CanvasTexture({ width: 512, height: 128 } as unknown as HTMLCanvasElement);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 128;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
 
   ctx.fillStyle = loc.accentColor;
   ctx.fillRect(0, 0, 512, 128);
@@ -63,7 +78,8 @@ export function buildCityNeighborhood(def: CityNeighborhoodDef): CityNeighborhoo
   const geo = <T extends THREE.BufferGeometry>(g: T) => registerDisposable(g);
 
   // Iluminação carioca de fim de tarde (Direção Híbrida A+B)
-  root.add(new THREE.HemisphereLight(0xffedd5, 0x57534e, 1.55));
+  const hemi = new THREE.HemisphereLight(0xffedd5, 0x57534e, 1.55);
+  root.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff3d1, 2.05);
   sun.position.set(18, 28, 12);
   root.add(sun);
@@ -72,25 +88,31 @@ export function buildCityNeighborhood(def: CityNeighborhoodDef): CityNeighborhoo
   const width = halfX * 2;
   const depth = halfZ * 2;
 
-  // Base de calçada/quadra inteira
-  const sidewalkMat = mat({ color: 0xc8c2b6, roughness: 0.88 });
+  const roadAndSidewalkGroup = new THREE.Group();
+  roadAndSidewalkGroup.name = 'calcada_e_asfalto_estatico';
+  root.add(roadAndSidewalkGroup);
+
+  // Base de calçada de pedra portuguesa tradicional do Rio
+  const stoneTex = registerDisposable(portugueseStoneTexture(512, 163));
+  const sidewalkMat = mat({ map: stoneTex, color: 0xffffff, roughness: 0.84 });
   const ground = new THREE.Mesh(geo(new THREE.PlaneGeometry(width + 8, depth + 8)), sidewalkMat);
   ground.rotation.x = -Math.PI / 2;
-  root.add(ground);
+  roadAndSidewalkGroup.add(ground);
 
   // Leito de asfalto da Rua das Oficinas (z = -4.2 a +4.2)
-  const asphaltMat = mat({ color: 0x33363a, roughness: 0.85, metalness: 0.05 });
+  const roadTex = registerDisposable(asphaltRoadTexture(512, 149));
+  const asphaltMat = mat({ map: roadTex, color: 0xffffff, roughness: 0.85, metalness: 0.05 });
   const road = new THREE.Mesh(geo(new THREE.PlaneGeometry(width + 4, 8.4)), asphaltMat);
   road.rotation.x = -Math.PI / 2;
   road.position.y = 0.01;
-  root.add(road);
+  roadAndSidewalkGroup.add(road);
 
   // Meio-fio norte e sul
   const curbMat = mat({ color: 0x9ca3af, roughness: 0.8 });
   for (const cz of [-4.3, 4.3]) {
     const curb = new THREE.Mesh(geo(new THREE.BoxGeometry(width + 2, 0.16, 0.25)), curbMat);
     curb.position.set(0, 0.08, cz);
-    root.add(curb);
+    roadAndSidewalkGroup.add(curb);
   }
 
   // Faixa dupla amarela divisória e faixa de pedestres central
@@ -101,14 +123,16 @@ export function buildCityNeighborhood(def: CityNeighborhoodDef): CityNeighborhoo
     const dash = new THREE.Mesh(geo(new THREE.PlaneGeometry(2.2, 0.16)), yellowPaint);
     dash.rotation.x = -Math.PI / 2;
     dash.position.set(x, 0.02, 0);
-    root.add(dash);
+    roadAndSidewalkGroup.add(dash);
   }
   for (let z = -3.4; z <= 3.4; z += 0.85) {
     const zebra = new THREE.Mesh(geo(new THREE.PlaneGeometry(3.8, 0.42)), whitePaint);
     zebra.rotation.x = -Math.PI / 2;
     zebra.position.set(0, 0.022, z);
-    root.add(zebra);
+    roadAndSidewalkGroup.add(zebra);
   }
+  // Une todas as faixas da rua, meio-fios, calçada e asfalto por material (26 malhas -> 5 malhas)
+  mergeStaticMeshes(roadAndSidewalkGroup);
 
   // Prédios dos 5 locais necessários à carreira + portas interativas + marcadores 3D
   const raycastTargets: THREE.Object3D[] = [];
@@ -162,8 +186,10 @@ export function buildCityNeighborhood(def: CityNeighborhoodDef): CityNeighborhoo
     const matPad = new THREE.Mesh(geo(new THREE.BoxGeometry(2.2, 0.08, 1.6)), accentMat);
     matPad.position.set(loc.entrance.x, 0.04, loc.entrance.z);
     doorGroup.add(frame, glass, matPad);
+    mergeStaticMeshes(doorGroup);
     tagInteractable(doorGroup, `local:${loc.id}`);
     raycastTargets.push(doorGroup);
+    mergeStaticMeshes(locGroup);
     locGroup.add(doorGroup);
 
     // Marcador 3D flutuante acima da entrada (GDD Prompt 14: "Use marcadores no mapa e interações claras")
@@ -232,6 +258,7 @@ export function buildCityNeighborhood(def: CityNeighborhoodDef): CityNeighborhoo
       w.position.set(wx, 0.3, wz);
       carGroup.add(w);
     }
+    mergeStaticMeshes(carGroup);
 
     carGroup.position.set(lane.startX, 0, lane.z);
     trafficMeshes.set(lane.id, carGroup);
@@ -260,10 +287,14 @@ export function buildCityNeighborhood(def: CityNeighborhoodDef): CityNeighborhoo
     const head = new THREE.Mesh(headGeo, skinMat);
     head.position.y = 1.66;
     pedGroup.add(legs, torso, head);
+    mergeStaticMeshes(pedGroup);
     pedGroup.position.set(ped.startX, 0, ped.z);
     pedestrianMeshes.set(ped.id, pedGroup);
     root.add(pedGroup);
   }
+
+  // Ambiência viva de São Cristóvão (Prompt 21: sobrados, amendoeiras, fiação, cachorro caramelo, pombos, hora/clima)
+  const ambience = buildCariocaStreetAmbience(root, halfX, halfZ, sun, hemi, asphaltMat, registerDisposable);
 
   // Carregamento sob demanda (`import()`) dos detalhes 3D de cada local visitado
   const loadedLocations = new Set<CityLocationId>();
@@ -320,6 +351,7 @@ export function buildCityNeighborhood(def: CityNeighborhoodDef): CityNeighborhoo
         b.rotation.y = state.time * 1.2 + i * 0.5;
       }
     });
+    ambience.updateAnim(state.time, reduceMotion);
   }
 
   return {
@@ -330,6 +362,8 @@ export function buildCityNeighborhood(def: CityNeighborhoodDef): CityNeighborhoo
     createInteractables,
     ensureLocationLoaded,
     syncWorldState,
+    setTimeOfDay: ambience.setTimeOfDay,
+    setRain: ambience.setRain,
     dispose: () => {
       for (const d of disposables) d.dispose();
       poles.dispose();

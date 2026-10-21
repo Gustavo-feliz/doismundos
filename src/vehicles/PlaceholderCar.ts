@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import { plateTexture } from '../utils/canvasTextures';
+import { mergeStaticMeshes } from '../utils/mergeStatic';
+import { computeExteriorVisualWear, type ExteriorVisualWear, type ExteriorWearInput } from './models/exteriorWear';
 import type { VehicleCategory, VehicleDefinition } from './types';
 
 /**
- * MODELO TEMPORÁRIO de carro, montado por categoria (`popular`, `hatch`,
- * `sedan`, `suv`, `picape`, `van`) a partir das dimensões do catálogo.
- * Será trocado por GLB do Blender (GDD §21.1).
+ * Modelo 3D de carro por categoria (`popular`, `hatch`, `sedan`, `suv`,
+ * `picape`, `van`) a partir das dimensões do catálogo (Prompts 12 e 22).
+ * Inclui interior visível (painel, volante, bancos), cofre do motor legível,
+ * haste do capô e desgaste visual externo seguro.
  *
  * Eixos locais: comprimento em X (frente = +X), altura em Y, largura em Z.
  * O chão fica em y = 0.
@@ -22,6 +25,8 @@ export interface PlaceholderCar {
   setLook(look: CarAppearance): void;
   /** Reconstrói a carroceria 3D e dimensões quando muda o modelo/categoria do veículo. */
   setVehicle(def: VehicleDefinition, look: CarAppearance): void;
+  /** Aplica desgaste visual externo (poeira/verniz) sem expor estado de peças internas. */
+  setExteriorWear?(input: ExteriorWearInput | ExteriorVisualWear): void;
 }
 
 /** Aparência de um carro específico (vem do VehicleState, não do modelo). */
@@ -124,12 +129,20 @@ export function buildPlaceholderCar(initialDef: VehicleDefinition, initialLook: 
     }
   };
 
+  const setExteriorWear = (input: ExteriorWearInput | ExteriorVisualWear) => {
+    const wear = 'paintRoughness' in input ? input : computeExteriorVisualWear(input);
+    mats.paint.roughness = wear.paintRoughness;
+    mats.paint.clearcoatRoughness = wear.clearcoatRoughness;
+    mats.paint.needsUpdate = true;
+  };
+
   const result: PlaceholderCar = {
     group: car,
     hoodPivot,
     engineBay: bay,
     hoodClosedAngle: 0,
     setLook,
+    setExteriorWear,
     setVehicle(def: VehicleDefinition, look: CarAppearance) {
       setLook(look);
       if (def.id === currentModelId) return;
@@ -145,7 +158,15 @@ export function buildPlaceholderCar(initialDef: VehicleDefinition, initialLook: 
       car.userData.label = `${def.manufacturer} ${def.model} (modelo temporário)`;
       car.userData.category = def.category;
 
-      const slope = populateCarByCategory(car, bay, hoodPivot, def, mats);
+      const bodyGroup = new THREE.Group();
+      bodyGroup.name = 'carroceria_estatica';
+      const slope = populateCarByCategory(bodyGroup, bay, hoodPivot, def, mats);
+      // Une as malhas da carroceria, do cofre e do capô por material (~82 -> ~16 malhas)
+      mergeStaticMeshes(bodyGroup);
+      mergeStaticMeshes(bay);
+      mergeStaticMeshes(hoodPivot);
+      car.add(bodyGroup);
+
       result.hoodClosedAngle = slope;
       if (!bay.parent) car.add(bay);
       if (!hoodPivot.parent) car.add(hoodPivot);
@@ -538,10 +559,24 @@ function populateCarByCategory(
     }
   }
 
-  // Assoalho escuro para não ver "através" do carro por baixo.
+  // Assoalho escuro e interior visível (painel, volante e bancos — Prompt 22 Parte A).
   const floor = new THREE.Mesh(new THREE.BoxGeometry(d.length * 0.92, 0.05, d.width * 0.9), m.trim);
   floor.position.y = sill + 0.02;
   car.add(floor);
+
+  const dash = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, cabinDepth * 0.88), m.bayDark);
+  dash.position.set(hinge.x - 0.18, hinge.y - 0.08, 0);
+  const steeringWheel = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.02, 6, 14), m.trim);
+  steeringWheel.rotation.y = Math.PI / 2 - 0.35;
+  steeringWheel.position.set(hinge.x - 0.36, hinge.y - 0.02, -cabinDepth * 0.24);
+  car.add(dash, steeringWheel);
+  for (const side of [-1, 1]) {
+    const seatBase = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.42), m.bayDark);
+    seatBase.position.set(hinge.x - 0.65, sill + 0.24, side * (cabinDepth * 0.24));
+    const seatBack = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.46, 0.4), m.bayDark);
+    seatBack.position.set(hinge.x - 0.84, sill + 0.5, side * (cabinDepth * 0.24));
+    car.add(seatBase, seatBack);
+  }
 
   // --- Capô e compartimento do motor (Direção Híbrida A+B: peças legíveis + PBR) ---
   bay.position.set(hinge.x, hinge.y, 0);
@@ -625,7 +660,7 @@ function populateCarByCategory(
   brakeCap.position.set(hoodLen * 0.17, 0.085, bayWidth / 2 - 0.2);
   bay.add(reservoir, reservoirCap, brakeRes, brakeCap);
 
-  // Capô articulado
+  // Capô articulado + haste metálica de sustentação (Prompt 22)
   hoodPivot.position.set(hinge.x, hinge.y, 0);
   hoodPivot.rotation.z = slope;
   const hood = new THREE.Mesh(new THREE.BoxGeometry(hoodLen, 0.025, bayWidth + 0.06), m.paint);
@@ -634,7 +669,10 @@ function populateCarByCategory(
   hood.receiveShadow = true;
   const hoodLiner = new THREE.Mesh(new THREE.BoxGeometry(hoodLen * 0.78, 0.008, bayWidth * 0.82), m.bayDark);
   hoodLiner.position.set(hoodLen / 2, 0.06, 0);
-  hoodPivot.add(hood, hoodLiner);
+  const hoodPropRod = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, hoodLen * 0.55, 6), m.chrome);
+  hoodPropRod.rotation.z = Math.PI / 2;
+  hoodPropRod.position.set(hoodLen * 0.48, 0.048, bayWidth * 0.36);
+  hoodPivot.add(hood, hoodLiner, hoodPropRod);
 
   return slope;
 }

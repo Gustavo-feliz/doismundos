@@ -17,9 +17,15 @@ import {
   woodWorkbenchTexture,
 } from '../utils/canvasTextures';
 import { createSeededRandom, range } from '../utils/random';
+import { buildCharacter, createCastStage, type CastMemberSpec } from '../characters';
 import { EQUIPMENT_IDS } from '../data/equipment';
+import { lightingAtMinute } from '../data/lighting';
 import { tagInteractable } from '../interaction/resolveTarget';
+import { mergeStaticMeshes } from '../utils/mergeStatic';
+import { buildArtSandbox } from './ArtSandbox';
 import { boxFromCenter, type Box2D } from './collision';
+import { sharedMaterials } from './materials';
+import { addStaticArchitecturalDetails, buildDynamicWorkshopDetails } from './workshop/details';
 
 export type WorkshopUpgradeId =
   | 'iluminacao'
@@ -82,6 +88,10 @@ export interface WorkshopParts {
   setReduceMotion(reduceMotion: boolean): void;
   /** Atualiza o visual de um upgrade da oficina (nível 0 a 3). */
   setUpgradeLevel(upgradeId: WorkshopUpgradeId, level: WorkshopUpgradeLevel): void;
+  /** Ajusta a luz do dia entrando pelo portão conforme o minuto do relógio (0..1439). */
+  setTimeOfDay?(minuteOfDay: number): void;
+  /** Posiciona o elenco de personagens em cena (abertura/cutscenes) ou limpa com null. */
+  placeCast?(cast: readonly CastMemberSpec[] | null): void;
 }
 
 export interface Workshop {
@@ -99,6 +109,10 @@ export interface Workshop {
   setReduceMotion(reduceMotion: boolean): void;
   /** Atualiza o visual de um upgrade da oficina (nível 0 a 3). */
   setUpgradeLevel(upgradeId: WorkshopUpgradeId, level: WorkshopUpgradeLevel): void;
+  /** Ajusta a luz do dia entrando pelo portão conforme o minuto do relógio (0..1439). */
+  setTimeOfDay(minuteOfDay: number): void;
+  /** Posiciona o elenco de personagens em cena (abertura/cutscenes) ou limpa com null. */
+  placeCast(cast: readonly CastMemberSpec[] | null): void;
   /** Conecta o barramento de eventos (`tutorial:highlight`, `settings:changed`, `upgrade:changed`) à oficina. */
   bindEvents(bus: EventBus<GameEvents>): () => void;
 }
@@ -222,12 +236,19 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
   const carFootprint = boxFromCenter(bay1.x, bay1.z, dims.width, dims.length);
 
   // --- Box 2 (vazio, para expansão futura): macaco jacaré ---
-  root.add(buildJack(m, 3.6, 0.6, colliders));
+  const jackGroup = buildJack(m, 3.6, 0.6, colliders);
+  mergeStaticMeshes(jackGroup);
+  root.add(jackGroup);
 
   // --- Fundos: bancada, painel, armário, letreiro ---
   const bench = buildWorkbench(m, -4.1, -S.halfZ + 0.45, colliders);
+  const shellGroup = root.getObjectByName('estrutura') as THREE.Group;
+  addStaticArchitecturalDetails(shellGroup, bench.group, m, S.halfX, S.halfZ);
+  mergeStaticMeshes(shellGroup);
+  mergeStaticMeshes(bench.group);
   tagInteractable(bench.group, EQUIPMENT_IDS.benchLamp);
   root.add(bench.group);
+
   const cabinet = buildToolCabinet(m, 0.6, -S.halfZ + 0.33, colliders);
   tagInteractable(cabinet.group, EQUIPMENT_IDS.drawer);
   root.add(cabinet.group);
@@ -242,22 +263,48 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
   const shelves: THREE.Group[] = [];
   for (const z of [-4.6, -2.2]) {
     const shelf = buildShelf(m, S.halfX - 0.35, z, rng, colliders);
+    mergeStaticMeshes(shelf);
     tagInteractable(shelf, EQUIPMENT_IDS.stock);
     root.add(shelf);
     shelves.push(shelf);
   }
-  root.add(buildTireStack(m, 5.7, -7.9, 4, colliders));
-  root.add(buildTireStack(m, 6.35, -7.0, 3, colliders));
-
+  const propsStatic = placeholderGroup('pneus_e_tambores', 'Pneus e tambores de óleo');
+  propsStatic.add(buildTireStack(m, 5.7, -7.9, 4, colliders));
+  propsStatic.add(buildTireStack(m, 6.35, -7.0, 3, colliders));
   // --- Lateral esquerda: tambores de óleo ---
-  root.add(buildDrum(m, -S.halfX + 0.45, -2.6, colliders));
-  root.add(buildDrum(m, -S.halfX + 0.45, -3.3, colliders));
-  root.add(buildDrum(m, -S.halfX + 1.1, -2.95, colliders));
+  propsStatic.add(buildDrum(m, -S.halfX + 0.45, -2.6, colliders));
+  propsStatic.add(buildDrum(m, -S.halfX + 0.45, -3.3, colliders));
+  propsStatic.add(buildDrum(m, -S.halfX + 1.1, -2.95, colliders));
+  mergeStaticMeshes(propsStatic);
+  root.add(propsStatic);
 
   // --- Frente esquerda: escritório improvisado e interruptor ---
   root.add(buildOfficeCorner(m, -5.2, 6.8, colliders));
   root.add(buildLightSwitch(m, -(DOOR.halfWidth + 0.7), S.halfZ));
   root.add(buildNeighborhoodDoor(m, 4.6, S.halfZ));
+
+  // --- Detalhes Nível Steam (Prompt 20): compressor, prensa, coletor, ventilador e poeira ---
+  const steamDetails = buildDynamicWorkshopDetails(root, m, S.halfX, S.halfZ, S.height, colliders);
+  const fanObj = steamDetails.decorGroup.getObjectByName('ventilador_teto');
+  if (fanObj) steamDetails.decorGroup.remove(fanObj);
+  mergeStaticMeshes(steamDetails.decorGroup);
+  if (fanObj) steamDetails.decorGroup.add(fanObj);
+
+  // Seu Zé articulado na oficina ao lado da bancada + palco de elenco para cutscenes (Prompts 22 e 23)
+  const seuZe = buildCharacter('seu-ze');
+  seuZe.root.position.set(-5.65, 0, -7.55);
+  seuZe.root.rotation.y = 0.55;
+  disableRaycast(seuZe.root);
+  steamDetails.decorGroup.add(seuZe.root);
+  const castStage = createCastStage(root);
+
+  // --- Sandbox de arte (?arte na URL — Prompt 19) ---
+  const isArtSandboxMode =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('arte');
+  const artSandbox = isArtSandboxMode ? buildArtSandbox('alta', 17 * 60 + 15) : null;
+  if (artSandbox) {
+    root.add(artSandbox.root);
+  }
 
   // --- Iluminação ---
   const lighting = buildLighting(root, m, bay1);
@@ -265,11 +312,62 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
   // Jogador entra pelo portão olhando para dentro, com o carro à esquerda.
   const spawn: SpawnPoint = { x: 0.8, z: 6.6, yaw: 0.18 };
 
-  const raycastTargets = root.children.filter((child) => child.name !== 'PLACEHOLDER_rua' && child.name !== 'iluminacao');
+  const raycastTargets = root.children.filter(
+    (child) =>
+      child.name !== 'PLACEHOLDER_rua' &&
+      child.name !== 'iluminacao' &&
+      child.name !== 'particulas_feixe_sol' &&
+      child.name !== 'art_sandbox' &&
+      child.name !== 'elenco_personagens',
+  );
 
   // --- Destaque visual do tutorial e visuais de upgrades (fora do raycast) ---
   const highlight = buildHighlightSystem(root, car.group);
-  const upgrades = buildUpgradeVisuals(m, lift.group, bench.group, cabinet.group, shelves, lighting.hall);
+  const upgradeLevels = new Map<string, number>();
+  const rawUpgrades = buildUpgradeVisuals(m, lift.group, bench.group, cabinet.group, shelves, lighting.hall);
+  let currentReduceMotion = false;
+  const setUpgradeLevel = (upgradeId: WorkshopUpgradeId, level: WorkshopUpgradeLevel) => {
+    rawUpgrades.setUpgradeLevel(upgradeId, level);
+    upgradeLevels.set(upgradeId, Math.max(0, Math.min(3, Math.floor(level))));
+    let total = 0;
+    for (const lv of upgradeLevels.values()) total += lv;
+    steamDetails.setTotalUpgradeProgress(total);
+  };
+  const setReduceMotion = (reduceMotion: boolean) => {
+    currentReduceMotion = reduceMotion;
+    highlight.setReduceMotion(reduceMotion);
+    steamDetails.setReduceMotion(reduceMotion);
+    seuZe.update(0, reduceMotion);
+  };
+  const setHighlightWithSeuZe = (targetId: string | null, reduceMotion?: boolean) => {
+    highlight.setHighlight(targetId, reduceMotion);
+    const anchor = targetId ? HIGHLIGHT_ANCHORS[targetId] : null;
+    if (anchor) {
+      const dx = anchor.x - seuZe.root.position.x;
+      const dz = anchor.z - seuZe.root.position.z;
+      seuZe.root.rotation.y = Math.atan2(dx, dz);
+      seuZe.setAnimation('pointing');
+    } else {
+      seuZe.root.rotation.y = 0.55;
+      seuZe.setAnimation('idle');
+    }
+    seuZe.update(0, currentReduceMotion);
+  };
+  const placeCast = (cast: readonly CastMemberSpec[] | null) => {
+    castStage.placeCast(cast);
+    // Esconde o Seu Zé fixo da bancada enquanto o elenco de cutscene estiver ativo
+    seuZe.root.visible = !cast || cast.length === 0;
+  };
+  const setTimeOfDay = (minuteOfDay: number) => {
+    const preset = lightingAtMinute(minuteOfDay);
+    lighting.sun.color.setHex(preset.sunColor);
+    lighting.sun.intensity = preset.sunIntensity;
+    lighting.sun.position.set(preset.sunPosition[0], preset.sunPosition[1], preset.sunPosition[2]);
+    lighting.hemi.color.setHex(preset.skyColor);
+    lighting.hemi.groundColor.setHex(preset.groundColor);
+    steamDetails.sunDustPoints.visible = steamDetails.sunDustPoints.visible && !preset.streetLightsOn;
+    artSandbox?.setMinuteOfDay(minuteOfDay);
+  };
 
   const parts: WorkshopParts = {
     liftCarriage: lift.carriage,
@@ -283,9 +381,11 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
     benchLamp: bench.lamp,
     hallLights: lighting.hall,
     setCarLook: car.setLook,
-    setHighlight: highlight.setHighlight,
-    setReduceMotion: highlight.setReduceMotion,
-    setUpgradeLevel: upgrades.setUpgradeLevel,
+    setHighlight: setHighlightWithSeuZe,
+    setReduceMotion,
+    setUpgradeLevel,
+    setTimeOfDay,
+    placeCast,
   };
 
   return {
@@ -295,6 +395,10 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
     raycastTargets,
     parts,
     setShadowQuality(enabled: boolean, mapSize: number) {
+      const tier = !enabled ? 'baixa' : mapSize >= 2048 ? 'alta' : 'media';
+      sharedMaterials.setQuality(tier);
+      steamDetails.setQualityTier(tier);
+      artSandbox?.setQuality(tier);
       for (const light of lighting.shadowLights) {
         light.castShadow = enabled;
         if (light.shadow.mapSize.x !== mapSize) {
@@ -304,18 +408,30 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
         }
       }
     },
-    setHighlight: highlight.setHighlight,
-    setReduceMotion: highlight.setReduceMotion,
-    setUpgradeLevel: upgrades.setUpgradeLevel,
+    setHighlight: setHighlightWithSeuZe,
+    setReduceMotion,
+    setUpgradeLevel,
+    setTimeOfDay,
+    placeCast,
     bindEvents(bus: EventBus<GameEvents>): () => void {
       const offHighlight = bus.on('tutorial:highlight', ({ targetId }) => {
-        highlight.setHighlight(targetId);
+        setHighlightWithSeuZe(targetId);
+      });
+      const offDialogue = bus.on('dialogue:line', ({ speaker }) => {
+        if (speaker === 'seu-ze') {
+          seuZe.setAnimation('talking');
+          seuZe.update(0, currentReduceMotion);
+        }
       });
       const offSettings = bus.on('settings:changed', ({ settings }) => {
-        highlight.setReduceMotion(settings.reduceMotion);
+        setReduceMotion(settings.reduceMotion);
+        const q = settings.quality === 'baixa' || settings.quality === 'media' || settings.quality === 'alta' ? settings.quality : 'alta';
+        sharedMaterials.setQuality(q);
+        steamDetails.setQualityTier(q);
+        artSandbox?.setQuality(q);
       });
       const offUpgrade = bus.on('upgrade:changed', ({ upgradeId, level }) => {
-        upgrades.setUpgradeLevel(upgradeId, level);
+        setUpgradeLevel(upgradeId, level);
       });
       const offVehicle = bus.on('vehicle:changed', ({ modelId, category, color, plate }) => {
         const def =
@@ -329,6 +445,7 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       });
       return () => {
         offHighlight();
+        offDialogue();
         offSettings();
         offUpgrade();
         offVehicle();
@@ -351,27 +468,23 @@ function buildShell(root: THREE.Group, m: Mats, colliders: Box2D[]): void {
   floor.receiveShadow = true;
   shell.add(floor);
 
-  // Paredes: textura repetida a cada ~4 m na horizontal.
-  const wallMat = (length: number) => {
-    const mat = m.wall.clone();
-    const tex = m.wall.map!.clone();
-    tex.repeat.set(length / 4, 1);
-    tex.needsUpdate = true;
-    mat.map = tex;
-    return mat;
-  };
+  // Paredes: material compartilhado único para permitir união com mergeStaticMeshes.
+  if (m.wall.map) {
+    m.wall.map.repeat.set(3.5, 1);
+    m.wall.map.needsUpdate = true;
+  }
   const sideLen = S.halfZ * 2 + WALL_T * 2;
   const backLen = S.halfX * 2;
-  box(shell, wallMat(sideLen), WALL_T, S.height, sideLen, -S.halfX - WALL_T / 2, 0, 0);
-  box(shell, wallMat(sideLen), WALL_T, S.height, sideLen, S.halfX + WALL_T / 2, 0, 0);
-  box(shell, wallMat(backLen), backLen, S.height, WALL_T, 0, 0, -S.halfZ - WALL_T / 2);
+  box(shell, m.wall, WALL_T, S.height, sideLen, -S.halfX - WALL_T / 2, 0, 0);
+  box(shell, m.wall, WALL_T, S.height, sideLen, S.halfX + WALL_T / 2, 0, 0);
+  box(shell, m.wall, backLen, S.height, WALL_T, 0, 0, -S.halfZ - WALL_T / 2);
 
   // Frente com o vão do portão.
   const sideW = S.halfX - DOOR.halfWidth;
   const frontZ = S.halfZ + WALL_T / 2;
-  box(shell, wallMat(sideW), sideW, S.height, WALL_T, -(DOOR.halfWidth + sideW / 2), 0, frontZ);
-  box(shell, wallMat(sideW), sideW, S.height, WALL_T, DOOR.halfWidth + sideW / 2, 0, frontZ);
-  box(shell, wallMat(DOOR.halfWidth * 2), DOOR.halfWidth * 2, S.height - DOOR.height, WALL_T, 0, DOOR.height, frontZ);
+  box(shell, m.wall, sideW, S.height, WALL_T, -(DOOR.halfWidth + sideW / 2), 0, frontZ);
+  box(shell, m.wall, sideW, S.height, WALL_T, DOOR.halfWidth + sideW / 2, 0, frontZ);
+  box(shell, m.wall, DOOR.halfWidth * 2, S.height - DOOR.height, WALL_T, 0, DOOR.height, frontZ);
 
   // Teto e vigas.
   box(shell, m.ceiling, S.halfX * 2 + WALL_T * 2, 0.2, S.halfZ * 2 + WALL_T * 2, 0, S.height, 0);
@@ -441,6 +554,7 @@ function buildShell(root: THREE.Group, m: Mats, colliders: Box2D[]): void {
     stripe.position.set(i * 0.22, 0.9, S.halfZ - 0.15);
     chain.add(stripe);
   }
+  mergeStaticMeshes(chain);
   tagInteractable(chain, EQUIPMENT_IDS.gate);
   root.add(chain);
 
@@ -526,6 +640,7 @@ function buildOutside(root: THREE.Group, m: Mats): void {
     x += w;
     i++;
   }
+  mergeStaticMeshes(outside);
 }
 
 function buildBayMarkings(root: THREE.Group, m: Mats): void {
@@ -542,6 +657,7 @@ function buildBayMarkings(root: THREE.Group, m: Mats): void {
     box(marks, m.yellowPaint, line, 0.004, d, cx + w / 2, 0.001, cz, { receive: true });
     box(marks, m.yellowPaint, w + line, 0.004, line, cx, 0.001, cz - d / 2, { receive: true });
   }
+  mergeStaticMeshes(marks);
 }
 
 function buildLift(m: Mats, x: number, z: number, colliders: Box2D[]): { group: THREE.Group; carriage: THREE.Group } {
@@ -549,7 +665,6 @@ function buildLift(m: Mats, x: number, z: number, colliders: Box2D[]): { group: 
   // Parte móvel: sobe junto com o carro.
   const carriage = new THREE.Group();
   carriage.name = 'elevador_parte_movel';
-  lift.add(carriage);
   const postOffset = 1.75;
   const postH = 3.9;
   for (const side of [-1, 1]) {
@@ -582,6 +697,9 @@ function buildLift(m: Mats, x: number, z: number, colliders: Box2D[]): { group: 
     button.position.set(motorX, 1.24 + dy, z + 0.215);
     lift.add(button);
   }
+  mergeStaticMeshes(lift);
+  mergeStaticMeshes(carriage);
+  lift.add(carriage);
   return { group: lift, carriage };
 }
 
@@ -697,7 +815,6 @@ function buildToolCabinet(m: Mats, x: number, z: number, colliders: Box2D[]): { 
   for (let i = 0; i < 6; i++) {
     box(drawer, m.chrome, 0.035, 0.018, trayD * (0.55 + i * 0.06), x - 0.45 + i * 0.18, dy - 0.058, trayZ, { cast: false, receive: true });
   }
-  cab.add(drawer);
 
   for (const dx of [-w / 2 + 0.1, w / 2 - 0.1]) {
     for (const dz of [-d / 2 + 0.08, d / 2 - 0.08]) {
@@ -707,6 +824,9 @@ function buildToolCabinet(m: Mats, x: number, z: number, colliders: Box2D[]): { 
       cab.add(caster);
     }
   }
+  mergeStaticMeshes(cab);
+  mergeStaticMeshes(drawer);
+  cab.add(drawer);
   colliders.push(boxFromCenter(x, z, w + 0.05, d + 0.05));
   const drawerCollider: Box2D = { minX: x - w / 2, maxX: x + w / 2, minZ: z, maxZ: chestFront + 0.4, disabled: true };
   colliders.push(drawerCollider);
@@ -797,8 +917,8 @@ function buildOfficeCorner(m: Mats, x: number, z: number, colliders: Box2D[]): T
   screen.rotation.y = Math.PI;
   pc.add(screen);
   box(pc, m.beige, 0.4, 0.025, 0.14, x - 0.2, 0.79, z - 0.25);
+  mergeStaticMeshes(pc);
   tagInteractable(pc, EQUIPMENT_IDS.computer);
-  office.add(pc);
   // Prancheta de ordens de serviço sobre a mesa
   box(office, m.cardboard, 0.24, 0.012, 0.32, x + 0.36, 0.79, z - 0.12, { cast: false, receive: true });
   box(office, m.beige, 0.21, 0.006, 0.27, x + 0.36, 0.802, z - 0.13, { cast: false, receive: true });
@@ -809,6 +929,8 @@ function buildOfficeCorner(m: Mats, x: number, z: number, colliders: Box2D[]): T
   box(office, m.darkSteel, 0.05, 0.45, 0.05, x - 0.2, 0, z - 0.75);
   // Arquivo de metal
   box(office, m.steel, 0.5, 1.3, 0.6, x + 1.25, 0, z + 0.05);
+  mergeStaticMeshes(office);
+  office.add(pc);
   colliders.push(boxFromCenter(x, z, 1.7, 0.85), boxFromCenter(x - 0.2, z - 0.8, 0.55, 0.55), boxFromCenter(x + 1.25, z + 0.05, 0.55, 0.65));
   return office;
 }
@@ -820,6 +942,7 @@ function buildLightSwitch(m: Mats, x: number, wallZ: number): THREE.Group {
   box(sw, m.blackPaint, 0.05, 0.08, 0.025, x, 1.25, wallZ - 0.04, { cast: false, receive: false });
   // Conduíte subindo até o teto.
   box(sw, m.darkSteel, 0.03, 3.6, 0.03, x, 1.4, wallZ - 0.02, { cast: false, receive: false });
+  mergeStaticMeshes(sw);
   tagInteractable(sw, EQUIPMENT_IDS.lightSwitch);
   return sw;
 }
@@ -833,6 +956,7 @@ function buildNeighborhoodDoor(m: Mats, x: number, wallZ: number): THREE.Group {
   // Visor superior e maçaneta cromada
   box(door, m.windowGlow, 0.56, 0.48, 0.02, x, 1.42, wallZ - 0.068, { cast: false, receive: false });
   box(door, m.chrome, 0.12, 0.03, 0.04, x - 0.34, 1.02, wallZ - 0.075, { cast: false, receive: false });
+  mergeStaticMeshes(door);
   tagInteractable(door, EQUIPMENT_IDS.neighborhood);
   return door;
 }
@@ -841,7 +965,12 @@ function buildLighting(
   root: THREE.Group,
   m: Mats,
   bay: { x: number; z: number },
-): { shadowLights: Array<THREE.DirectionalLight | THREE.SpotLight>; hall: HallLights } {
+): {
+  shadowLights: Array<THREE.DirectionalLight | THREE.SpotLight>;
+  hall: HallLights;
+  sun: THREE.DirectionalLight;
+  hemi: THREE.HemisphereLight;
+} {
   const S = WORKSHOP_SIZE;
   const lights = new THREE.Group();
   lights.name = 'iluminacao';
@@ -898,9 +1027,13 @@ function buildLighting(
       box(lights, m.darkSteel, 0.01, 0.3, 0.01, x + 0.5, S.height - 0.54, z, { cast: false, receive: false });
     }
   }
+  // Une as 45 malhas das 9 luminárias em apenas 3 malhas por material (fixture, tube, darkSteel).
+  mergeStaticMeshes(lights);
 
   return {
     shadowLights: [sun, bayLight],
+    sun,
+    hemi,
     hall: {
       entries: [
         ...hallLights.map((light) => ({ light, on: light.intensity, off: 0 })),

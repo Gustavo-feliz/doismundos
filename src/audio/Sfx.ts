@@ -1,20 +1,24 @@
 import type { EventBus } from '../core/EventBus';
 import type { GameEvents, SpeakerId } from '../core/events';
+import { AudioMixer, type AudioBusId } from './AudioMixer';
+import {
+  buildEngineConditionTones,
+  buildVariedFoleyTones,
+  type EngineSoundCondition,
+  type FoleyActionId,
+  type SynthToneSpec,
+} from './FoleyLibrary';
+import { MUSIC_CUES, type MusicCueId } from './MusicEngine';
 
 /**
- * Síntese sonora procedural via Web Audio API (GDD §20.1).
- * Sem arquivos externos pesados nem risco de licença.
+ * Síntese sonora procedural via Web Audio API (GDD §20.1 e Prompt 25).
+ * Inclui mixer multi-barramento (`master`, `music`, `sfx`, `voice`, `ambient`, `ui`)
+ * com limiter, ducking automático em diálogos, foley com variação de pitch e
+ * assinatura sonora do motor por condição mecânica.
  */
 export type SfxName = 'ok' | 'erro' | 'ferramenta' | 'pegar' | 'concluido';
 
-type Tone = {
-  freq: number;
-  at: number;
-  dur: number;
-  type: OscillatorType;
-  gain: number;
-  slideTo?: number;
-};
+type Tone = SynthToneSpec;
 
 const SOUNDS: Readonly<Record<SfxName, readonly Tone[]>> = {
   ok: [
@@ -101,45 +105,95 @@ export class Sfx {
   private ambientOsc: OscillatorNode | null = null;
   private inPlayingState = false;
   private inDrivingState = false;
+  private foleyCounter = 0;
+  private hasImpactWrench = false;
+  readonly mixer = new AudioMixer();
 
   /** 0–1 */
   setVolume(volume: number): void {
     this.volume = Math.min(1, Math.max(0, volume));
+    this.mixer.setBusVolume('sfx', this.volume);
+    this.mixer.setBusVolume('ui', this.volume);
+    this.mixer.setBusVolume('voice', this.volume);
+    this.mixer.setBusVolume('ambient', this.volume * 0.75);
+    this.syncAmbientGain();
+  }
+
+  setBusVolume(bus: AudioBusId, volume: number): void {
+    this.mixer.setBusVolume(bus, volume);
+    if (bus === 'sfx') this.volume = this.mixer.getBusVolume('sfx');
     this.syncAmbientGain();
   }
 
   /**
    * Conecta os eventos do barramento (`dialogue:line`, `mission:step`,
    * `mission:completed`, `upgrade:changed`, `state:changed` e `settings:changed`)
-   * aos efeitos sonoros e ambiência da oficina.
+   * aos efeitos sonoros, ducking de música e ambiência da oficina.
    * Retorna função de limpeza para remover os ouvintes.
    */
   bindEvents(bus: EventBus<GameEvents>): () => void {
     const offDialogue = bus.on('dialogue:line', ({ speaker }) => {
-      this.playTones(DIALOGUE_CUES[speaker] ?? DIALOGUE_CUES.narrador);
+      this.mixer.triggerDialogueDucking(1800);
+      this.playTones(DIALOGUE_CUES[speaker] ?? DIALOGUE_CUES.narrador, 'voice');
     });
     const offStep = bus.on('mission:step', ({ status }) => {
-      this.playTones(status === 'concluido' ? STEP_COMPLETED_TONES : STEP_STARTED_TONES);
+      this.playTones(status === 'concluido' ? STEP_COMPLETED_TONES : STEP_STARTED_TONES, 'ui');
     });
     const offMission = bus.on('mission:completed', () => {
       const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
       if (nowMs - this.lastConcluidoAt < 100) {
         // `Game.ts` já tocou 'concluido' no mesmo quadro: acrescenta só o harmônico agudo.
-        this.playTones(MISSION_HARMONIC_TAIL);
+        this.playTones(MISSION_HARMONIC_TAIL, 'ui');
       } else {
         this.play('concluido');
       }
     });
-    const offUpgrade = (bus as EventBus<UpgradeAudioEvents>).on('upgrade:changed', ({ level }) => {
-      if (level > 0) this.playTones(UPGRADE_CHIME);
+    const offUpgrade = (bus as EventBus<UpgradeAudioEvents>).on('upgrade:changed', ({ upgradeId, level }) => {
+      if (upgradeId === 'chave-impacto') this.hasImpactWrench = level > 0;
+      if (level > 0) this.playTones(UPGRADE_CHIME, 'ui');
+    });
+    const offAction = bus.on('feedback:action', ({ kind }) => {
+      switch (kind) {
+        case 'remover':
+        case 'instalar':
+          this.playFoley(this.hasImpactWrench ? 'chave-impacto' : 'catraca');
+          break;
+        case 'exame':
+          this.playFoley('scanner-bip');
+          break;
+        case 'compra':
+          this.playFoley('caixa-registradora');
+          break;
+        case 'entrega':
+          this.playMusicCue('entrega');
+          break;
+        case 'erro':
+          this.play('erro');
+          break;
+      }
+    });
+    const offReward = bus.on('feedback:reward', ({ kind, amount }) => {
+      if (kind === 'pagamento') {
+        this.playFoley('caixa-registradora');
+      } else if (kind === 'missao') {
+        this.playFoley('carimbo-os');
+      } else if (kind === 'reputacao') {
+        if ((amount ?? 0) >= 0) {
+          this.playTones(STEP_COMPLETED_TONES, 'ui');
+        } else {
+          this.playTones(SOUNDS.erro, 'ui');
+        }
+      }
     });
     const offState = bus.on('state:changed', ({ from, to }) => {
       this.inPlayingState = to === 'playing';
       this.inDrivingState = to === 'driving';
       if (to === 'driving' && from !== 'paused') {
-        this.playTones(DRIVE_START_TONES);
+        this.playTones(DRIVE_START_TONES, 'sfx');
       } else if (from === 'driving' && to === 'playing') {
-        this.playTones(DRIVE_END_TONES);
+        this.playTones(DRIVE_END_TONES, 'sfx');
+      } else if (to === 'menu') {
+        this.playMusicCue('menu');
       }
       this.syncAmbientGain();
     });
@@ -151,6 +205,8 @@ export class Sfx {
       offStep();
       offMission();
       offUpgrade();
+      offAction();
+      offReward();
       offState();
       offSettings();
     };
@@ -160,17 +216,44 @@ export class Sfx {
     if (name === 'concluido') {
       this.lastConcluidoAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
     }
-    this.playTones(SOUNDS[name]);
+    if (name === 'ferramenta') {
+      this.playFoley('catraca');
+      return;
+    }
+    const bus: AudioBusId = name === 'ok' || name === 'erro' || name === 'concluido' ? 'ui' : 'sfx';
+    this.playTones(SOUNDS[name], bus);
   }
 
-  private playTones(tones: readonly Tone[]): void {
+  /** Toca um efeito de foley mecânico com variação de pitch para nunca soar repetitivo. */
+  playFoley(action: FoleyActionId): Tone[] {
+    const tones = buildVariedFoleyTones(action, this.foleyCounter++);
+    this.playTones(tones, 'sfx');
+    return tones;
+  }
+
+  /** Toca o som do motor modulado pelo estado mecânico real (ex.: falha de ignição, correia chiando). */
+  playEngineCondition(condition: EngineSoundCondition): Tone[] {
+    const tones = buildEngineConditionTones(condition);
+    this.playTones(tones, 'sfx');
+    return tones;
+  }
+
+  /** Toca um motivo musical original no barramento `music` (sujeito a ducking nos diálogos). */
+  playMusicCue(cue: MusicCueId): Tone[] {
+    const tones = [...MUSIC_CUES[cue]];
+    this.playTones(tones, 'music');
+    return tones;
+  }
+
+  private playTones(tones: readonly Tone[], bus: AudioBusId = 'sfx'): void {
     if (this.volume <= 0 || tones.length === 0) return;
     const ctx = this.context();
     if (!ctx) return;
     const now = ctx.currentTime;
-    const master = ctx.createGain();
-    master.gain.value = this.volume * 0.35;
-    master.connect(ctx.destination);
+    const busNode = this.mixer.getBusNode(ctx, bus);
+    const out = ctx.createGain();
+    out.gain.value = busNode ? 1.0 : this.volume * 0.35;
+    out.connect(busNode ?? ctx.destination);
     for (const t of tones) {
       const osc = ctx.createOscillator();
       const env = ctx.createGain();
@@ -180,7 +263,7 @@ export class Sfx {
       env.gain.setValueAtTime(0, now + t.at);
       env.gain.linearRampToValueAtTime(t.gain, now + t.at + 0.01);
       env.gain.exponentialRampToValueAtTime(0.001, now + t.at + t.dur);
-      osc.connect(env).connect(master);
+      osc.connect(env).connect(out);
       osc.start(now + t.at);
       osc.stop(now + t.at + t.dur + 0.02);
     }
@@ -237,7 +320,8 @@ export class Sfx {
       return this.ctx;
     }
     try {
-      const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const w = typeof window !== 'undefined' ? window : undefined;
+      const Ctor = w ? (w.AudioContext ?? (w as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) : undefined;
       this.ctx = Ctor ? new Ctor() : null;
     } catch {
       this.ctx = null; // sem áudio: o jogo segue em silêncio

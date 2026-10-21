@@ -7,12 +7,52 @@ import { createSeededRandom, range, type Rng } from './random';
  * definida (GDD §20.2). Determinísticas por causa da semente.
  */
 
+function createHeadlessCanvas(width: number, height: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+  const noop = () => {};
+  const grad = { addColorStop: noop };
+  const ctx = {
+    fillStyle: '#000000',
+    strokeStyle: '#000000',
+    lineWidth: 1,
+    font: '12px sans-serif',
+    textAlign: 'left',
+    textBaseline: 'alphabetic',
+    fillRect: noop,
+    strokeRect: noop,
+    clearRect: noop,
+    beginPath: noop,
+    closePath: noop,
+    moveTo: noop,
+    lineTo: noop,
+    arc: noop,
+    ellipse: noop,
+    rect: noop,
+    roundRect: noop,
+    fill: noop,
+    stroke: noop,
+    clip: noop,
+    save: noop,
+    restore: noop,
+    translate: noop,
+    rotate: noop,
+    scale: noop,
+    fillText: noop,
+    createLinearGradient: () => grad,
+    createRadialGradient: () => grad,
+  } as unknown as CanvasRenderingContext2D;
+  const canvas = { width, height, getContext: () => ctx } as unknown as HTMLCanvasElement;
+  return [canvas, ctx];
+}
+
 function makeCanvas(width: number, height: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+    return createHeadlessCanvas(width, height);
+  }
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D indisponível para gerar texturas.');
+  if (!ctx) return createHeadlessCanvas(width, height);
   return [canvas, ctx];
 }
 
@@ -450,3 +490,78 @@ export function plateTexture(text: string): THREE.CanvasTexture {
   ctx.fillText(text, 256, 104);
   return toTexture(canvas);
 }
+
+/** Azulejo de meia-parede da oficina / lanchonete com rejunte escuro e sinais de uso. */
+export function tileWallTexture(baseHex = '#2b5852', groutHex = '#19322f', size = 512, seed = 131): THREE.CanvasTexture {
+  const [canvas, ctx] = makeCanvas(size, size);
+  const rng = createSeededRandom(seed);
+  ctx.fillStyle = baseHex;
+  ctx.fillRect(0, 0, size, size);
+  const step = Math.max(32, Math.floor(size / 8));
+  ctx.strokeStyle = groutHex;
+  ctx.lineWidth = Math.max(2, Math.floor(size / 170));
+  for (let i = 0; i <= size; i += step) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, size);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(size, i);
+    ctx.stroke();
+  }
+  blotches(ctx, rng, size, size, 24, '20,30,28', 0.16, 12, 64);
+  speckle(ctx, rng, size, size, 3000, 0.06);
+  return toTexture(canvas, { repeat: [4, 2] });
+}
+
+/** Asfalto urbano carioca com granulação mineral e remendos sutis. */
+export function asphaltRoadTexture(size = 512, seed = 149): THREE.CanvasTexture {
+  const [canvas, ctx] = makeCanvas(size, size);
+  const rng = createSeededRandom(seed);
+  ctx.fillStyle = '#33363a';
+  ctx.fillRect(0, 0, size, size);
+  blotches(ctx, rng, size, size, 36, '24,26,29', 0.25, 20, 95);
+  blotches(ctx, rng, size, size, 18, '72,76,82', 0.14, 16, 70);
+  speckle(ctx, rng, size, size, 14_000, 0.11);
+  return toTexture(canvas, { repeat: [6, 6] });
+}
+
+/** Calçada tradicional de pedra portuguesa do Rio de Janeiro (mosaico claro/escuro). */
+export function portugueseStoneTexture(size = 512, seed = 163): THREE.CanvasTexture {
+  const [canvas, ctx] = makeCanvas(size, size);
+  const rng = createSeededRandom(seed);
+  ctx.fillStyle = '#bfb8a8';
+  ctx.fillRect(0, 0, size, size);
+  const cell = Math.max(16, Math.floor(size / 16));
+  ctx.strokeStyle = 'rgba(55,52,46,0.42)';
+  ctx.lineWidth = 2;
+  for (let y = 0; y < size; y += cell) {
+    for (let x = 0; x < size; x += cell) {
+      const jitter = range(rng, -8, 8);
+      ctx.fillStyle = `rgb(${191 + jitter},${184 + jitter},${168 + jitter})`;
+      ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+      ctx.strokeRect(x, y, cell, cell);
+    }
+  }
+  // Faixa decorativa tradicional em ondas escuras (#232528)
+  ctx.fillStyle = '#232528';
+  for (let x = 0; x < size; x += cell) {
+    const waveY = Math.floor((Math.sin((x / size) * Math.PI * 2) * 0.18 + 0.5) * (size / cell)) * cell;
+    ctx.fillRect(x + 1, waveY + 1, cell - 2, cell - 2);
+  }
+  blotches(ctx, rng, size, size, 20, '80,75,65', 0.14, 14, 60);
+  return toTexture(canvas, { repeat: [8, 2] });
+}
+
+/** Mapa de micro-relevo (bumpMap) e rugosidade compartilhado para níveis 'media' e 'alta'. */
+export function microGrainMapTexture(size = 256, baseGray = 180, contrast = 0.2, seed = 181): THREE.CanvasTexture {
+  const [canvas, ctx] = makeCanvas(size, size);
+  const rng = createSeededRandom(seed);
+  ctx.fillStyle = `rgb(${baseGray},${baseGray},${baseGray})`;
+  ctx.fillRect(0, 0, size, size);
+  blotches(ctx, rng, size, size, 28, '90,90,90', contrast, 10, 48);
+  speckle(ctx, rng, size, size, 4000, contrast * 0.65);
+  return toTexture(canvas, { repeat: [2, 2], srgb: false });
+}
+

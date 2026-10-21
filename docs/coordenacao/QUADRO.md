@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| Prompts 19 → 20 → 21 → 22 → 25 (áudio): arte, oficina, bairro, carros e personagens, som | Gemini | em andamento | `main` | `src/world/**` (incl. novos `materials/`, `assets.ts`, `ArtSandbox.ts`, `workshop/`, `city/`), `src/vehicles/PlaceholderCar.ts` e `src/vehicles/models/**`, `src/characters/**` (novo), `src/utils/canvasTextures.ts`, `src/utils/mergeStatic.ts`, `src/audio/**`, `src/data/lighting.ts` (novo), `public/` (exceto `public/fonts/`), `docs/arte/**` |
+| *(nenhuma em andamento — Prompts 19 a 25 concluídos)* | — | — | `main` | — |
 
 ### Por que essa divisão
 
@@ -55,6 +55,7 @@ Roteiro de polimento (Prompts 19–26, pedido do Gustavo): `docs/roadmap-polimen
 
 | Tarefa | Agente | Commit |
 | --- | --- | --- |
+| Prompts 19 → 20 → 21 → 22 → 25 (áudio): direção de arte e pipeline (`docs/arte/`, `src/world/materials/`, `src/world/assets.ts`, `src/data/lighting.ts`, `src/world/ArtSandbox.ts`, `docs/licencas.md`), oficina nível Steam (`<= 191` draw calls), bairro vivo de São Cristóvão (`<= 36` draw calls), carros com interior e desgaste externo seguro + 6 personagens com `placeCast`, mixer multi-barramento e foley/trilha em `src/audio/` | Gemini | ver `git log` |
 | Prompt 25 (parte do Claude): sensação de jogo — câmera, ações com começo/meio/fim, recompensas e falhas (sem mudar regras) | Claude | ver `git log` |
 | Prompt 23: abertura cinematográfica (sistema de cenas, novo jogo com perfil, escolha, save v7) | Claude | ver `git log` |
 | Prompt 24: UI e UX de produto (tema, fontes, ícones, HUD, configurações, remapeamento, acessibilidade, comprar o que falta, carregamento, contraste AA) | Claude | ver `git log` |

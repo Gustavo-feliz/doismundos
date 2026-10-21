@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import type { CityLocationDef, CityLocationId } from '../city/types';
+import { mergeStaticMeshes } from '../utils/mergeStatic';
 
 /**
  * Detalhes 3D carregados sob demanda (`import()`) por estabelecimento do bairro
- * (GDD §7.3, Prompt 14). Só monta os objetos internos/vitrines do local quando
+ * (GDD §7.3, Prompts 14 e 21). Só monta os objetos internos/vitrines do local quando
  * o jogador o visita pela primeira vez.
  */
 export function buildLocationDetailGroup(
@@ -77,7 +78,7 @@ export function buildLocationDetailGroup(
       break;
     }
     case 'oficina': {
-      // Placa de cavalete "ABERTO — DIAGNÓSTICO E REPARO" na calçada da oficina
+      // Placa de cavalete "ABERTO — DIAGNÓSTICO E REPARO" e fachada detalhada na calçada da oficina
       const boardMat = mat(0xfacc15, 0.6, 0.1);
       const sign = new THREE.Mesh(geo(new THREE.BoxGeometry(0.7, 1.05, 0.4)), boardMat);
       sign.position.set(ex + 2.0, 0.525, ez - sideSign * 0.2);
@@ -86,5 +87,7 @@ export function buildLocationDetailGroup(
     }
   }
 
+  mergeStaticMeshes(group);
   return group;
 }
+

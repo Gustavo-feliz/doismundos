@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <rect x="0" y="0" width="800" height="450" fill="#1b1f23"/>
+  <!-- Silhueta do carro no elevador com capô aberto -->
+  <rect x="170" y="235" width="420" height="85" rx="14" fill="#c83e31"/>
+  <polygon points="240,235 310,165 470,165 520,235" fill="#1e293b" stroke="#c83e31" stroke-width="6"/>
+  <!-- Capô aberto e cofre do motor legível -->
+  <line x1="510" y1="235" x2="585" y2="145" stroke="#c83e31" stroke-width="10"/>
+  <!-- Peças internas destacadas no cofre -->
+  <rect x="505" y="242" width="52" height="32" fill="#8e959c"/>
+  <rect x="510" y="236" width="42" height="10" fill="#b82e24"/>
+  <rect x="562" y="244" width="20" height="28" fill="#1e56a0"/>
+  <!-- Rodas -->
+  <circle cx="255" cy="320" r="42" fill="#141414"/>
+  <circle cx="255" cy="320" r="24" fill="#b8bcc0"/>
+  <circle cx="515" cy="320" r="42" fill="#141414"/>
+  <circle cx="515" cy="320" r="24" fill="#b8bcc0"/>
+  <!-- Moldura de destaque de interação (#f2c230) -->
+  <rect x="145" y="370" width="470" height="8" fill="#f2c230"/>
+  <!-- Legenda -->
+  <rect x="20" y="20" width="450" height="52" rx="6" fill="#14171a" fill-opacity="0.88" stroke="#f2c230" stroke-width="2"/>
+  <text x="36" y="44" fill="#f2c230" font-family="sans-serif" font-size="15" font-weight="bold">REF 03 — CARRO PBR + COFRE LEGÍVEL + DESTAQUE</text>
+  <text x="36" y="62" fill="#e5e7eb" font-family="sans-serif" font-size="12">Pintura Clearcoat · Alumínio #8e959c · Destaque de Mira #f2c230</text>
+</svg>
+
