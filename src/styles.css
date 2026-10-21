@@ -1778,3 +1778,18 @@ dd.negative {
   font-size: 0.74rem;
   color: var(--muted);
 }
+
+/* ---------- QA (Prompt 18): janelas estreitas ---------- */
+/* Abas do computador (já são 7): quebram linha em vez de sumir na borda. */
+.panel-tabs {
+  flex-wrap: wrap;
+}
+/* Entre 761 e 1100 px o objetivo centralizado cobria o caixa/hora: passa para baixo do painel da esquerda. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .hud-objective {
+    left: 16px;
+    transform: none;
+    top: 84px;
+    max-width: min(520px, calc(100vw - 32px));
+  }
+}
