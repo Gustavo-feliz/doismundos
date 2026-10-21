@@ -13,7 +13,7 @@ import { CTX, buyAndReceive, catalogs, content, later, newSession, when } from '
 const PADS = 'freios.pastilhas-dianteiras';
 const lib = buildMissionLibrary(MISSIONS, DIALOGUES, Object.values(EQUIPMENT_IDS));
 const validateSession = (g: Record<string, unknown>) => [
-  ...validateSessionSnapshot(g.session, catalogs, (id) => GameSession.resolveCase(content, id)),
+  ...validateSessionSnapshot(g.session, catalogs, (id) => GameSession.resolveCase(content, id), content.upgrades),
   ...missionStateProblems(g.missions, lib),
 ];
 const summary = { day: 1, time: '09:00', cashText: 'R$ 1.500,00', orderLabel: 'OS #001', reputation: 50 };
@@ -189,11 +189,13 @@ describe('migração entre versões', () => {
     const v1 = JSON.parse(JSON.stringify(game)) as Record<string, any>;
     delete v1.missions;
     delete v1.session.debt;
+    delete v1.session.upgrades;
     const env = { schemaVersion: 1, savedAt: fixedNow().toISOString(), slot: 'slot1', summary, checksum: checksum(JSON.stringify(v1)), game: v1 };
     const r = parseSave(JSON.stringify(env), validateSession);
     expect(r).toMatchObject({ ok: true, migratedFrom: 1 });
     if (!r.ok) return;
-    expect(r.envelope.schemaVersion).toBe(2);
+    expect(r.envelope.schemaVersion).toBe(SAVE_SCHEMA_VERSION);
+    expect(r.envelope.game.session.upgrades).toEqual({}); // 2 → 3
     // A primeira parcela não nasce atrasada: vence 2 dias depois do dia do save.
     expect(r.envelope.game.session.debt).toMatchObject({ paidCount: 0, nextDueDay: 7 });
     expect(r.envelope.game.missions.flags).toEqual(['andou', 'abriu-painel-carro']);

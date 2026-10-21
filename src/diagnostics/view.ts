@@ -1,5 +1,5 @@
 import type { Catalogs } from '../vehicles/catalogs';
-import { computeHypotheses, REQUIREMENT_TEXT, testsForCase, unmetRequirement, type DiagnosticData } from './rules';
+import { computeHypotheses, NO_EXAM_SPEED, REQUIREMENT_TEXT, testsForCase, unmetRequirement, type DiagnosticData, type ExamSpeed } from './rules';
 import type { CaseProgress, ConfidenceLabel, DiagnosticCaseDef, EquipmentContext, TestKind } from './types';
 
 /**
@@ -45,13 +45,13 @@ export function buildDiagnosisView(
   catalogs: Catalogs,
   data: DiagnosticData,
   ctx: EquipmentContext,
-  options: { assist: boolean; hintAvailable: boolean; caseNumber: number; totalCases: number },
+  options: { assist: boolean; hintAvailable: boolean; caseNumber: number; totalCases: number; examSpeed?: ExamSpeed },
 ): DiagnosisView {
   const done = new Set(progress.evidence.map((e) => e.testId));
   const closed = progress.conclusion !== null;
   const slotName = (slot: string) => catalogs.slots.get(slot)?.name ?? slot;
 
-  const tests = testsForCase(c, catalogs, data).map((t): DiagnosisTestView => {
+  const tests = testsForCase(c, catalogs, data, options.examSpeed ?? NO_EXAM_SPEED).map((t): DiagnosisTestView => {
     const base = { id: t.id, name: t.name, description: t.description, kindLabel: KIND_LABEL[t.kind], minutes: t.minutes };
     if (done.has(t.id)) return { ...base, status: 'feito' };
     if (closed) return { ...base, status: 'encerrado' };

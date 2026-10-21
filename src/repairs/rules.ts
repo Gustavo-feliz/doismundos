@@ -6,6 +6,14 @@ import type { Catalogs } from '../vehicles/catalogs';
 import { installPart, removePart } from '../vehicles/domain';
 import type { VehicleState } from '../vehicles/state';
 import type { QualityLabel, RepairItemState, RepairState } from '../orders/types';
+import { reduceMinutes } from '../upgrades/rules';
+
+/** Redução de tempo (%) de remover e instalar, vinda de ferramentas e upgrades (Prompt 11). */
+export interface RepairSpeed {
+  removePct: number;
+  installPct: number;
+}
+export const NO_REPAIR_SPEED: RepairSpeed = { removePct: 0, installPct: 0 };
 
 /**
  * Reparo abstrato do protótipo (GDD §12.1, Prompt 6): sem parafusos
@@ -51,9 +59,9 @@ export function startRepair(approved: QuoteBreakdown): RepairState {
 }
 
 /** Tempo de remover e de instalar: metade do tempo de troca cada (remoção arredonda para cima). */
-export function stepMinutes(replaceMinutes: number): { remove: number; install: number } {
+export function stepMinutes(replaceMinutes: number, speed: RepairSpeed = NO_REPAIR_SPEED): { remove: number; install: number } {
   const remove = Math.ceil(replaceMinutes / 2);
-  return { remove, install: replaceMinutes - remove };
+  return { remove: reduceMinutes(remove, speed.removePct), install: reduceMinutes(replaceMinutes - remove, speed.installPct) };
 }
 
 function findItem(r: RepairState, slot: string): RepairItemState | undefined {
@@ -78,7 +86,14 @@ export interface StepOutcome {
   message: string;
 }
 
-export function removeOldPart(r: RepairState, v: VehicleState, slot: string, ctx: EquipmentContext, catalogs: Catalogs): RepairResult<StepOutcome & { removedPartId: string }> {
+export function removeOldPart(
+  r: RepairState,
+  v: VehicleState,
+  slot: string,
+  ctx: EquipmentContext,
+  catalogs: Catalogs,
+  speed: RepairSpeed = NO_REPAIR_SPEED,
+): RepairResult<StepOutcome & { removedPartId: string }> {
   const item = findItem(r, slot);
   if (!item) return fail('item-inexistente', 'Esse item não faz parte da ordem de serviço.', true);
   const name = catalogs.slots.get(slot)?.name ?? slot;
@@ -88,7 +103,7 @@ export function removeOldPart(r: RepairState, v: VehicleState, slot: string, ctx
   const removal = removePart(v, slot, catalogs);
   if (!removal.ok) return fail('fora-de-ordem', removal.error.message, true);
   const part = catalogs.parts.get(removal.value.removed.partId);
-  const minutes = stepMinutes(part?.replaceMinutes ?? 30).remove;
+  const minutes = stepMinutes(part?.replaceMinutes ?? 30, speed).remove;
   return {
     ok: true,
     value: {
@@ -108,6 +123,7 @@ export function installHeldPart(
   heldPartId: string | null,
   ctx: EquipmentContext,
   catalogs: Catalogs,
+  speed: RepairSpeed = NO_REPAIR_SPEED,
 ): RepairResult<StepOutcome> {
   const item = findItem(r, slot);
   if (!item) return fail('item-inexistente', 'Esse item não faz parte da ordem de serviço.', true);
@@ -120,7 +136,7 @@ export function installHeldPart(
   const install = installPart(v, slot, heldPartId, { condition: 'nova' }, catalogs);
   if (!install.ok) return fail('peca-errada', `Peça errada: ${install.error.message}`, true);
   const part = catalogs.parts.get(heldPartId)!;
-  const minutes = stepMinutes(part.replaceMinutes).install;
+  const minutes = stepMinutes(part.replaceMinutes, speed).install;
   const substituted = heldPartId !== item.plannedPartId;
   return {
     ok: true,

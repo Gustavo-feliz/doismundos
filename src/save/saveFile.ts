@@ -9,7 +9,7 @@ import type { SessionSnapshot } from './sessionSnapshot';
  * schemaVersion, data/hora, resumo (para listar slots sem carregar tudo) e
  * uma soma de verificação do conteúdo, que detecta arquivos corrompidos.
  */
-export const SAVE_SCHEMA_VERSION = 2;
+export const SAVE_SCHEMA_VERSION = 3;
 
 export type SlotId = 'auto' | 'slot1' | 'slot2' | 'slot3';
 export const MANUAL_SLOTS: readonly SlotId[] = ['slot1', 'slot2', 'slot3'];
@@ -81,6 +81,11 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     const day = Math.floor(game.clockMinutes / MINUTES_PER_DAY) + 1;
     game.session.debt = initialDebt(BANK_DEBT, Math.max(BANK_DEBT.firstDueDay, day + 2));
     game.missions = { ...initialMissionState(), flags: ['andou', 'abriu-painel-carro'] };
+    return env;
+  },
+  /** 2 → 3 (Prompt 11): entram as ferramentas e upgrades, todos no nível 0. */
+  2: (env) => {
+    (env.game as { session: Record<string, unknown> }).session.upgrades = {};
     return env;
   },
 };

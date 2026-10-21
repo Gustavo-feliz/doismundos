@@ -219,7 +219,7 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
 { schemaVersion, savedAt (ISO), slot, summary { dia, hora, caixa, OS, reputação },
   checksum (FNV-1a do JSON de "game"),
   game { clockMinutes, player { x, z, yaw, pitch }, equipment { liftUp, hoodOpen, drawerOpen, hallLightsOn, benchLampOn },
-         session { caseIds, caseIndex, vehicles, progress, orders, records, lots, purchases, ledger, held, scrap, reputation, warranties, seq, debt },
+         session { caseIds, caseIndex, vehicles, progress, orders, records, lots, purchases, ledger, held, scrap, reputation, warranties, seq, debt, upgrades { <id>: nível } },
          missions { completed, active { id, step } | null, flags, choices, dialogueQueue, tipsEnabled } } }
 ```
 
@@ -231,6 +231,19 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
 
   Os saves antigos são migrados passo a passo ao carregar. O arquivo original só muda no próximo save.
 - **Versão 2 (Prompt 10):** entraram `session.debt` e `missions`. A migração 1 → 2 cria a dívida com a primeira parcela pelo menos 2 dias depois do dia do save. Ela também cria as missões do zero, com os passos "andar" e "abrir a ficha" já cumpridos.
+- **Versão 3 (Prompt 11):** entrou `session.upgrades`. A migração 2 → 3 começa com todos os itens no nível 0.
+
+## Ferramentas e upgrades (`src/data/upgrades.ts`)
+
+- **Item (`UpgradeDef`):**
+  - `id`, `kind` (`ferramenta` ou `oficina`), `name`, `description`;
+  - `effect`: `exame-visual`, `exame-scanner`, `remocao`, `instalacao` ou `pegar-peca`;
+  - `exampleMinutes`: só para o antes/depois na tela;
+  - `levels`: exatamente 3 níveis, cada um com `{ cost, reductionPct, minReputation }`.
+- **Validação** (ao abrir o jogo): cada nível precisa custar e render mais que o anterior.
+- **Regras puras:** `src/upgrades/rules.ts`.
+- **Onde os efeitos entram:** `testsForCase` (exames), `stepMinutes`/`removeOldPart`/`installHeldPart` (reparo) e `GameSession.takePart` (estoque).
+- **Valores:** [balanceamento.md](balanceamento.md).
 
 ## Missões e diálogos (`src/data/missions.ts`)
 

@@ -14,6 +14,7 @@ import { DEFAULT_QUOTE_SETTINGS, PRICING } from '../data/pricing';
 import { INITIAL_STOCK } from '../data/stock';
 import { BANK_DEBT, ECONOMY } from '../data/economy';
 import { DIALOGUES, MISSIONS } from '../data/missions';
+import { TAKE_PART_MINUTES, UPGRADES } from '../data/upgrades';
 import { DialogueRunner } from '../missions/DialogueRunner';
 import { MissionTracker, missionStateProblems, type CurrentObjective, type MissionEvent } from '../missions/MissionTracker';
 import type { MissionWorld } from '../missions/conditions';
@@ -137,6 +138,8 @@ export class Game {
       suppliers: SUPPLIERS,
       economy: ECONOMY,
       debt: BANK_DEBT,
+      upgrades: UPGRADES,
+      takePartMinutes: TAKE_PART_MINUTES,
     };
     this.missionLib = buildMissionLibrary(MISSIONS, DIALOGUES, Object.values(EQUIPMENT_IDS));
     this.tracker = new MissionTracker(this.missionLib);
@@ -144,7 +147,7 @@ export class Game {
     this.session = this.newSession();
     const store = IndexedDbSaveStore.available() ? new IndexedDbSaveStore() : new MemorySaveStore();
     this.saves = new SaveService(store, (game) => [
-      ...validateSessionSnapshot(game.session, this.catalogs, (id) => GameSession.resolveCase(this.content, id)),
+      ...validateSessionSnapshot(game.session, this.catalogs, (id) => GameSession.resolveCase(this.content, id), this.content.upgrades),
       ...missionStateProblems(game.missions, this.missionLib),
     ]);
     this.savesPanel = new SaveSlotsPanel({
@@ -222,6 +225,7 @@ export class Game {
       onCancel: (id) => this.act(this.session.cancelPurchase(id, this.moment()), 'ok'),
       onWait: () => this.waitForDelivery(),
       onPayDebt: () => this.act(this.session.payDebtInstallment(this.moment()), 'concluido'),
+      onBuyUpgrade: (id) => this.buyUpgrade(id),
       onTab: (tab) => {
         if (tab === 'caixa') this.markFlag('viu-caixa');
       },
@@ -487,6 +491,7 @@ export class Game {
             hintAvailable: this.session.hasHint(),
             caseNumber: this.session.caseNumber,
             totalCases: this.session.caseCount,
+            examSpeed: this.session.examSpeed,
           })
         : null,
       quote: c ? buildQuoteView(this.session, c.id, this.clock.day) : null,
@@ -548,6 +553,19 @@ export class Game {
   private applyActiveCarLook(): void {
     const car = this.session.getVehicle(this.activeVehicleId);
     this.workshop.parts.setCarLook({ color: car.color, plate: car.plate });
+  }
+
+  // --- Ferramentas e upgrades (Prompt 11) ------------------------------------
+
+  private buyUpgrade(id: string): void {
+    const outcome = this.session.buyUpgrade(id, this.moment());
+    this.act(outcome, 'concluido');
+    if (outcome.ok) this.bus.emit('upgrade:changed', { upgradeId: id, level: this.session.upgradeLevel(id) });
+  }
+
+  /** Conta à cena o nível de cada item (jogo novo ou save carregado). */
+  private announceUpgrades(): void {
+    for (const d of this.session.upgradeDefs) this.bus.emit('upgrade:changed', { upgradeId: d.id, level: this.session.upgradeLevel(d.id) });
   }
 
   // --- Missões, tutorial e diálogos (Prompt 10) -----------------------------
@@ -698,6 +716,7 @@ export class Game {
       this.session = this.newSession();
       this.resetMissions(new MissionTracker(this.missionLib));
       this.applyActiveCarLook();
+      this.announceUpgrades();
     }
     this.input.reset();
     this.state.transition('playing');
@@ -866,6 +885,7 @@ export class Game {
     if (inside) this.player.teleport(game.player.x, game.player.z, game.player.yaw, game.player.pitch);
     else this.player.respawn();
     this.applyActiveCarLook();
+    this.announceUpgrades();
     this.autosaved = { session: this.session, version: this.session.version + this.tracker.revision };
     this.panelVersion = -1;
     return { ok: true };
@@ -954,6 +974,7 @@ export class Game {
         highlight: this.highlightSent ?? null,
       },
       debt: { balance: this.session.debt.balance, paidCount: this.session.debt.paidCount, nextDueDay: this.session.debt.nextDueDay },
+      upgrades: { ...this.session.upgrades },
       diagnosis: this.diagnosisDiagnostics(),
       equipment: this.equipment.snapshot(),
       canvas: { width: canvas.width, height: canvas.height, clientWidth: canvas.clientWidth, clientHeight: canvas.clientHeight },

@@ -9,6 +9,7 @@ import { averageStars, SPECIALTY_LABEL, type Specialty } from '../customers/repu
 import { MINUTES_PER_DAY } from '../core/GameClock';
 import { canSpend, CATEGORY_LABEL } from '../economy/ledger';
 import { compatiblePartsFor } from '../vehicles/domain';
+import { checkPurchase, EFFECT_LABEL, reduceMinutes, reductionAt } from '../upgrades/rules';
 import { WEAR_BAND_LABEL } from '../vehicles/state';
 import { isOrderClosed, ORDER_STATUS_LABEL, QUALITY_LABEL_TEXT, type OrderStatus } from './types';
 
@@ -203,7 +204,7 @@ export function buildServiceView(session: GameSession, caseId: string, ctx: Equi
     const slot = catalogs.slots.get(i.slot)!;
     const unmet = unmetRequirement(REPAIR_ACCESS[slot.access], ctx);
     const planned = catalogs.parts.get(i.plannedPartId);
-    const minutes = stepMinutes(planned?.replaceMinutes ?? 30);
+    const minutes = stepMinutes(planned?.replaceMinutes ?? 30, session.repairSpeed);
     const stock = session.availability(i.plannedPartId);
     const availability = i.installedPartId
       ? 'Instalada'
@@ -358,6 +359,19 @@ export interface ComputerView {
   canWait: boolean;
   ledger: Array<{ id: string; when: string; category: string; description: string; ref: string; amountText: string; kind: string }>;
   summary: { revenueText: string; purchasesText: string; refundsText: string; netPurchasesText: string; deliveredRevenueText: string; deliveredCostText: string; grossProfitText: string };
+  /** Ferramentas e melhorias da oficina, com o antes/depois do próximo nível. */
+  upgrades: Array<{
+    id: string;
+    name: string;
+    kindLabel: string;
+    description: string;
+    level: number;
+    maxLevel: number;
+    effectLabel: string;
+    /** Efeito atual, ex.: "−20% (30 → 24 min)". */
+    currentText: string;
+    next: { level: number; costText: string; beforeText: string; afterText: string; blockedReason: string | null } | null;
+  }>;
   /** Empréstimo bancário herdado. */
   debt: {
     balanceText: string;
@@ -458,6 +472,7 @@ export function buildComputerView(session: GameSession, now: number, activeVehic
       grossProfitText: formatBRL(deliveredRevenue - deliveredCost),
     },
     debt: debtView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
+    upgrades: upgradesView(session),
     reputation: {
       generalScore: rep.general.score,
       generalStars: starsText(averageStars(rep.general)),
@@ -496,4 +511,32 @@ function debtView(session: GameSession, day: number): ComputerView['debt'] {
     paidCount: d.paidCount,
     next: { totalText: formatBRL(due.total), detail: parts.length > 1 ? parts.join(' + ') : '', dueDay: d.nextDueDay, overdue: due.overdue, affordable: canSpend(session.cash, due.total, session.creditLimit) },
   };
+}
+
+function upgradesView(session: GameSession): ComputerView['upgrades'] {
+  const effectText = (example: number, pct: number) => `${pct > 0 ? `−${pct}%` : 'sem redução'} (${example} → ${reduceMinutes(example, pct)} min)`;
+  return session.upgradeDefs.map((d) => {
+    const level = session.upgradeLevel(d.id);
+    const nextDef = d.levels[level];
+    const check = checkPurchase(d, session.upgrades, session.cash, session.creditLimit, session.reputation.general.score);
+    return {
+      id: d.id,
+      name: d.name,
+      kindLabel: d.kind === 'ferramenta' ? 'Ferramenta' : 'Oficina',
+      description: d.description,
+      level,
+      maxLevel: d.levels.length,
+      effectLabel: EFFECT_LABEL[d.effect],
+      currentText: effectText(d.exampleMinutes, reductionAt(d, level)),
+      next: nextDef
+        ? {
+            level: level + 1,
+            costText: formatBRL(nextDef.cost),
+            beforeText: `${reduceMinutes(d.exampleMinutes, reductionAt(d, level))} min`,
+            afterText: `${reduceMinutes(d.exampleMinutes, nextDef.reductionPct)} min (−${nextDef.reductionPct}%)`,
+            blockedReason: check.ok ? null : check.reason,
+          }
+        : null,
+    };
+  });
 }

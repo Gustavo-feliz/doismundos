@@ -14,8 +14,9 @@ O design completo está em [GDD_Simulador_de_Mecanico_Claude_Code.md](GDD_Simula
 8. Reputação, garantia e retorno de clientes.
 9. Save e carregamento confiáveis.
 10. Tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos e dívida do banco).
+11. Ferramentas e upgrades da oficina (3 níveis cada, efeito medido em tempo).
 
-Ainda **não** existem cidade, upgrades nem multiplayer.
+Ainda **não** existem cidade, segunda vaga nem multiplayer.
 
 ## Pré-requisitos
 
@@ -253,7 +254,8 @@ Use **Salvar jogo** (no menu de pausa) e **Carregar jogo** (no menu inicial e na
 - relógio, posição do jogador e estado do elevador, capô, gaveta e luzes.
 
 - missões: passo atual, missões concluídas, escolhas de diálogo, diálogos pendentes e a preferência de dicas;
-- dívida do banco (saldo, vencimento, parcelas pagas).
+- dívida do banco (saldo, vencimento, parcelas pagas);
+- nível de cada ferramenta e upgrade.
 
 Saves da versão 1 (antes do Prompt 10) são migrados ao carregar: a primeira parcela vence pelo menos 2 dias depois do dia do save.
 
@@ -291,6 +293,23 @@ Os saves ficam no navegador (IndexedDB). Se o navegador bloquear o armazenamento
 - `dialogue:line`
 
 PROVISÓRIO: textos, valores da dívida e recompensas serão revistos com o roteiro final do Ato 1.
+
+## Ferramentas e upgrades (Prompt 11)
+
+No computador do escritório, a aba **Oficina** (tecla 5) vende 2 ferramentas e 3 melhorias. Cada uma tem 3 níveis.
+- **Chave de impacto:** remover peça mais rápido.
+- **Scanner automotivo:** exame com scanner mais rápido.
+- **Iluminação:** inspeção visual mais rápida.
+- **Armário de ferramentas:** instalar peça mais rápido.
+- **Organização do estoque:** pegar peça na estante mais rápido. Sem organização, procurar a peça leva 6 min.
+
+**Na tela.** Cada cartão mostra o efeito atual e o **antes/depois** do próximo nível (ex.: "Inspeção visual: ~~8 min~~ → 7 min"). Se a compra estiver bloqueada, o cartão mostra o motivo: caixa ou reputação.
+
+**No jogo.** Os efeitos valem nas regras: o tempo do exame, de cada passo do reparo e de pegar peça cai no relógio e aparece nas abas Diagnóstico e Serviço. O nível 3 exige reputação.
+
+**Ainda não incluído:** a segunda vaga com elevador fica para depois.
+
+Valores para revisão: [docs/balanceamento.md](docs/balanceamento.md).
 
 ## Roteiro de teste manual
 

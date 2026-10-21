@@ -8,17 +8,20 @@ export interface ComputerCallbacks {
   onWait(): void;
   /** Paga a próxima parcela do empréstimo. */
   onPayDebt(): void;
+  /** Compra o próximo nível de uma ferramenta/upgrade. */
+  onBuyUpgrade(id: string): void;
   /** O jogador trocou de aba (o tutorial usa para saber que ele viu o caixa). */
   onTab?(tab: string): void;
   onClose(reason: 'resume' | 'pause'): void;
 }
 
-type Tab = 'loja' | 'pedidos' | 'caixa' | 'reputacao';
+type Tab = 'loja' | 'pedidos' | 'caixa' | 'reputacao' | 'oficina';
 const TABS: ReadonlyArray<readonly [Tab, string]> = [
   ['loja', 'Loja'],
   ['pedidos', 'Pedidos'],
   ['caixa', 'Caixa'],
   ['reputacao', 'Reputação'],
+  ['oficina', 'Oficina'],
 ];
 
 /**
@@ -128,7 +131,8 @@ export class ComputerPanel {
     if (!v) return;
     this.cash.textContent = v.cashText;
     for (const [tab, b] of this.tabButtons) b.setAttribute('aria-selected', String(tab === this.tab));
-    const content = this.tab === 'loja' ? this.shop(v) : this.tab === 'pedidos' ? this.purchases(v) : this.tab === 'caixa' ? this.ledger(v) : this.reputation(v);
+    const content =
+      this.tab === 'loja' ? this.shop(v) : this.tab === 'pedidos' ? this.purchases(v) : this.tab === 'caixa' ? this.ledger(v) : this.tab === 'oficina' ? this.workshop(v) : this.reputation(v);
     this.body.replaceChildren(...content);
   }
 
@@ -240,6 +244,41 @@ export class ComputerPanel {
     ];
   }
 
+  /** Ferramentas e melhorias: nível atual, efeito e o antes/depois do próximo nível. */
+  private workshop(v: ComputerView): HTMLElement[] {
+    return [
+      h('p', { class: 'muted small', text: 'Investimentos deixam o trabalho mais rápido. Tempos de exemplo; o efeito vale em todos os serviços.' }),
+      h(
+        'div',
+        { class: 'upgrade-grid', 'data-testid': 'upgrades' },
+        ...v.upgrades.map((u) => {
+          const pips = h('span', { class: 'upgrade-pips', 'aria-label': `Nível ${u.level} de ${u.maxLevel}` }, ...Array.from({ length: u.maxLevel }, (_, i) => h('span', { class: i < u.level ? 'pip is-on' : 'pip' })));
+          let footer: HTMLElement;
+          if (!u.next) footer = h('p', { class: 'upgrade-max', text: 'Nível máximo' });
+          else {
+            const buy = h('button', { type: 'button', class: 'btn btn-small', 'data-upgrade': u.id, disabled: Boolean(u.next.blockedReason) }, `Comprar nível ${u.next.level} · ${u.next.costText}`);
+            buy.addEventListener('click', () => this.callbacks.onBuyUpgrade(u.id));
+            footer = h(
+              'div',
+              { class: 'upgrade-next' },
+              h('p', { class: 'upgrade-compare', 'data-testid': `upgrade-compare-${u.id}` }, `${u.effectLabel}: `, h('s', { text: u.next.beforeText }), ' → ', h('strong', { text: u.next.afterText })),
+              buy,
+              u.next.blockedReason ? h('p', { class: 'muted small', 'data-testid': `upgrade-blocked-${u.id}`, text: u.next.blockedReason }) : null,
+            );
+          }
+          return h(
+            'article',
+            { class: 'upgrade-card', 'data-upgrade-card': u.id, 'data-level': String(u.level) },
+            h('header', {}, h('span', { class: 'hud-label', text: u.kindLabel }), h('h3', { text: u.name }), pips),
+            h('p', { class: 'small', text: u.description }),
+            h('p', { class: 'small' }, 'Agora: ', h('strong', { text: `${u.effectLabel} ${u.currentText}` })),
+            footer,
+          );
+        }),
+      ),
+    ];
+  }
+
   /** Internet banking: empréstimo herdado do tio. */
   private debtCard(v: ComputerView): HTMLElement {
     const d = v.debt;
@@ -308,7 +347,7 @@ export class ComputerPanel {
       if (!event.repeat) this.callbacks.onClose(event.key === 'Escape' ? 'pause' : 'resume');
       return;
     }
-    const digit = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(event.code);
+    const digit = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(event.code);
     if (digit >= 0 && !(event.target instanceof HTMLInputElement)) {
       event.preventDefault();
       event.stopPropagation();

@@ -27,6 +27,9 @@ import { compatiblePartsFor, revealPartCondition, type DomainResult } from '../v
 import { createVehicleState, type VehicleSpec } from '../vehicles/factory';
 import type { HistoryEntry, VehicleState } from '../vehicles/state';
 import { DataValidationError } from '../vehicles/types';
+import { checkPurchase, levelOf, reduceMinutes, timeModifiers, validateUpgrades, type TimeModifiers, type UpgradeDef, type UpgradeLevels } from '../upgrades/rules';
+import type { ExamSpeed } from '../diagnostics/rules';
+import type { RepairSpeed } from '../repairs/rules';
 import { validateSessionSnapshot, type SessionSnapshot } from '../save/sessionSnapshot';
 
 /** Momento do jogo: dia, hora formatada e minuto absoluto (para prazos e entregas). */
@@ -58,6 +61,10 @@ export interface SessionContent {
   economy: { startingCash: Cents; creditLimit: Cents };
   /** Dívida bancária herdada (Prompt 10). */
   debt: DebtConfig;
+  /** Ferramentas e upgrades à venda (Prompt 11). */
+  upgrades: readonly UpgradeDef[];
+  /** Tempo para pegar uma peça na estante sem organização (min). */
+  takePartMinutes: number;
 }
 
 const KNOWN_BAD = new Set(['gasta', 'critica', 'falhou']);
@@ -101,6 +108,7 @@ export class GameSession {
   private revision = 0;
   private seq = { lot: 0, purchase: 0, tx: 0, warranty: 0 };
   private debtState: DebtState = { balance: 0, nextDueDay: 0, pendingFee: 0, paidCount: 0 };
+  private upgradeLevels: Record<string, number> = {};
 
   constructor(
     readonly catalogs: Catalogs,
@@ -114,6 +122,7 @@ export class GameSession {
     for (const c of content.customers) this.customers.set(c.id, c);
     for (const s of content.suppliers) this.suppliers.set(s.id, s);
     this.validateContent(content, followUps);
+    validateUpgrades(content.upgrades);
     this.cashValue = content.economy.startingCash;
     this.debtState = initialDebt(content.debt);
     for (const s of content.initialStock) this.addLot(s.partId, s.qty, 0, 'Herdada do tio');
@@ -200,7 +209,7 @@ export class GameSession {
     const progress = this.getProgress(c.id);
     if (progress.conclusion) return { ok: false, error: { code: 'ja-concluido', message: 'Este diagnóstico já foi registrado.' } };
     const data = this.need().diagnostics;
-    const test = testsForCase(c, this.catalogs, data).find((t) => t.id === testId);
+    const test = testsForCase(c, this.catalogs, data, this.examSpeed).find((t) => t.id === testId);
     if (!test) return { ok: false, error: { code: 'exame-inexistente', message: `Exame indisponível: ${testId}` } };
     if (progress.evidence.some((e) => e.testId === testId)) {
       return { ok: false, error: { code: 'exame-repetido', message: 'Esse exame já foi feito: repetir não traz nada novo.' } };
@@ -409,6 +418,52 @@ export class GameSession {
     return this.need().economy.creditLimit;
   }
 
+  // --- Ferramentas e upgrades (Prompt 11) --------------------------------------
+
+  get upgradeDefs(): readonly UpgradeDef[] {
+    return this.need().upgrades;
+  }
+
+  get upgrades(): UpgradeLevels {
+    return this.upgradeLevels;
+  }
+
+  upgradeLevel(id: string): number {
+    return levelOf(this.upgradeLevels, id);
+  }
+
+  /** Redução de tempo (%) por efeito, com o que já foi comprado. */
+  get modifiers(): TimeModifiers {
+    return timeModifiers(this.need().upgrades, this.upgradeLevels);
+  }
+
+  get examSpeed(): ExamSpeed {
+    const m = this.modifiers;
+    return { visualPct: m['exame-visual'], scannerPct: m['exame-scanner'] };
+  }
+
+  get repairSpeed(): RepairSpeed {
+    const m = this.modifiers;
+    return { removePct: m.remocao, installPct: m.instalacao };
+  }
+
+  /** Minutos para achar e pegar uma peça na estante. */
+  get takePartMinutes(): number {
+    return reduceMinutes(this.need().takePartMinutes, this.modifiers['pegar-peca']);
+  }
+
+  /** Compra o próximo nível: confere reputação e caixa, e registra no livro-caixa. */
+  buyUpgrade(id: string, when: GameMoment): ActionOutcome {
+    const def = this.need().upgrades.find((d) => d.id === id);
+    if (!def) return this.fail('Item desconhecido.');
+    const check = checkPurchase(def, this.upgradeLevels, this.cash, this.creditLimit, this.rep.general.score);
+    if (!check.ok) return this.fail(check.reason);
+    this.record('despesa', 'investimento', check.cost, `${def.name}: nível ${check.level}`, 'Oficina', when);
+    this.upgradeLevels = { ...this.upgradeLevels, [id]: check.level };
+    this.revision++;
+    return { ok: true, message: `${def.name} no nível ${check.level}! (${formatBRL(check.cost)})`, minutes: 0 };
+  }
+
   // --- Dívida com o banco ---------------------------------------------------------
 
   get debt(): DebtState {
@@ -545,7 +600,8 @@ export class GameSession {
     this.lots = this.lots.map((l) => (l === lot ? { ...l, qty: l.qty - 1 } : l)).filter((l) => l.qty > 0);
     this.held = { partId: lot.partId, unitCost: lot.unitCost, lotSource: lot.source };
     this.revision++;
-    return { ok: true, message: `Em mãos: ${this.partName(lot.partId)}`, minutes: 0 };
+    const minutes = this.takePartMinutes;
+    return { ok: true, message: `Em mãos: ${this.partName(lot.partId)} (+${minutes} min)`, minutes };
   }
 
   returnHeldPart(): ActionOutcome {
@@ -562,7 +618,7 @@ export class GameSession {
   removeOldPart(slot: string, ctx: EquipmentContext, when: GameMoment): ActionOutcome {
     const job = this.repairJob();
     if (!job.ok) return this.fail(job.message);
-    const result = removeOldPart(job.order.repair!, this.getVehicle(job.c.vehicle.id), slot, ctx, this.catalogs);
+    const result = removeOldPart(job.order.repair!, this.getVehicle(job.c.vehicle.id), slot, ctx, this.catalogs, this.repairSpeed);
     if (!result.ok) return this.repairFailure(job.c.id, result.error, when);
     this.vehicles.set(job.c.vehicle.id, result.value.vehicle);
     this.scrapped.push(result.value.removedPartId);
@@ -572,7 +628,7 @@ export class GameSession {
   installHeldPart(slot: string, ctx: EquipmentContext, when: GameMoment): ActionOutcome {
     const job = this.repairJob();
     if (!job.ok) return this.fail(job.message);
-    const result = installHeldPart(job.order.repair!, this.getVehicle(job.c.vehicle.id), slot, this.heldPartId, ctx, this.catalogs);
+    const result = installHeldPart(job.order.repair!, this.getVehicle(job.c.vehicle.id), slot, this.heldPartId, ctx, this.catalogs, this.repairSpeed);
     if (!result.ok) return this.repairFailure(job.c.id, result.error, when);
     const cost = this.held!.unitCost;
     const repair = { ...result.value.repair, items: result.value.repair.items.map((i) => (i.slot === slot ? { ...i, installedUnitCost: cost } : i)) };
@@ -701,6 +757,7 @@ export class GameSession {
       warranties: this.warrantyRecords,
       seq: this.seq,
       debt: this.debtState,
+      upgrades: this.upgradeLevels,
     });
   }
 
@@ -725,7 +782,7 @@ export class GameSession {
     content: SessionContent,
     raw: unknown,
   ): { ok: true; session: GameSession } | { ok: false; problems: string[] } {
-    const problems = validateSessionSnapshot(raw, catalogs, (id) => GameSession.resolveCase(content, id));
+    const problems = validateSessionSnapshot(raw, catalogs, (id) => GameSession.resolveCase(content, id), content.upgrades);
     if (problems.length) return { ok: false, problems };
     const snap = structuredClone(raw as SessionSnapshot);
     const s = new GameSession(catalogs, [], content);
@@ -751,6 +808,7 @@ export class GameSession {
     s.caseIndex = snap.caseIndex;
     s.seq = snap.seq;
     s.debtState = snap.debt;
+    s.upgradeLevels = snap.upgrades;
     s.revision = 0;
     return { ok: true, session: s };
   }

@@ -1,4 +1,5 @@
 import type { PartAccess } from '../parts/types';
+import { reduceMinutes } from '../upgrades/rules';
 import type { Catalogs } from '../vehicles/catalogs';
 import { WEAR_BAND_LABEL, wearBand, type VehicleState, type WearBand } from '../vehicles/state';
 import type {
@@ -64,8 +65,15 @@ export function meetsBand(v: VehicleState, cond: BandCondition): boolean {
   return BAND_RANK[band] >= BAND_RANK[cond.minBand];
 }
 
+/** Redução de tempo dos exames (%), vinda de ferramentas e upgrades (Prompt 11). */
+export interface ExamSpeed {
+  visualPct: number;
+  scannerPct: number;
+}
+export const NO_EXAM_SPEED: ExamSpeed = { visualPct: 0, scannerPct: 0 };
+
 /** Lista os exames do caso: visual de cada hipótese, scanner e os testes funcionais. */
-export function testsForCase(c: DiagnosticCaseDef, catalogs: Catalogs, data: DiagnosticData): TestDescriptor[] {
+export function testsForCase(c: DiagnosticCaseDef, catalogs: Catalogs, data: DiagnosticData, speed: ExamSpeed = NO_EXAM_SPEED): TestDescriptor[] {
   const tests: TestDescriptor[] = [];
   for (const h of c.hypotheses) {
     const slot = catalogs.slots.get(h.slot);
@@ -75,12 +83,12 @@ export function testsForCase(c: DiagnosticCaseDef, catalogs: Catalogs, data: Dia
       kind: 'visual',
       name: `Inspeção visual: ${slot.name}`,
       description: 'Olhar a peça de perto, com lanterna.',
-      minutes: VISUAL_MINUTES[slot.access],
+      minutes: reduceMinutes(VISUAL_MINUTES[slot.access], speed.visualPct),
       requires: VISUAL_REQUIRES[slot.access],
       slot: slot.id,
     });
   }
-  tests.push({ id: SCANNER_ID, kind: 'scanner', name: data.scanner.name, description: data.scanner.description, minutes: data.scanner.minutes, requires: data.scanner.requires });
+  tests.push({ id: SCANNER_ID, kind: 'scanner', name: data.scanner.name, description: data.scanner.description, minutes: reduceMinutes(data.scanner.minutes, speed.scannerPct), requires: data.scanner.requires });
   for (const id of c.functionalTests) {
     const t = data.functional.get(id);
     if (t) tests.push({ id: t.id, kind: 'funcional', name: t.name, description: t.description, minutes: t.minutes, requires: t.requires });

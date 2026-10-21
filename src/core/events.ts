@@ -14,4 +14,6 @@ export interface GameEvents {
   'mission:completed': { missionId: string };
   /** Uma fala apareceu na legenda. */
   'dialogue:line': { speaker: SpeakerId; text: string };
+  /** Nível de uma ferramenta/upgrade (0–3): ao comprar e ao começar/carregar um jogo. */
+  'upgrade:changed': { upgradeId: string; level: number };
 }

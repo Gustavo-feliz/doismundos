@@ -7,7 +7,6 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| Prompt 11: ferramentas e upgrades (regras, dados, compra no computador, efeitos no domínio, save v3) + ligar no `Game.ts` os métodos de destaque e som do Gemini | Claude | em andamento | `main` | `src/upgrades/**` (novo), `src/data/upgrades.ts` (novo), `src/game/**`, `src/save/**`, `src/ui/**`, `src/core/events.ts`, `src/data/*` (exceto os do Gemini), `src/diagnostics/**`, `src/repairs/**`, `src/economy/**`, `src/orders/**`, `src/inventory/**`, `src/vite-env.d.ts`, `src/styles.css` (só acréscimo no fim), `tests/**` (exceto `AIM` em `helpers.ts`) |
 | Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | em andamento: referências visuais para o Gustavo escolher | `main` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
 
 ### Por que essa divisão
@@ -35,7 +34,6 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 
 | Prompt | Etapa | Sugestão de dono |
 | --- | --- | --- |
-| 11 | Ferramentas, upgrades e progressão | a definir |
 | 12 | Mais carros, serviços e conteúdo orientado por dados | bom para dividir: um faz dados e modelos, o outro faz regras |
 | 13 | Direção e test drive | a definir (física: avaliar Rapier) |
 | 18 | QA, desempenho e lançamento | os dois |
@@ -51,3 +49,4 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | --- | --- | --- |
 | Prompts 1–9 | Claude | `654a5a3`, `4b8434b`, `a50e205` |
 | Prompt 10: tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos, dívida do banco, save v2) | Claude | `9d1f42b` |
+| Prompt 11: ferramentas e upgrades (5 itens × 3 níveis, efeitos nas regras, aba Oficina, save v3) | Claude | ver `git log` |

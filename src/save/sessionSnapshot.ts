@@ -1,6 +1,7 @@
 import type { ReputationState } from '../customers/reputation';
 import type { CaseProgress, DiagnosisRecord, DiagnosticCaseDef } from '../diagnostics/types';
 import { debtProblems, type DebtState } from '../economy/debt';
+import { upgradeLevelsProblems, type UpgradeDef } from '../upgrades/rules';
 import { CATEGORY_LABEL, type Transaction } from '../economy/ledger';
 import type { HeldPart, PurchaseOrder, StockLot } from '../inventory/types';
 import { ORDER_STATUS_LABEL, type OrderState } from '../orders/types';
@@ -30,6 +31,8 @@ export interface SessionSnapshot {
   seq: { lot: number; purchase: number; tx: number; warranty: number };
   /** Dívida bancária (desde o save versão 2). */
   debt: DebtState;
+  /** Nível de cada ferramenta/upgrade comprado (desde o save versão 3). */
+  upgrades: Record<string, number>;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -44,7 +47,12 @@ const PURCHASE_STATUS = new Set(['a-caminho', 'recebido', 'cancelado']);
  * Confere uma foto vinda de fora (save). Lista vazia = válida.
  * Checa forma, valores e referências cruzadas (peças, OS, carros).
  */
-export function validateSessionSnapshot(raw: unknown, catalogs: Catalogs, resolveCase: (id: string) => DiagnosticCaseDef | null): string[] {
+export function validateSessionSnapshot(
+  raw: unknown,
+  catalogs: Catalogs,
+  resolveCase: (id: string) => DiagnosticCaseDef | null,
+  upgrades: readonly UpgradeDef[] = [],
+): string[] {
   const p: string[] = [];
   if (!isObj(raw)) return ['estado da sessão ausente'];
   const s = raw as Partial<SessionSnapshot>;
@@ -133,5 +141,6 @@ export function validateSessionSnapshot(raw: unknown, catalogs: Catalogs, resolv
   const seq: unknown = s.seq;
   if (!isObj(seq) || !['lot', 'purchase', 'tx', 'warranty'].every((k) => isInt(seq[k]) && (seq[k] as number) >= 0)) p.push('contadores internos inválidos');
   p.push(...debtProblems(s.debt));
+  p.push(...upgradeLevelsProblems(s.upgrades, upgrades));
   return p;
 }

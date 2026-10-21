@@ -43,6 +43,7 @@ interface GameDiagnostics {
     highlight: string | null;
   };
   debt: { balance: number; paidCount: number; nextDueDay: number };
+  upgrades: Record<string, number>;
   canvas: { width: number; height: number; clientWidth: number; clientHeight: number };
 }
 
