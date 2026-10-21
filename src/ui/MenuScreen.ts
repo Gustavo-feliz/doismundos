@@ -1,5 +1,6 @@
 import { DEFAULT_PROFILE, PRONOUN_LABEL, type PlayerProfile } from '../cinematics/types';
-import { icon } from './icons';
+import { GAME_VERSION, shortVersion } from '../core/version';
+import { icon, type IconName } from './icons';
 import { controlHints } from './keys';
 import type { Settings } from '../save/settings';
 import { h } from './dom';
@@ -29,6 +30,10 @@ export class MenuScreen {
   private mode: MenuMode = 'title';
   private panel: Panel = 'main';
   private readonly heading: HTMLElement;
+  private readonly subtitle: HTMLElement;
+  private readonly primaryLabel: HTMLElement;
+  private readonly primaryIcon: HTMLElement;
+  private readonly continueMeta: HTMLElement;
   private readonly tagline: HTMLElement;
   private readonly message: HTMLElement;
   private readonly mainPanel: HTMLElement;
@@ -46,31 +51,39 @@ export class MenuScreen {
 
   constructor(parent: HTMLElement, settings: Settings, callbacks: MenuCallbacks) {
     this.heading = h('h1', { class: 'menu-title' });
-    this.kicker = h('p', { class: 'menu-kicker' }, icon('chave', 'menu-kicker-icon'), h('span', { text: 'Oficina do Seu Zé · São Cristóvão, RJ' }));
+    this.kicker = h('p', { class: 'menu-kicker' }, h('span', { text: 'Oficina do Seu Zé · São Cristóvão, RJ' }));
+    this.subtitle = h('p', { class: 'menu-subtitle', text: 'Simulador de Mecânico' });
     this.tagline = h('p', { class: 'menu-tagline' });
     this.message = h('p', { class: 'menu-message', role: 'alert', 'aria-live': 'assertive', hidden: true });
 
-    this.primary = h('button', { type: 'button', class: 'btn btn-primary', 'data-testid': 'menu-primary' });
+    // Botões do menu: ícone à esquerda e o texto (referência: docs/coordenacao/referencias/menu-repaginado.png).
+    const menuBtn = (label: string, iconName: IconName, attrs: Record<string, string | boolean> = {}) =>
+      h('button', { type: 'button', class: 'btn menu-btn', ...attrs }, h('span', { class: 'menu-btn-icon' }, icon(iconName)), h('span', { class: 'menu-btn-label', text: label }));
+    this.primaryLabel = h('span', { class: 'menu-btn-label' });
+    this.primaryIcon = h('span', { class: 'menu-btn-end' }, icon('seta'));
+    this.primary = h('button', { type: 'button', class: 'btn btn-primary menu-btn menu-btn-primary', 'data-testid': 'menu-primary' }, this.primaryLabel, this.primaryIcon);
     this.primary.addEventListener('click', () => (this.mode === 'title' ? this.showPanel('setup') : callbacks.onResume()));
-    const controlsBtn = h('button', { type: 'button', class: 'btn', text: 'Controles' });
+    const controlsBtn = menuBtn('Controles', 'teclado');
     controlsBtn.addEventListener('click', () => this.showPanel('controls'));
-    const settingsBtn = h('button', { type: 'button', class: 'btn', text: 'Configurações' });
+    const settingsBtn = menuBtn('Configurações', 'engrenagem');
     settingsBtn.addEventListener('click', () => this.showPanel('settings'));
-    this.quit = h('button', { type: 'button', class: 'btn btn-ghost', text: 'Sair para o menu inicial' });
+    this.quit = menuBtn('Sair para o menu inicial', 'sair', { class: 'btn btn-ghost menu-btn' });
     this.quit.addEventListener('click', () => callbacks.onQuitToTitle());
-    this.continueSaved = h('button', { type: 'button', class: 'btn btn-primary', 'data-testid': 'menu-continue', hidden: true }, 'Continuar jogo salvo');
+    this.continueMeta = h('span', { class: 'menu-btn-meta' });
+    this.continueSaved = menuBtn('Continuar', 'play', { 'data-testid': 'menu-continue', hidden: true });
+    this.continueSaved.querySelector('.menu-btn-label')?.append(this.continueMeta);
     this.continueSaved.addEventListener('click', () => callbacks.onContinueSaved());
-    this.saveBtn = h('button', { type: 'button', class: 'btn', 'data-testid': 'menu-save', text: 'Salvar jogo' });
+    this.saveBtn = menuBtn('Salvar jogo', 'salvar', { 'data-testid': 'menu-save' });
     this.saveBtn.addEventListener('click', () => callbacks.onOpenSaves('save'));
-    const loadBtn = h('button', { type: 'button', class: 'btn', 'data-testid': 'menu-load', text: 'Carregar jogo' });
+    const loadBtn = menuBtn('Carregar jogo', 'pasta', { 'data-testid': 'menu-load' });
     loadBtn.addEventListener('click', () => callbacks.onOpenSaves('load'));
     this.savesPanel = h('div', { hidden: true });
 
     this.mainPanel = h(
       'nav',
       { class: 'menu-buttons', 'aria-label': 'Menu principal' },
-      this.continueSaved,
       this.primary,
+      this.continueSaved,
       this.saveBtn,
       loadBtn,
       controlsBtn,
@@ -123,14 +136,14 @@ export class MenuScreen {
       h(
         'div',
         { class: 'menu-card' },
-        h('div', { class: 'menu-brand' }, this.kicker, this.heading, this.tagline),
+        h('div', { class: 'menu-brand' }, this.kicker, this.heading, this.subtitle, h('span', { class: 'menu-rule', 'aria-hidden': 'true' }), this.tagline),
         this.message,
         this.mainPanel,
         this.controlsPanel,
         this.settingsPanel,
         this.savesPanel,
         this.setupPanel,
-        h('p', { class: 'menu-footer', text: 'Protótipo · conteúdo, modelos e sons temporários' }),
+        h('p', { class: 'menu-footer', title: 'Conteúdo, modelos e sons ainda temporários', text: `Protótipo · versão ${shortVersion(GAME_VERSION)}` }),
       ),
     );
     parent.append(this.element);
@@ -139,19 +152,30 @@ export class MenuScreen {
   }
 
   setMode(mode: MenuMode): void {
+    // Recado da tela anterior (ex.: "Jogo salvo" na pausa) não vale na outra tela.
+    if (mode !== this.mode) this.showMessage('');
     this.mode = mode;
     if (mode === 'title') {
-      this.heading.replaceChildren(h('span', { class: 'menu-title-top', text: 'Simulador de' }), h('span', { class: 'menu-title-main', text: 'Mecânico' }));
+      this.heading.replaceChildren(
+        h('span', { class: 'menu-title-main', text: 'Oficina' }),
+        h('span', { class: 'menu-title-main' }, 'do Seu ', h('span', { class: 'menu-title-accent', text: 'Zé' })),
+      );
+      this.heading.setAttribute('aria-label', 'Oficina do Seu Zé');
       this.kicker.hidden = false;
-      this.tagline.textContent = 'Seu tio deixou a oficina — e uma dívida no banco. Hora de pôr a mão na graxa.';
-      this.primary.textContent = 'Iniciar jogo';
+      this.subtitle.hidden = false;
+      this.tagline.textContent = 'Sua oficina. Suas regras. Seu corre.';
+      this.primaryLabel.textContent = 'Iniciar jogo';
+      this.primaryIcon.hidden = false;
       this.quit.hidden = true;
       this.saveBtn.hidden = true;
     } else {
       this.heading.textContent = 'Pausado';
+      this.heading.removeAttribute('aria-label');
       this.kicker.hidden = true;
+      this.subtitle.hidden = true;
       this.tagline.textContent = 'O relógio da oficina está parado.';
-      this.primary.textContent = 'Continuar';
+      this.primaryLabel.textContent = 'Continuar';
+      this.primaryIcon.hidden = true;
       this.quit.hidden = false;
       this.saveBtn.hidden = false;
       this.continueSaved.hidden = true;
@@ -177,6 +201,7 @@ export class MenuScreen {
   setContinueAvailable(label: string | null): void {
     this.continueSaved.hidden = this.mode !== 'title' || label === null;
     this.continueSaved.title = label ?? '';
+    this.continueMeta.textContent = label ?? '';
   }
 
   /** Mostra a lista de saves (o conteúdo vem pronto de fora). */
@@ -203,6 +228,8 @@ export class MenuScreen {
 
   private showPanel(panel: Panel): void {
     this.panel = panel;
+    // Com um painel interno aberto, o título encolhe e sobra espaço (CSS por data-panel).
+    this.element.dataset.panel = panel;
     if (panel === 'controls') {
       // Montada na hora: mostra as teclas que o jogador escolheu.
       this.controlsList.replaceChildren(...controlHints().flatMap(([keys, action]) => [h('dt', {}, h('kbd', { text: keys })), h('dd', { text: action })]));

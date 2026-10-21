@@ -93,6 +93,8 @@ const DEBUG = import.meta.env.DEV || new URLSearchParams(window.location.search)
 const ENVIRONMENT_INTENSITY = 0.35;
 /** Para onde a câmera do menu olha (o carro no box 1). */
 const MENU_CAMERA_TARGET = new THREE.Vector3(-1.6, 0.8, -1.2);
+/** Enquadramento do menu: ângulo e distância em volta do carro, altura e respiração. */
+const MENU_SHOT = { angle: 0.9, radius: 8.6, height: 1.55, lookHeight: 1.6, offset: -0.5, breathPeriod: 18, breathAngle: 0.025, breathHeight: 0.04 } as const;
 
 /**
  * Raiz de composição: cria os módulos, liga uns aos outros e define a ordem
@@ -541,13 +543,24 @@ export class Game {
     this.needsRender = false;
   }
 
-  /** Câmera lenta orbitando o carro atrás do menu inicial. */
+  /**
+   * Plano fixo do menu inicial (referência em docs/coordenacao/referencias/menu-repaginado.png):
+   * câmera baixa de frente para o carro no elevador, o carro à direita do cartão do menu
+   * e uma "respiração" bem lenta. Com "reduzir movimento", fica parada.
+   */
   private updateMenuCamera(dt: number): void {
     if (!this.settings.reduceMotion) this.menuTime += dt;
-    const angle = 0.9 + this.menuTime * 0.06;
+    const m = MENU_SHOT;
+    const breath = Math.sin(this.menuTime * ((2 * Math.PI) / m.breathPeriod));
+    const angle = m.angle + breath * m.breathAngle;
     const t = MENU_CAMERA_TARGET;
-    this.camera.position.set(t.x + Math.cos(angle) * 5.6, 2.3, t.z + Math.sin(angle) * 5.6);
-    this.camera.lookAt(t);
+    const x = t.x + Math.cos(angle) * m.radius;
+    const z = t.z + Math.sin(angle) * m.radius;
+    // Olha um pouco à esquerda do carro: assim ele aparece à direita, livre do cartão.
+    const rightX = -Math.sin(angle);
+    const rightZ = Math.cos(angle);
+    this.camera.position.set(x, m.height + breath * m.breathHeight, z);
+    this.camera.lookAt(t.x - rightX * m.offset, m.lookHeight, t.z - rightZ * m.offset);
   }
 
   // --- Estados -------------------------------------------------------------

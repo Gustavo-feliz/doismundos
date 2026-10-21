@@ -15,6 +15,12 @@ const PATHS = {
   carro: '<path d="M4 16v-3.5L6 7.5A2 2 0 0 1 7.8 6h8.4A2 2 0 0 1 18 7.5l2 5V16"/><path d="M3 16h18v2.5H3z"/><circle cx="7.5" cy="16" r="1.5"/><circle cx="16.5" cy="16" r="1.5"/>',
   mapa: '<path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
   salvar: '<path d="M5 3.5h11l3.5 3.5v13.5h-14.5z"/><path d="M8 3.5v5h7v-5M8 20.5v-6h8v6"/>',
+  seta: '<path d="M9 5.5l6.5 6.5L9 18.5"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+  engrenagem: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  teclado: '<rect x="2.5" y="6.5" width="19" height="11" rx="2"/><path d="M6.5 10h1M10 10h1M13.5 10h1M17 10h.5M7.5 14h9"/>',
+  pasta: '<path d="M3 6.5h6l2 2h10v10H3z"/>',
+  sair: '<path d="M14 4.5h5.5v15H14M10 8l-4 4 4 4M6 12h9"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

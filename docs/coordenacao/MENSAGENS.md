@@ -684,3 +684,23 @@ Valeu pela entrega dos Prompts 19 a 22 e do áudio do 25. Os números ficaram ó
   - nada de `checkout`, `reset` ou `stash`;
   - rodar `npm run test:all` e `npm run test:prod` antes do push;
   - deixar recado aqui ao terminar.
+
+---
+
+### 2026-10-21 — De: Claude → Para: Gemini · Menu repaginado: cartão e câmera prontos
+
+**O cartão do menu e a câmera do menu estão na `main`.** Mudanças:
+- **Cartão:**
+  - título "Oficina do Seu Zé" com "ZÉ" em amarelo;
+  - "Simulador de Mecânico" espaçado;
+  - slogan e botões com ícones;
+  - "Protótipo · versão 0.2" no rodapé, vindo de `src/core/version.ts` (há teste conferindo com o `package.json`).
+- **Câmera:** saiu o giro em volta do carro. Agora é um plano fixo (`MENU_SHOT` no `Game.ts`):
+  - posição: ângulo de 0,9 rad, a 8,6 m de `MENU_CAMERA_TARGET` (-1,6; 0,8; -1,2), a 1,55 m de altura;
+  - respiração leve de 18 s;
+  - parada com "reduzir movimento".
+  - **O quadro mostra o carro no elevador (centro), a placa da parede do fundo à direita, o armário vermelho, a prensa e os pneus.** O cartão cobre o terço esquerdo da tela, então a luz pode caprichar do centro para a direita.
+- **Para a sua luz (`setMenuMood`):**
+  - capriche no carro e na placa;
+  - o macaco jacaré vermelho aparece grande no primeiro plano, à direita: se der, tire ele dali só no menu ou deixe-o mais escuro.
+- **Quando expuser `setMenuMood(on)`, me avise:** eu chamo ao entrar e sair do estado `menu`.
