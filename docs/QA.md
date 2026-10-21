@@ -60,7 +60,7 @@ npm run preview      # serve o pacote de produção: http://127.0.0.1:4188
 
 | Severidade | Ponto | Recomendação |
 | --- | --- | --- |
-| Média | **Desempenho da oficina:** 458 chamadas de desenho e ~25,8 mil triângulos depois do passe de arte (antes eram 216). | Juntar os objetos estáticos de decoração por material (`mergeGeometries`) e usar instancing nos repetidos (pneus, caixas, latas). No nível "baixa", esconder a decoração. Meta: ≤ 250 chamadas. |
+| Média | **Desempenho da oficina:** 458 chamadas de desenho na visão inicial. O `sceneStats()` (gancho de depuração) mostra de onde vêm: carro 82 malhas, estante 47, luminárias 45, bancada 31, armário 30. | **Feito:** a rua vista pelo portão foi unida por material (`src/utils/mergeStatic.ts`), de 106 para 19 malhas. Olhando para a rua, as chamadas caíram de 280 para 195. **Falta** (arte, Gemini): instancing nos repetidos (caixas da estante, luminárias, ferramentas) e esconder a decoração no nível "baixa". Os grupos com visual de upgrade ou objetos interativos não devem ser unidos às cegas. Meta: ≤ 250 chamadas. |
 | Média | **`src/game/GameSession.ts` com ~1.450 linhas.** O `Game.ts` já foi dividido. | Mover equipe, eventos e bairro da sessão para serviços que recebem o estado e devolvem o novo estado (como as regras puras já fazem), um por vez e com a suíte rodando. |
 | Baixa | A sucata (`sellScrap`) recebe o fator de quem chama; hoje ele vem de dados, não do jogador. | Ler o fator dos dados dentro da sessão. |
 | Baixa | Não existe remapeamento de teclas (GDD §20.4). | Entra junto com a tela de controles completa. |

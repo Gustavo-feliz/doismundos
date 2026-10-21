@@ -124,6 +124,8 @@ interface GameTestHooks {
   startTestDrive(): Promise<string>;
   /** Motivo de o test drive estar bloqueado (null = pode). */
   testDriveBlocked(): string | null;
+  /** Malhas visíveis da oficina por grupo (diagnóstico de desempenho). */
+  sceneStats(): { total: number; groups: Record<string, number> };
   /** Dispara um evento ignorando as regras de gatilho (só testes). */
   forceEvent(eventId: string): boolean;
   /** Sai para o bairro (Prompt 14), carregando a cena sob demanda. */

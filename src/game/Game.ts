@@ -60,6 +60,7 @@ import { Hud } from '../ui/Hud';
 import { InspectionPanel, type PanelCloseReason, type PanelViews } from '../ui/InspectionPanel';
 import { MenuScreen } from '../ui/MenuScreen';
 import { disposeObject3D } from '../utils/dispose';
+import { mergeStaticMeshes } from '../utils/mergeStatic';
 import type { PartCondition } from '../parts/types';
 import { buildCatalogs, type Catalogs } from '../vehicles/catalogs';
 import { driveKm, installPart, removePart, revealPartCondition, setPartWear, type DomainResult } from '../vehicles/domain';
@@ -198,6 +199,9 @@ export class Game {
 
     this.workshop = buildWorkshop(vehicle, { color: car.color, plate: car.plate });
     this.scene.add(this.workshop.root);
+    // Desempenho (QA, GDD §22): a rua vista pelo portão é cenário parado; juntar por material corta ~90 chamadas de desenho.
+    const street = this.workshop.root.getObjectByName('PLACEHOLDER_rua');
+    if (street) mergeStaticMeshes(street);
     this.player = new FirstPersonController(this.workshop.colliders, this.workshop.spawn);
     this.equipment = new WorkshopEquipment(this.workshop.parts, {
       onInspectVehicle: () => this.openInspection(),
@@ -1290,6 +1294,20 @@ export class Game {
         return this.state.current;
       },
       testDriveBlocked: () => this.testDrive.blockedReason(),
+      sceneStats: () => {
+        // Malhas visíveis por grupo da oficina (para achar o que mais custa chamadas de desenho).
+        const groups: Record<string, number> = {};
+        let total = 0;
+        this.workshop.root.traverseVisible((o) => {
+          if (!(o as THREE.Mesh).isMesh) return;
+          total++;
+          let top: THREE.Object3D = o;
+          while (top.parent && top.parent !== this.workshop.root) top = top.parent;
+          const key = top.name || top.type;
+          groups[key] = (groups[key] ?? 0) + 1;
+        });
+        return { total, groups };
+      },
       enterNeighborhood: () => this.city.enter(),
       visitCityLocation: (id) => this.city.visit(id as CityLocationId),
       exitNeighborhood: () => this.city.exit(),
