@@ -10,6 +10,15 @@ export default defineConfig({
     target: 'es2022',
     // three.js sozinho já passa de 500 kB minificado; avisar só acima disso.
     chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        // three.js num arquivo separado: atualizar o jogo não obriga o navegador a baixar a biblioteca de novo.
+        manualChunks(id: string) {
+          if (id.includes('node_modules/three/')) return 'three';
+          return undefined;
+        },
+      },
+    },
   },
   test: {
     include: ['tests/unit/**/*.test.ts'],
