@@ -19,8 +19,13 @@ test('build de produção: abre, entra no jogo, test drive e bairro carregam, se
   // Test drive: carrega o chunk do pátio.
   expect(await page.evaluate(() => window.__GAME_TEST_HOOKS__!.startTestDrive())).toBe('driving');
   await expect(page.getByTestId('drive-hud')).toBeVisible();
+  // O primeiro quadro do pátio é lento (a GPU prepara os gráficos): espere o diagnóstico mostrar 'driving'
+  // antes de apertar F, senão F e M caem no mesmo quadro (o diagnóstico só atualiza a cada quadro).
+  await page.waitForFunction(() => window.__GAME_DIAGNOSTICS__?.state === 'driving');
   await page.keyboard.press('KeyF');
   await page.waitForFunction(() => window.__GAME_DIAGNOSTICS__?.state === 'playing');
+  const f = await page.evaluate(() => window.__GAME_DIAGNOSTICS__!.frame);
+  await page.waitForFunction((n) => (window.__GAME_DIAGNOSTICS__?.frame ?? 0) > n + 2, f);
 
   // Bairro: carrega o chunk da cidade (tecla M sai para a rua).
   await page.keyboard.press('KeyM');

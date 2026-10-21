@@ -1,3 +1,4 @@
+import { icon } from './icons';
 import { controlHints } from './keys';
 import type { Settings } from '../save/settings';
 import { h } from './dom';
@@ -34,12 +35,14 @@ export class MenuScreen {
   private readonly controlsList: HTMLElement;
   private readonly primary: HTMLButtonElement;
   private readonly quit: HTMLButtonElement;
+  private readonly kicker: HTMLElement;
   private readonly continueSaved: HTMLButtonElement;
   private readonly saveBtn: HTMLButtonElement;
   private readonly savesPanel: HTMLElement;
 
   constructor(parent: HTMLElement, settings: Settings, callbacks: MenuCallbacks) {
     this.heading = h('h1', { class: 'menu-title' });
+    this.kicker = h('p', { class: 'menu-kicker' }, icon('chave', 'menu-kicker-icon'), h('span', { text: 'Oficina do Seu Zé · São Cristóvão, RJ' }));
     this.tagline = h('p', { class: 'menu-tagline' });
     this.message = h('p', { class: 'menu-message', role: 'alert', 'aria-live': 'assertive', hidden: true });
 
@@ -96,7 +99,7 @@ export class MenuScreen {
       h(
         'div',
         { class: 'menu-card' },
-        h('div', { class: 'menu-brand' }, this.heading, this.tagline),
+        h('div', { class: 'menu-brand' }, this.kicker, this.heading, this.tagline),
         this.message,
         this.mainPanel,
         this.controlsPanel,
@@ -113,13 +116,15 @@ export class MenuScreen {
   setMode(mode: MenuMode): void {
     this.mode = mode;
     if (mode === 'title') {
-      this.heading.textContent = 'Simulador de Mecânico';
+      this.heading.replaceChildren(h('span', { class: 'menu-title-top', text: 'Simulador de' }), h('span', { class: 'menu-title-main', text: 'Mecânico' }));
+      this.kicker.hidden = false;
       this.tagline.textContent = 'Seu tio deixou a oficina — e uma dívida no banco. Hora de pôr a mão na graxa.';
       this.primary.textContent = 'Iniciar jogo';
       this.quit.hidden = true;
       this.saveBtn.hidden = true;
     } else {
       this.heading.textContent = 'Pausado';
+      this.kicker.hidden = true;
       this.tagline.textContent = 'O relógio da oficina está parado.';
       this.primary.textContent = 'Continuar';
       this.quit.hidden = false;

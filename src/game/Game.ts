@@ -38,7 +38,7 @@ import { ORDER_STATUS_LABEL } from '../orders/types';
 import { WORKSHOP_SIZE } from '../world/Workshop';
 import { DrivingHud } from '../ui/DrivingHud';
 import { resolveBindings } from '../core/bindings';
-import { setUiBindings } from '../ui/keys';
+import { keyText, setUiBindings } from '../ui/keys';
 import { TestDriveController } from './TestDriveController';
 import { CityController } from './CityController';
 import { CITY_NEIGHBORHOOD } from '../data/city';
@@ -468,6 +468,7 @@ export class Game {
       objectiveLabel: mission ? `${mission.missionTitle} · passo ${mission.stepNumber} de ${mission.stepCount}` : 'Objetivo',
       objectiveDetail: mission && this.session.activeCase ? this.currentObjective() : null,
       tool: this.heldPartName() ?? 'Nada',
+      reputationStars: this.session.reputation.general.reviews > 0 ? Math.round(this.session.reputation.general.score / 10) / 2 : null,
     });
     const playing = this.state.is('playing');
     this.hud.setTip(playing && mission && this.tracker.tipsEnabled ? this.fill(mission.tip) : null);
@@ -866,6 +867,11 @@ export class Game {
       cliente: this.session.activeCase?.customerName ?? 'o cliente',
       vencimento: String(this.session.debt.nextDueDay),
       parcela: formatBRL(this.session.debtDue(this.clock.day).total),
+      // Teclas do jogador (remapeamento, Prompt 24): o texto nunca manda apertar a tecla errada.
+      interagir: keyText('interact'),
+      dicas: keyText('toggleTips'),
+      correr: keyText('run'),
+      andar: `${keyText('forward')} ${keyText('left')} ${keyText('backward')} ${keyText('right')}`,
     });
   }
 

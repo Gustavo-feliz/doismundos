@@ -4,7 +4,8 @@ import type { DialogueDef, MissionDef } from '../missions/types';
  * Tutorial com o Seu Zé e o começo do Ato 1 (GDD §6, §15.2, Prompt 10).
  * Só usa sistemas que já existem. Textos aceitam marcadores trocados na hora:
  * {cliente} (cliente da OS do box 1), {vencimento} (dia da próxima parcela),
- * {parcela} (valor da próxima parcela).
+ * {parcela} (valor da próxima parcela) e as teclas escolhidas pelo jogador:
+ * {interagir}, {dicas}, {andar}, {correr}.
  * PROVISÓRIO: textos e recompensas serão revisados com o roteiro final do Ato 1.
  */
 export const MISSIONS: readonly MissionDef[] = [
@@ -22,13 +23,13 @@ export const MISSIONS: readonly MissionDef[] = [
       {
         id: 'andar',
         objective: 'Ande até o carro de {cliente} no box 1',
-        tip: 'W A S D para andar, mouse para olhar e Shift para correr.',
+        tip: '{andar} para andar, mouse para olhar e {correr} para correr.',
         highlight: 'carro',
         done: { kind: 'flag', flag: 'andou' },
       },
       {
         id: 'abrir-ficha',
-        objective: 'Mire no carro e aperte E para abrir a ficha',
+        objective: 'Mire no carro e aperte {interagir} para abrir a ficha',
         tip: 'Com a ficha aberta o mouse fica livre. As abas são Inspeção, Diagnóstico, Orçamento e Serviço. Esc fecha.',
         highlight: 'carro',
         done: { kind: 'flag', flag: 'abriu-painel-carro' },
@@ -158,7 +159,7 @@ export const DIALOGUES: readonly DialogueDef[] = [
         {
           id: 'sozinho',
           label: 'Pode deixar, eu me viro.',
-          reply: { speaker: 'seu-ze', text: 'Gostei! Se apertar, aperta H que eu volto a dar dica.' },
+          reply: { speaker: 'seu-ze', text: 'Gostei! Se apertar, aperta {dicas} que eu volto a dar dica.' },
           effects: [{ kind: 'tips', on: false }],
         },
       ],

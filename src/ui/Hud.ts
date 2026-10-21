@@ -1,5 +1,6 @@
 import type { InteractionPrompt } from '../interaction/types';
 import { h, setText } from './dom';
+import { icon } from './icons';
 import { kbd } from './keys';
 
 export interface HudData {
@@ -9,6 +10,8 @@ export interface HudData {
   objective: string;
   /** Rótulo acima do objetivo (ex.: "Tutorial · passo 3 de 8"). */
   objectiveLabel: string;
+  /** Reputação geral em estrelas (0–5, de meia em meia) ou null sem avaliações. */
+  reputationStars?: number | null;
   /** Linha extra com a OS do box (durante uma missão). null esconde. */
   objectiveDetail: string | null;
   tool: string;
@@ -51,6 +54,7 @@ export class Hud {
   private noticeTimer = 0;
   private savedTimer = 0;
   private readonly saved: HTMLElement;
+  private readonly rep: HTMLElement;
 
   constructor(parent: HTMLElement) {
     this.money = h('strong', { class: 'hud-value', 'data-testid': 'hud-money' });
@@ -62,7 +66,7 @@ export class Hud {
     this.tip = h(
       'div',
       { class: 'hud-panel hud-tip', 'data-testid': 'hud-tip', hidden: true },
-      h('span', { class: 'hud-label', text: 'Dica do Seu Zé' }),
+      h('span', { class: 'hud-label' }, icon('dica', 'hud-label-icon'), 'Dica do Seu Zé'),
       this.tipText,
       h('span', { class: 'hud-tip-hint' }, kbd('toggleTips'), ' ocultar dicas'),
     );
@@ -75,7 +79,11 @@ export class Hud {
     this.promptAction = h('div', { class: 'prompt-action' });
     this.prompt = h('div', { class: 'interact-prompt', 'data-testid': 'interact-prompt', hidden: true }, this.promptName, this.promptDetail, this.promptAction);
 
-    this.notice = h('div', { class: 'hud-notice', role: 'status', 'aria-live': 'polite', 'data-testid': 'hud-notice', hidden: true });
+    // Avisos empilhados (até 3), sem cobrir a mira.
+    this.notice = h('div', { class: 'hud-notice', role: 'status', 'aria-live': 'polite', 'data-testid': 'hud-notices', hidden: true });
+    this.rep = h('strong', { class: 'hud-value', 'data-testid': 'hud-rep' });
+    const metric = (name: Parameters<typeof icon>[0], label: string, value: HTMLElement) =>
+      h('div', { class: 'hud-metric' }, icon(name, 'hud-icon'), h('span', { class: 'hud-metric-body' }, h('span', { class: 'hud-label', text: label }), value));
     this.saved = h('div', { class: 'hud-saved', 'data-testid': 'hud-saved', hidden: true });
 
     this.element = h(
@@ -84,11 +92,18 @@ export class Hud {
       h(
         'div',
         { class: 'hud-panel hud-top-left' },
-        h('div', { class: 'hud-metric' }, h('span', { class: 'hud-label', text: 'Caixa' }), this.money),
-        h('div', { class: 'hud-metric' }, h('span', { class: 'hud-label', text: 'Hora' }), this.clock),
+        metric('dinheiro', 'Caixa', this.money),
+        metric('relogio', 'Hora', this.clock),
       ),
-      h('div', { class: 'hud-panel hud-objective', role: 'status', 'aria-live': 'polite' }, this.objectiveLabel, this.objective, this.objectiveDetail, this.tip),
-      h('div', { class: 'hud-panel hud-bottom-right' }, h('span', { class: 'hud-label', text: 'Em mãos' }), this.tool),
+      h(
+        'div',
+        { class: 'hud-panel hud-objective', role: 'status', 'aria-live': 'polite' },
+        h('div', { class: 'hud-objective-head' }, icon('alvo', 'hud-label-icon'), this.objectiveLabel),
+        this.objective,
+        this.objectiveDetail,
+        this.tip,
+      ),
+      h('div', { class: 'hud-panel hud-bottom-right' }, metric('estrela', 'Reputação', this.rep), metric('chave', 'Em mãos', this.tool)),
       this.crosshair,
       this.prompt,
       this.notice,
@@ -107,6 +122,8 @@ export class Hud {
     setText(this.money, data.money);
     setText(this.clock, `Dia ${data.day} · ${data.time}`);
     setText(this.objective, data.objective);
+    const stars = data.reputationStars ?? null;
+    setText(this.rep, stars === null ? '—' : stars.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
     setText(this.objectiveLabel, data.objectiveLabel);
     this.objectiveDetail.hidden = !data.objectiveDetail;
     if (data.objectiveDetail) setText(this.objectiveDetail, data.objectiveDetail);
@@ -163,16 +180,17 @@ export class Hud {
   /** Aviso curto de retorno de uma ação. */
   notify(text: string, kind: 'ok' | 'blocked'): void {
     if (!text) return;
-    this.notice.textContent = text;
+    // Pilha de até 3 avisos: o mais novo embaixo; cada um some sozinho.
+    // O aviso mais novo leva o data-testid 'hud-notice' (é o que o jogador acabou de causar).
+    for (const old of this.notice.querySelectorAll('[data-testid="hud-notice"]')) old.removeAttribute('data-testid');
+    const item = h('div', { class: 'hud-notice-item is-fresh', 'data-kind': kind, 'data-testid': 'hud-notice' }, icon(kind === 'ok' ? 'ok' : 'alerta', 'hud-notice-icon'), h('span', { text }));
     this.notice.dataset.kind = kind;
+    this.notice.append(item);
+    while (this.notice.childElementCount > 3) this.notice.firstElementChild?.remove();
     this.notice.hidden = false;
-    // Reinicia a animação mesmo se a mesma mensagem se repetir.
-    this.notice.classList.remove('is-fresh');
-    void this.notice.offsetWidth;
-    this.notice.classList.add('is-fresh');
-    window.clearTimeout(this.noticeTimer);
-    this.noticeTimer = window.setTimeout(() => {
-      this.notice.hidden = true;
+    window.setTimeout(() => {
+      item.remove();
+      if (this.notice.childElementCount === 0) this.notice.hidden = true;
     }, NOTIFY_MS);
   }
 

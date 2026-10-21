@@ -278,7 +278,7 @@ describe('diálogos (legenda)', () => {
 
     const picked = r.choose(2)!;
     expect(picked.option.id).toBe('sozinho');
-    expect(picked.started?.text).toMatch(/aperta H/);
+    expect(picked.started?.text).toMatch(/aperta \{dicas\}/); // a tela troca pela tecla do jogador
     expect(r.update(lineSeconds(picked.started!.text), 'prologo').finished).toBe('prologo');
     expect(r.view()).toBeNull();
   });

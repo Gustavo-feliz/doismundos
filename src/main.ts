@@ -1,4 +1,10 @@
+// Fontes da interface (SIL OFL 1.1), servidas pelo próprio jogo (Prompt 24).
+import '@fontsource/barlow-condensed/latin-600.css';
+import '@fontsource/barlow-condensed/latin-700.css';
+import '@fontsource/barlow-condensed/latin-800.css';
+import '@fontsource-variable/inter/wght.css';
 import './styles.css';
+import './ui/design/theme.css';
 import { isWebGL2Available } from './core/Renderer';
 import { Game } from './game/Game';
 import { showFatalError, showToast } from './ui/ErrorOverlay';
