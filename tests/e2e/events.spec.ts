@@ -19,7 +19,9 @@ test('Prompt 16: eventos de fiscalização e pressão local, escolhas recuperáv
   await expect(page.getByTestId('event-catalog')).toBeVisible();
 
   // 1) Atende à fiscalização municipal (alvará e descarte de óleo)
-  await page.locator('[data-trigger-event="fiscalizacao-alvara-seguranca"]').click();
+  // No dia 1 o evento ainda não está liberado para o jogador: o gancho de teste força.
+  await expect(page.locator('[data-trigger-event="fiscalizacao-alvara-seguranca"]')).toBeDisabled();
+  expect(await page.evaluate(() => window.__GAME_TEST_HOOKS__!.forceEvent('fiscalizacao-alvara-seguranca'))).toBe(true);
   await expect(page.getByTestId('active-event')).toBeVisible();
   await expect(page.getByTestId('active-event')).toHaveAttribute('data-event-category', 'fiscalizacao');
 
@@ -33,7 +35,9 @@ test('Prompt 16: eventos de fiscalização e pressão local, escolhas recuperáv
   expect(afterInspection.events.historyCount).toBe(1);
 
   // 2) Atende ao encontro narrativo de pressão local no bairro
-  await page.locator('[data-trigger-event="pressao-vigilancia-rua"]').click();
+  // No dia 1 o evento ainda não está liberado para o jogador: o gancho de teste força.
+  await expect(page.locator('[data-trigger-event="pressao-vigilancia-rua"]')).toBeDisabled();
+  expect(await page.evaluate(() => window.__GAME_TEST_HOOKS__!.forceEvent('pressao-vigilancia-rua'))).toBe(true);
   await expect(page.getByTestId('active-event')).toBeVisible();
   await expect(page.getByTestId('active-event')).toHaveAttribute('data-event-category', 'pressao-local');
 

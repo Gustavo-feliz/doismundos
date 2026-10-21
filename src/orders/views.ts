@@ -11,6 +11,7 @@ import { canSpend, CATEGORY_LABEL } from '../economy/ledger';
 import { compatiblePartsFor } from '../vehicles/domain';
 import { checkPurchase, EFFECT_LABEL, reduceMinutes, reductionAt } from '../upgrades/rules';
 import { toolsMet } from '../procedural/generator';
+import { canTriggerEvent } from '../events/rules';
 import { CATEGORY_LABEL as VEHICLE_CATEGORY_LABEL } from '../vehicles/types';
 import { WEAR_BAND_LABEL } from '../vehicles/state';
 import { isOrderClosed, ORDER_STATUS_LABEL, QUALITY_LABEL_TEXT, type OrderStatus } from './types';
@@ -585,7 +586,7 @@ export function buildComputerView(session: GameSession, now: number, activeVehic
     upgrades: upgradesView(session),
     catalog: buildCatalogView(session),
     staff: buildStaffView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
-    events: buildEventsView(session),
+    events: buildEventsView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
     reputation: {
       generalScore: rep.general.score,
       generalStars: starsText(averageStars(rep.general)),
@@ -776,7 +777,7 @@ export function buildStaffView(session: GameSession, day: number): StaffView {
 }
 
 /** Visão do sistema de eventos, fiscalização e pressão local (Prompt 16). */
-export function buildEventsView(session: GameSession): EventsView {
+export function buildEventsView(session: GameSession, day: number): EventsView {
   const active = session.activeEvent;
   const cash = session.cash;
   const credit = session.creditLimit;
@@ -812,7 +813,7 @@ export function buildEventsView(session: GameSession): EventsView {
       title: ev.title,
       speaker: ev.speaker,
       triggerText: `Gatilho automático: a partir do dia ${ev.trigger.minDay} (${ev.trigger.minDeliveredOrders} OS entregue(s), intervalo de ${ev.trigger.cooldownDays} dia(s))`,
-      canTriggerNow: session.activeEvent === null,
+      canTriggerNow: canTriggerEvent(ev, session.events, { day, deliveredCount: session.deliveredOrders().length }),
     })),
     history: [...session.events.history].reverse().map((h) => ({
       id: h.id,

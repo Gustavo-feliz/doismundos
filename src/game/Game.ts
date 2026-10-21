@@ -1588,6 +1588,10 @@ export class Game {
       vehicleOp: (op) => this.runVehicleOp(op as VehicleOp),
       autosaveNow: () => this.autosave(),
       dialogueChoose: (n) => this.chooseDialogueOption(n),
+      forceEvent: (eventId) => {
+        const r = this.session.triggerEvent(eventId, this.clock.day, { force: true });
+        return r.ok;
+      },
       startTestDrive: async () => {
         await this.startTestDrive();
         return this.state.current;

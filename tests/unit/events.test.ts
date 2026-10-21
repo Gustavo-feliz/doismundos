@@ -101,7 +101,7 @@ describe('Prompt 16 — Eventos, fiscalização e pressão local (regras puras e
     const rep0 = s.reputation.general.score;
 
     // 1) Fiscalização: opção paga (+3 reputação, -R$ 160,00, +15 min)
-    expect(s.triggerEvent('fiscalizacao-alvara-seguranca', 2).ok).toBe(true);
+    expect(s.triggerEvent('fiscalizacao-alvara-seguranca', 2, { force: true }).ok).toBe(true);
     const out1 = s.resolveActiveEvent('regularizar-na-hora', { day: 2, time: '09:00', at: 1980 });
     expect(out1.ok).toBe(true);
     expect(out1.minutes).toBe(15);
@@ -115,7 +115,7 @@ describe('Prompt 16 — Eventos, fiscalização e pressão local (regras puras e
     expect(s.reputation.general.score).toBe(rep0 + 3);
 
     // 2) Pressão local: opção de mobilização comunitária sem custo (+2 reputação, R$ 0,00, +35 min)
-    expect(s.triggerEvent('pressao-vigilancia-rua', 6).ok).toBe(true);
+    expect(s.triggerEvent('pressao-vigilancia-rua', 6, { force: true }).ok).toBe(true);
     const out2 = s.resolveActiveEvent('mobilizar-comerciantes-seu-ze', { day: 6, time: '11:00', at: 7860 });
     expect(out2.ok).toBe(true);
     expect(out2.minutes).toBe(35);
@@ -124,9 +124,19 @@ describe('Prompt 16 — Eventos, fiscalização e pressão local (regras puras e
     expect(s.events.history).toHaveLength(2);
   });
 
+  it('QA: o jogador só antecipa evento já liberado; repetir no mesmo dia é bloqueado', () => {
+    const s = newSession();
+    const early = s.triggerEvent('pressao-vigilancia-rua', 1);
+    expect(early.ok).toBe(false);
+    expect(early.message).toMatch(/Ainda não/);
+    expect(s.events.activeEventId).toBeNull();
+    const view = buildComputerView(s, when.at, s.activeCase!.vehicle.id);
+    expect(view.events.catalog.every((c) => !c.canTriggerNow)).toBe(true);
+  });
+
   it('oferece alternativa recuperável quando o jogador está sem caixa para a opção paga', () => {
     const broke = newSession({ economy: { startingCash: 20_00, creditLimit: 0 } });
-    broke.triggerEvent('fiscalizacao-alvara-seguranca', 2);
+    broke.triggerEvent('fiscalizacao-alvara-seguranca', 2, { force: true });
 
     const view = buildComputerView(broke, when.at, broke.activeCase!.vehicle.id);
     const paidOpt = view.events.active!.options.find((o) => o.id === 'regularizar-na-hora')!;
@@ -148,9 +158,9 @@ describe('Prompt 16 — Eventos, fiscalização e pressão local (regras puras e
 
   it('persiste evento ativo e histórico no save e valida integridade do snapshot', () => {
     const s = newSession();
-    s.triggerEvent('fiscalizacao-alvara-seguranca', 2);
+    s.triggerEvent('fiscalizacao-alvara-seguranca', 2, { force: true });
     s.resolveActiveEvent('assinar-termo-prazo', { day: 2, time: '14:00', at: 2280 });
-    s.triggerEvent('pressao-vigilancia-rua', 6);
+    s.triggerEvent('pressao-vigilancia-rua', 6, { force: true });
 
     const snap = JSON.parse(JSON.stringify(s.toSnapshot()));
     const restored = GameSession.fromSnapshot(catalogs, content, snap);

@@ -153,13 +153,20 @@ export function evaluateEventTriggers(
   };
 }
 
-/** Dispara um evento pelo ID (usado quando o jogador atende uma notificação ou em testes). */
+/**
+ * Dispara um evento pelo ID. O jogador só pode ANTECIPAR um evento que já
+ * está liberado pelas regras de gatilho (dia, OS entregues, intervalo);
+ * `force` existe só para testes (QA, Prompt 18: antes dava para repetir
+ * um evento com reputação positiva à vontade no dia 1).
+ */
 export function triggerSpecificEvent(
   events: readonly GameEventDef[],
   state: EventState,
   eventId: string,
-  day: number,
+  ctx: { day: number; deliveredCount: number },
+  force = false,
 ): { ok: true; state: EventState; event: GameEventDef } | { ok: false; message: string } {
+  const day = ctx.day;
   if (state.activeEventId !== null) {
     return { ok: false, message: 'Já existe um evento aguardando decisão na oficina.' };
   }
@@ -167,6 +174,9 @@ export function triggerSpecificEvent(
   if (!def) return { ok: false, message: 'Evento desconhecido.' };
   if (!def.trigger.repeatable && state.history.some((h) => h.eventId === def.id)) {
     return { ok: false, message: 'Este evento único já foi resolvido nesta campanha.' };
+  }
+  if (!force && !canTriggerEvent(def, state, ctx)) {
+    return { ok: false, message: `Ainda não: ${def.title} só acontece a partir do dia ${def.trigger.minDay}, com ${def.trigger.minDeliveredOrders} OS entregue(s) e intervalo de ${def.trigger.cooldownDays} dia(s).` };
   }
   return {
     ok: true,

@@ -1073,8 +1073,8 @@ export class GameSession {
   }
 
   /** Dispara um evento específico pelo ID (para atendimento direto no painel ou testes). */
-  triggerEvent(eventId: string, day: number): ActionOutcome {
-    const res = triggerSpecificEvent(this.gameEvents, this.eventState, eventId, day);
+  triggerEvent(eventId: string, day: number, options: { force?: boolean } = {}): ActionOutcome {
+    const res = triggerSpecificEvent(this.gameEvents, this.eventState, eventId, { day, deliveredCount: this.deliveredOrders().length }, options.force);
     if (!res.ok) return this.fail(res.message);
     this.eventState = res.state;
     this.revision++;

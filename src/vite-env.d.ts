@@ -124,6 +124,8 @@ interface GameTestHooks {
   startTestDrive(): Promise<string>;
   /** Motivo de o test drive estar bloqueado (null = pode). */
   testDriveBlocked(): string | null;
+  /** Dispara um evento ignorando as regras de gatilho (só testes). */
+  forceEvent(eventId: string): boolean;
   /** Sai para o bairro (Prompt 14), carregando a cena sob demanda. */
   enterNeighborhood(): Promise<boolean>;
   /** Visita um dos 5 locais do bairro (ou volta à oficina se for 'oficina'). */
