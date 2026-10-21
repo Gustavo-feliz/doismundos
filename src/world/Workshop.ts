@@ -12,14 +12,15 @@ import {
   posterTexture,
   rollingDoorTexture,
   sidewalkTexture,
-  signTexture,
   wallTexture,
   woodWorkbenchTexture,
 } from '../utils/canvasTextures';
+import { workshopSignTexture } from './workshop/signage';
+import { buildMenuMood } from './workshop/menuMood';
 import { createSeededRandom, range } from '../utils/random';
 import { buildCharacter, createCastStage, type CastMemberSpec } from '../characters';
 import { EQUIPMENT_IDS } from '../data/equipment';
-import { lightingAtMinute } from '../data/lighting';
+import { lightingAtMinute, MENU_MOOD } from '../data/lighting';
 import { tagInteractable } from '../interaction/resolveTarget';
 import { mergeStaticMeshes } from '../utils/mergeStatic';
 import { buildArtSandbox } from './ArtSandbox';
@@ -92,6 +93,8 @@ export interface WorkshopParts {
   setTimeOfDay?(minuteOfDay: number): void;
   /** Posiciona o elenco de personagens em cena (abertura/cutscenes) ou limpa com null. */
   placeCast?(cast: readonly CastMemberSpec[] | null): void;
+  /** Ativa ou desativa a atmosfera e iluminação cinematográfica do menu inicial. */
+  setMenuMood?(on: boolean): void;
 }
 
 export interface Workshop {
@@ -113,6 +116,8 @@ export interface Workshop {
   setTimeOfDay(minuteOfDay: number): void;
   /** Posiciona o elenco de personagens em cena (abertura/cutscenes) ou limpa com null. */
   placeCast(cast: readonly CastMemberSpec[] | null): void;
+  /** Ativa ou desativa a atmosfera e iluminação cinematográfica do menu inicial. */
+  setMenuMood(on: boolean): void;
   /** Conecta o barramento de eventos (`tutorial:highlight`, `settings:changed`, `upgrade:changed`) à oficina. */
   bindEvents(bus: EventBus<GameEvents>): () => void;
 }
@@ -171,7 +176,7 @@ function createMaterials(): Mats {
     windowGlow: new THREE.MeshStandardMaterial({ color: 0xdfe9f2, emissive: 0xcfe0f0, emissiveIntensity: 1.3, roughness: 0.3 }),
     door: new THREE.MeshStandardMaterial({ map: rollingDoorTexture(), roughness: 0.48, metalness: 0.62 }),
     pegboard: new THREE.MeshStandardMaterial({ map: pegboardTexture(), roughness: 0.82 }),
-    sign: new THREE.MeshStandardMaterial({ map: signTexture('OFICINA DO SEU ZÉ', 'MECÂNICA GERAL  ·  DESDE 1987'), roughness: 0.65 }),
+    sign: new THREE.MeshStandardMaterial({ map: workshopSignTexture(), roughness: 0.65 }),
     asphalt: new THREE.MeshStandardMaterial({ color: 0x38393c, roughness: 0.94 }),
     sidewalk: new THREE.MeshStandardMaterial({ map: sidewalkTexture(), roughness: 0.88 }),
   };
@@ -318,8 +323,23 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       child.name !== 'iluminacao' &&
       child.name !== 'particulas_feixe_sol' &&
       child.name !== 'art_sandbox' &&
-      child.name !== 'elenco_personagens',
+      child.name !== 'elenco_personagens' &&
+      child.name !== 'clima_menu',
   );
+
+  // --- Atmosfera e iluminação cinematográfica do menu inicial (Prompt 24 / menu repaginado) ---
+  const menuMood = buildMenuMood({
+    root,
+    preset: MENU_MOOD,
+    sun: lighting.sun,
+    hemi: lighting.hemi,
+    hall: lighting.hall,
+    signMaterial: m.sign,
+    hideInMenu: [jackGroup],
+  });
+  const setMenuMood = (on: boolean) => {
+    menuMood.set(on);
+  };
 
   // --- Destaque visual do tutorial e visuais de upgrades (fora do raycast) ---
   const highlight = buildHighlightSystem(root, car.group);
@@ -386,6 +406,7 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
     setUpgradeLevel,
     setTimeOfDay,
     placeCast,
+    setMenuMood,
   };
 
   return {
@@ -399,6 +420,7 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       sharedMaterials.setQuality(tier);
       steamDetails.setQualityTier(tier);
       artSandbox?.setQuality(tier);
+      menuMood.setQualityTier(tier);
       for (const light of lighting.shadowLights) {
         light.castShadow = enabled;
         if (light.shadow.mapSize.x !== mapSize) {
@@ -409,10 +431,14 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       }
     },
     setHighlight: setHighlightWithSeuZe,
-    setReduceMotion,
+    setReduceMotion(reduceMotion: boolean) {
+      setReduceMotion(reduceMotion);
+      menuMood.setReduceMotion(reduceMotion);
+    },
     setUpgradeLevel,
     setTimeOfDay,
     placeCast,
+    setMenuMood,
     bindEvents(bus: EventBus<GameEvents>): () => void {
       const offHighlight = bus.on('tutorial:highlight', ({ targetId }) => {
         setHighlightWithSeuZe(targetId);
@@ -425,13 +451,18 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       });
       const offSettings = bus.on('settings:changed', ({ settings }) => {
         setReduceMotion(settings.reduceMotion);
+        menuMood.setReduceMotion(settings.reduceMotion);
         const q = settings.quality === 'baixa' || settings.quality === 'media' || settings.quality === 'alta' ? settings.quality : 'alta';
         sharedMaterials.setQuality(q);
         steamDetails.setQualityTier(q);
         artSandbox?.setQuality(q);
+        menuMood.setQualityTier(q);
       });
       const offUpgrade = bus.on('upgrade:changed', ({ upgradeId, level }) => {
         setUpgradeLevel(upgradeId, level);
+      });
+      const offState = bus.on('state:changed', ({ to }) => {
+        setMenuMood(to === 'menu');
       });
       const offVehicle = bus.on('vehicle:changed', ({ modelId, category, color, plate }) => {
         const def =
@@ -448,6 +479,7 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
         offDialogue();
         offSettings();
         offUpgrade();
+        offState();
         offVehicle();
       };
     },

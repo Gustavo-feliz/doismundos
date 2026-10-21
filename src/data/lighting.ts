@@ -169,3 +169,90 @@ export function lightingAtMinute(minuteOfDay: number): LightingPreset {
   };
 }
 
+/** Spot de destaque (carro no elevador, placa da parede) usado no clima do menu. */
+export interface MoodSpotLight {
+  color: number;
+  intensity: number;
+  position: readonly [number, number, number];
+  target: readonly [number, number, number];
+  /** Abertura do cone em radianos. */
+  angle: number;
+  /** Suavidade da borda do cone (0..1). */
+  penumbra: number;
+}
+
+/**
+ * Clima de luz do menu inicial (referência: docs/coordenacao/referencias/menu-repaginado.png).
+ * Fim de tarde dourado entrando pelo portão, lâmpadas quentes, feixe de sol com poeira,
+ * o carro do box 1 bem iluminado e a placa "Mecânica geral · desde 1987" legível.
+ * Só vale enquanto o menu está aberto: `workshop.setMenuMood(true | false)`.
+ */
+export interface MenuMoodPreset {
+  id: 'menu';
+  /** Sol baixo de fim de tarde entrando pelo portão (posição relativa à oficina). */
+  sunColor: number;
+  sunIntensity: number;
+  sunPosition: readonly [number, number, number];
+  skyColor: number;
+  groundColor: number;
+  hemiIntensity: number;
+  /** Cor das lâmpadas do galpão e multiplicador sobre a intensidade "ligada". */
+  hallLightColor: number;
+  hallIntensityScale: number;
+  /** Brilho das réguas fluorescentes (cor e intensidade emissiva). */
+  tubeEmissiveColor: number;
+  tubeIntensity: number;
+  carKeyLight: MoodSpotLight;
+  signLight: MoodSpotLight;
+  /** Brilho próprio da placa para ficar legível mesmo na sombra (0 = desligado). */
+  signGlow: number;
+  /** Feixe de sol volumétrico falso (aditivo) do portão até a frente do carro. */
+  beamColor: number;
+  beamOpacity: number;
+  /** Poeira em suspensão dentro do feixe. */
+  dustColor: number;
+  dustOpacity: number;
+  dustSize: number;
+  dustCount: number;
+  /** Exposição sugerida para o `renderer.toneMappingExposure` no menu (o padrão do jogo é 1.0). */
+  exposure: number;
+}
+
+export const MENU_MOOD: MenuMoodPreset = {
+  id: 'menu',
+  sunColor: 0xffb469,
+  sunIntensity: 3.4,
+  sunPosition: [6, 7, 30],
+  skyColor: 0xffe2c2,
+  groundColor: 0x4a3a2c,
+  hemiIntensity: 0.32,
+  hallLightColor: 0xffd29a,
+  hallIntensityScale: 1.25,
+  tubeEmissiveColor: 0xffe4b8,
+  tubeIntensity: 2.6,
+  carKeyLight: {
+    color: 0xfff0dc,
+    intensity: 150,
+    position: [1.4, 4.4, 2.8],
+    target: [-1.6, 0.7, -1.1],
+    angle: 0.6,
+    penumbra: 0.65,
+  },
+  signLight: {
+    color: 0xffe9c8,
+    intensity: 16,
+    position: [3.6, 4.6, -7.5],
+    target: [3.6, 3.5, -9.0],
+    angle: 0.95,
+    penumbra: 0.75,
+  },
+  signGlow: 0.22,
+  beamColor: 0xffc27a,
+  beamOpacity: 0.11,
+  dustColor: 0xffe6b8,
+  dustOpacity: 0.8,
+  dustSize: 0.028,
+  dustCount: 160,
+  exposure: 1.06,
+};
+

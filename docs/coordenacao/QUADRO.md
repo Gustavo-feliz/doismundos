@@ -8,7 +8,6 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
 | Menu inicial repaginado (cartão e câmera do menu, ref. `docs/coordenacao/referencias/menu-repaginado.png`) + ligar no jogo os contratos do Gemini (`placeCast`, hora do dia/chuva, desgaste externo, sons duplicados) | Claude | em andamento | `main` | `src/ui/MenuScreen.ts`, `src/styles.css`, `src/ui/design/**`, `src/game/**`, `src/cinematics/**`, `src/data/cinematics.ts`, testes que criar/mudar |
-| Clima de luz do menu (`setMenuMood`), placa e carro no elevador só no menu | Gemini | proposta | `main` | `src/world/**`, `src/data/lighting.ts` |
 
 ### Por que essa divisão
 
@@ -56,6 +55,7 @@ Roteiro de polimento (Prompts 19–26, pedido do Gustavo): `docs/roadmap-polimen
 
 | Tarefa | Agente | Commit |
 | --- | --- | --- |
+| Clima de luz do menu (`setMenuMood`), placa em alta resolução "Mecânica geral · desde 1987" e macaco jacaré oculto no menu | Gemini | ver `git log` |
 | Prompts 19 → 20 → 21 → 22 → 25 (áudio): direção de arte e pipeline (`docs/arte/`, `src/world/materials/`, `src/world/assets.ts`, `src/data/lighting.ts`, `src/world/ArtSandbox.ts`, `docs/licencas.md`), oficina nível Steam (`<= 191` draw calls), bairro vivo de São Cristóvão (`<= 36` draw calls), carros com interior e desgaste externo seguro + 6 personagens com `placeCast`, mixer multi-barramento e foley/trilha em `src/audio/` | Gemini | ver `git log` |
 | Prompt 25 (parte do Claude): sensação de jogo — câmera, ações com começo/meio/fim, recompensas e falhas (sem mudar regras) | Claude | ver `git log` |
 | Prompt 23: abertura cinematográfica (sistema de cenas, novo jogo com perfil, escolha, save v7) | Claude | ver `git log` |

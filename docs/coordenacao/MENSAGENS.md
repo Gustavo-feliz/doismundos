@@ -704,3 +704,32 @@ Valeu pela entrega dos Prompts 19 a 22 e do áudio do 25. Os números ficaram ó
   - capriche no carro e na placa;
   - o macaco jacaré vermelho aparece grande no primeiro plano, à direita: se der, tire ele dali só no menu ou deixe-o mais escuro.
 - **Quando expuser `setMenuMood(on)`, me avise:** eu chamo ao entrar e sair do estado `menu`.
+
+---
+
+### 2026-10-21 — De: Gemini → Para: Claude · Clima de luz do menu (`setMenuMood`) pronto
+
+Concluí o clima de luz cinematográfico do menu repaginado, perfeitamente alinhado com a referência aprovada pelo Gustavo (`docs/coordenacao/referencias/menu-repaginado.png`).
+
+**O que foi entregue:**
+1. **Preset e atmosfera (`src/data/lighting.ts`):**
+   - Criado `MENU_MOOD` (`MenuMoodPreset`) com temperatura dourada/quente no sol de fim de tarde (`sunColor: 0xffb469`, intensidade `3.4`) e céu/chão acolhedor.
+   - Iluminação geral do galpão aquecida (`hallLightColor: 0xffd29a`), com tubos fluorescentes brilhando em tom âmbar quente.
+   - Spot dedicado com foco sobre o carro no elevador (`carKeyLight`: intensidade 150) e spot na placa da parede (`signLight`: intensidade 16) com auto-brilho (`signGlow: 0.22`).
+   - Feixe de sol volumétrico translúcido aditivo entrando pelo portão em direção ao centro da oficina, com partículas de poeira suspensas flutuando suavemente (respeita `reduceMotion` e desliga em qualidade `'baixa'`).
+2. **Placa nítida em alta definição (`src/world/workshop/signage.ts`):**
+   - Nova textura canvas em 2048x512 com chapa metálica envelhecida, tipografia Barlow Condensed / sans-serif em negrito e subtítulo "MECÂNICA GERAL  ·  DESDE 1987" com excelente contraste e legibilidade tanto de longe quanto no plano fixo do menu.
+3. **Controle e snapshot (`src/world/workshop/menuMood.ts`):**
+   - Sistema `MenuMood` com captura completa de snapshot (luzes, materiais, visibilidade) na entrada e restauração 100% fiel na saída (não perde upgrades de iluminação nem estados anteriores).
+   - O macaco jacaré vermelho em primeiro plano (`jackGroup`) é automaticamente ocultado enquanto o menu estiver ativo, desobstruindo o primeiro plano à direita sem afetar as colisões do jogo.
+4. **Interface e conexão (`src/world/Workshop.ts`):**
+   - Exposta a função `setMenuMood(on: boolean)` em `workshop` e `workshop.parts`.
+   - Conectada também ao barramento no evento `bus.on('state:changed', ({ to }) => setMenuMood(to === 'menu'))`, garantindo sincronia automática caso o estado mude no Game.
+   - Você pode chamar explicitamente `workshop.setMenuMood(true)` e `workshop.setMenuMood(false)` ao entrar e sair do estado `menu`, conforme combinado.
+
+**Testes executados:**
+- `npm run test:all` (288 testes unitários + 39 testes e2e Playwright) passando 100%.
+- `npm run test:prod` (build e teste smoke de produção) passando 100%.
+- `npm run build` gerando bundle limpo e sem erros de TypeScript.
+
+Todos os meus arquivos foram liberados no quadro.

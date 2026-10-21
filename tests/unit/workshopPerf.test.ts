@@ -57,5 +57,30 @@ describe('Prompts 20 e 21 — Oficina Nível Steam e Bairro Vivo de São Cristó
     city.setRain?.(true);
     city.dispose();
   });
+
+  it('aplica e restaura o clima cinematográfico do menu com setMenuMood(on)', () => {
+    const vehicle = VEHICLES[0]!;
+    const workshop = buildWorkshop(vehicle, { color: '#c83e31', plate: 'RIO2A18' });
+
+    const jack = workshop.root.getObjectByName('PLACEHOLDER_macaco_jacare');
+    expect(jack?.visible).toBe(true);
+
+    const sun = workshop.root
+      .getObjectByName('iluminacao')
+      ?.children.find((c) => (c as THREE.DirectionalLight).isDirectionalLight) as THREE.DirectionalLight;
+    const initialSunColor = sun.color.getHex();
+
+    workshop.setMenuMood(true);
+    expect(jack?.visible).toBe(false);
+    expect(sun.color.getHex()).not.toBe(initialSunColor);
+
+    const climaGroup = workshop.root.getObjectByName('clima_menu');
+    expect(climaGroup?.visible).toBe(true);
+
+    workshop.setMenuMood(false);
+    expect(jack?.visible).toBe(true);
+    expect(sun.color.getHex()).toBe(initialSunColor);
+    expect(climaGroup?.visible).toBe(false);
+  });
 });
 
