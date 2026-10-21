@@ -10,6 +10,8 @@ import { MINUTES_PER_DAY } from '../core/GameClock';
 import { canSpend, CATEGORY_LABEL } from '../economy/ledger';
 import { compatiblePartsFor } from '../vehicles/domain';
 import { checkPurchase, EFFECT_LABEL, reduceMinutes, reductionAt } from '../upgrades/rules';
+import { toolsMet } from '../procedural/generator';
+import { CATEGORY_LABEL as VEHICLE_CATEGORY_LABEL } from '../vehicles/types';
 import { WEAR_BAND_LABEL } from '../vehicles/state';
 import { isOrderClosed, ORDER_STATUS_LABEL, QUALITY_LABEL_TEXT, type OrderStatus } from './types';
 
@@ -188,6 +190,9 @@ export interface ServiceView {
     warrantyText: string | null;
   };
   promisedText: string | null;
+  /** Ferramentas exigidas pelo serviço (Prompt 12), ex.: "Chave de impacto nível 1". */
+  toolsText: string | null;
+  toolsOk: boolean;
   hasNextCase: boolean;
 }
 
@@ -281,6 +286,8 @@ export function buildServiceView(session: GameSession, caseId: string, ctx: Equi
         }
       : null,
     promisedText: order.approvedAt !== null && order.approved ? promisedLabel(order.approvedAt + order.approved.deadlineHours * 60, now) : null,
+    toolsText: c.requiredTools?.length ? session.toolsText(c) : null,
+    toolsOk: toolsMet(c.requiredTools, session.upgrades),
     hasNextCase: isOrderClosed(order.status) && session.caseNumber < session.caseCount,
   };
 }
@@ -359,6 +366,8 @@ export interface ComputerView {
   canWait: boolean;
   ledger: Array<{ id: string; when: string; category: string; description: string; ref: string; amountText: string; kind: string }>;
   summary: { revenueText: string; purchasesText: string; refundsText: string; netPurchasesText: string; deliveredRevenueText: string; deliveredCostText: string; grossProfitText: string };
+  /** Enciclopédia: modelos, peças por modelo e serviços conhecidos (Prompt 12). */
+  catalog: CatalogView;
   /** Ferramentas e melhorias da oficina, com o antes/depois do próximo nível. */
   upgrades: Array<{
     id: string;
@@ -473,6 +482,7 @@ export function buildComputerView(session: GameSession, now: number, activeVehic
     },
     debt: debtView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
     upgrades: upgradesView(session),
+    catalog: buildCatalogView(session),
     reputation: {
       generalScore: rep.general.score,
       generalStars: starsText(averageStars(rep.general)),
@@ -539,4 +549,47 @@ function upgradesView(session: GameSession): ComputerView['upgrades'] {
         : null,
     };
   });
+}
+
+export interface CatalogView {
+  models: Array<{
+    id: string;
+    name: string;
+    categoryLabel: string;
+    yearsText: string;
+    valueText: string;
+    blurb: string;
+    slots: Array<{ slotName: string; parts: Array<{ name: string; qualityLabel: string; yearsText: string; costText: string }> }>;
+  }>;
+  services: Array<{ title: string; causeName: string; toolsText: string | null }>;
+}
+
+/** Enciclopédia: só dados públicos do catálogo (nada do estado real de nenhum carro). */
+export function buildCatalogView(session: GameSession): CatalogView {
+  const catalogs = session.catalogs;
+  const parts = [...catalogs.parts.values()];
+  return {
+    models: [...catalogs.models.values()].map((m) => ({
+      id: m.id,
+      name: `${m.manufacturer} ${m.model}`,
+      categoryLabel: VEHICLE_CATEGORY_LABEL[m.category],
+      yearsText: `${m.years[0]}–${m.years[1]}`,
+      valueText: formatBRL(m.baseValue),
+      blurb: m.blurb,
+      slots: m.slots.map((slotId) => ({
+        slotName: catalogs.slots.get(slotId)?.name ?? slotId,
+        parts: parts.flatMap((p) => {
+          if (p.slot !== slotId) return [];
+          const rules = p.compatibility.filter((r) => r.modelId === m.id);
+          if (rules.length === 0) return [];
+          return [{ name: p.name, qualityLabel: PART_QUALITY_LABEL[p.quality], yearsText: rules.map((r) => `${r.years[0]}–${r.years[1]}`).join(', '), costText: formatBRL(p.baseCost) }];
+        }),
+      })),
+    })),
+    services: session.serviceTemplates.map((t) => ({
+      title: t.title,
+      causeName: catalogs.slots.get(t.cause)?.name ?? t.cause,
+      toolsText: t.requiredTools.length ? t.requiredTools.map((r) => `${session.upgradeDefs.find((u) => u.id === r.upgradeId)?.name ?? r.upgradeId} nível ${r.level}`).join(', ') : null,
+    })),
+  };
 }

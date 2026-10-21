@@ -30,6 +30,8 @@ import { DataValidationError } from '../vehicles/types';
 import { checkPurchase, levelOf, reduceMinutes, timeModifiers, validateUpgrades, type TimeModifiers, type UpgradeDef, type UpgradeLevels } from '../upgrades/rules';
 import type { ExamSpeed } from '../diagnostics/rules';
 import type { RepairSpeed } from '../repairs/rules';
+import { generateCase, parseGeneratedId, toolsMet, validateServiceTemplates, type GeneratorContent } from '../procedural/generator';
+import type { ServiceTemplate } from '../procedural/types';
 import { validateSessionSnapshot, type SessionSnapshot } from '../save/sessionSnapshot';
 
 /** Momento do jogo: dia, hora formatada e minuto absoluto (para prazos e entregas). */
@@ -65,6 +67,8 @@ export interface SessionContent {
   upgrades: readonly UpgradeDef[];
   /** Tempo para pegar uma peça na estante sem organização (min). */
   takePartMinutes: number;
+  /** Moldes de serviço, nomes e cores para gerar OS depois das de demonstração (Prompt 12). */
+  generator: { templates: readonly ServiceTemplate[]; names: readonly string[]; colors: ReadonlyArray<readonly [string, string]> };
 }
 
 const KNOWN_BAD = new Set(['gasta', 'critica', 'falhou']);
@@ -109,12 +113,16 @@ export class GameSession {
   private seq = { lot: 0, purchase: 0, tx: 0, warranty: 0 };
   private debtState: DebtState = { balance: 0, nextDueDay: 0, pendingFee: 0, paidCount: 0 };
   private upgradeLevels: Record<string, number> = {};
+  private seedValue = 1;
 
   constructor(
     readonly catalogs: Catalogs,
     specs: readonly VehicleSpec[],
     private readonly content: SessionContent | null = null,
+    /** Semente das OS geradas: o mesmo jogo gera sempre as mesmas OS. */
+    seed = 1,
   ) {
+    this.seedValue = seed >>> 0;
     for (const spec of specs) this.addVehicle(spec);
     if (!content) return;
     const followUps = content.cases.flatMap((c) => (c.followUp ? [c.followUp] : []));
@@ -123,6 +131,7 @@ export class GameSession {
     for (const s of content.suppliers) this.suppliers.set(s.id, s);
     this.validateContent(content, followUps);
     validateUpgrades(content.upgrades);
+    validateServiceTemplates(GameSession.generatorContent(content, catalogs));
     this.cashValue = content.economy.startingCash;
     this.debtState = initialDebt(content.debt);
     for (const s of content.initialStock) this.addLot(s.partId, s.qty, 0, 'Herdada do tio');
@@ -192,10 +201,31 @@ export class GameSession {
     return this.need().pricing;
   }
 
-  /** Passa para a próxima OS, se a atual estiver encerrada (entregue ou recusada). */
+  get seed(): number {
+    return this.seedValue;
+  }
+
+  get serviceTemplates(): readonly ServiceTemplate[] {
+    return this.need().generator.templates;
+  }
+
+  /** Quantas OS já foram geradas pelo procedural. */
+  get generatedCount(): number {
+    return this.cases.filter((c) => c.id.startsWith('gen-') && !c.id.endsWith(WARRANTY_SUFFIX)).length;
+  }
+
+  /**
+   * Passa para a próxima OS, se a atual estiver encerrada (entregue ou recusada).
+   * Acabaram as de demonstração? Gera uma nova com a semente do jogo e as
+   * ferramentas que a oficina já tem (nunca uma que ela não consiga fazer).
+   */
   advanceCase(): boolean {
     const c = this.activeCase;
-    if (!c || !isOrderClosed(this.getOrder(c.id).status) || this.caseIndex >= this.cases.length - 1) return false;
+    if (!c || !isOrderClosed(this.getOrder(c.id).status)) return false;
+    if (this.caseIndex >= this.cases.length - 1) {
+      const next = generateCase(this.seedValue, this.generatedCount + 1, this.upgradeLevels, GameSession.generatorContent(this.need(), this.catalogs));
+      this.registerCase(next, this.cases.length, null);
+    }
     this.caseIndex++;
     this.revision++;
     return true;
@@ -346,7 +376,8 @@ export class GameSession {
     if (order.status !== 'orcamento' && order.status !== 'contraproposta') return this.fail('Não há orçamento a enviar nesta etapa.');
     const quote = this.previewQuote(c.id);
     if (!quote || !quote.ok) return this.fail(quote && !quote.ok ? quote.error.message : 'Orçamento inválido.');
-    const decision = decideOnQuote(quote.value, this.getCustomer(c.customerId), order.counters);
+    // O perfil decide; o nome é o do cliente desta OS (OS geradas usam perfis com nomes variados).
+    const decision = decideOnQuote(quote.value, { ...this.getCustomer(c.customerId), name: c.customerName }, order.counters);
     const proposals = [...order.proposals, { round: order.proposals.length + 1, breakdown: quote.value, decision, day: when.day, time: when.time }];
     const totalText = formatBRL(quote.value.total);
 
@@ -618,6 +649,7 @@ export class GameSession {
   removeOldPart(slot: string, ctx: EquipmentContext, when: GameMoment): ActionOutcome {
     const job = this.repairJob();
     if (!job.ok) return this.fail(job.message);
+    if (!toolsMet(job.c.requiredTools, this.upgradeLevels)) return this.fail(`Este serviço exige: ${this.toolsText(job.c)}.`);
     const result = removeOldPart(job.order.repair!, this.getVehicle(job.c.vehicle.id), slot, ctx, this.catalogs, this.repairSpeed);
     if (!result.ok) return this.repairFailure(job.c.id, result.error, when);
     this.vehicles.set(job.c.vehicle.id, result.value.vehicle);
@@ -758,19 +790,43 @@ export class GameSession {
       seq: this.seq,
       debt: this.debtState,
       upgrades: this.upgradeLevels,
+      seed: this.seedValue,
     });
   }
 
   /** Acha a definição de uma OS pelo ID: conteúdo do jogo, retornos de cliente ou retorno em garantia. */
-  static resolveCase(content: SessionContent, id: string): DiagnosticCaseDef | null {
+  static resolveCase(content: SessionContent, id: string, catalogs: Catalogs): DiagnosticCaseDef | null {
     const all = [...content.cases, ...content.cases.flatMap((c) => (c.followUp ? [c.followUp] : []))];
     const direct = all.find((c) => c.id === id);
     if (direct) return direct;
     if (id.endsWith(WARRANTY_SUFFIX)) {
-      const base = GameSession.resolveCase(content, id.slice(0, -WARRANTY_SUFFIX.length));
+      const base = GameSession.resolveCase(content, id.slice(0, -WARRANTY_SUFFIX.length), catalogs);
       return base ? warrantyReturnCase(base) : null;
     }
+    // OS gerada: o ID tem semente, número e ferramentas; recriar dá a mesma OS.
+    const gen = parseGeneratedId(id, content.upgrades);
+    if (gen) {
+      try {
+        return generateCase(gen.seed, gen.n, gen.levels, GameSession.generatorContent(content, catalogs));
+      } catch {
+        return null;
+      }
+    }
     return null;
+  }
+
+  /** O que o gerador de OS precisa, montado a partir do conteúdo do jogo. */
+  static generatorContent(content: SessionContent, catalogs: Catalogs): GeneratorContent {
+    return {
+      catalogs,
+      diagnostics: content.diagnostics,
+      customers: content.customers,
+      pricing: content.pricing,
+      upgrades: content.upgrades,
+      templates: content.generator.templates,
+      names: content.generator.names,
+      colors: content.generator.colors,
+    };
   }
 
   /**
@@ -782,12 +838,12 @@ export class GameSession {
     content: SessionContent,
     raw: unknown,
   ): { ok: true; session: GameSession } | { ok: false; problems: string[] } {
-    const problems = validateSessionSnapshot(raw, catalogs, (id) => GameSession.resolveCase(content, id), content.upgrades);
+    const problems = validateSessionSnapshot(raw, catalogs, (id) => GameSession.resolveCase(content, id, catalogs), content.upgrades);
     if (problems.length) return { ok: false, problems };
     const snap = structuredClone(raw as SessionSnapshot);
-    const s = new GameSession(catalogs, [], content);
+    const s = new GameSession(catalogs, [], content, snap.seed);
     s.cases.length = 0;
-    for (const id of snap.caseIds) s.cases.push(GameSession.resolveCase(content, id)!);
+    for (const id of snap.caseIds) s.cases.push(GameSession.resolveCase(content, id, catalogs)!);
     s.vehicles.clear();
     for (const v of snap.vehicles) s.vehicles.set(v.id, v);
     s.progress.clear();
@@ -945,6 +1001,11 @@ export class GameSession {
     const v = this.getVehicle(c.vehicle.id);
     const entry: HistoryEntry = { kind: 'manutencao', atKm: v.mileageKm, day: when.day, text, disclosed: true };
     this.vehicles.set(v.id, { ...v, history: [...v.history, entry] });
+  }
+
+  /** Ferramentas exigidas por uma OS, em texto (ex.: "Chave de impacto nível 1"). */
+  toolsText(c: DiagnosticCaseDef): string {
+    return (c.requiredTools ?? []).map((t) => `${this.need().upgrades.find((u) => u.id === t.upgradeId)?.name ?? t.upgradeId} nível ${t.level}`).join(', ');
   }
 
   private partName(partId: string): string {

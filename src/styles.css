@@ -1508,3 +1508,52 @@ dd.negative {
 .upgrade-compare {
   font-size: 0.9rem;
 }
+
+/* ---------- Computador: catálogo / enciclopédia (Prompt 12) ---------- */
+.catalog-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 0.9rem;
+}
+.catalog-models {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+}
+.catalog-model {
+  display: grid;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.catalog-model small {
+  color: var(--muted);
+}
+.catalog-model[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+.catalog-detail h3,
+.catalog-services h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+}
+.catalog-detail p {
+  margin: 0.2rem 0;
+}
+.catalog-parts td:first-child {
+  white-space: nowrap;
+  vertical-align: top;
+}
+.catalog-services {
+  margin-top: 1rem;
+}
+@media (max-width: 700px) {
+  .catalog-layout {
+    grid-template-columns: 1fr;
+  }
+}

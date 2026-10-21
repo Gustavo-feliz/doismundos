@@ -217,7 +217,9 @@ describe('ordem de serviço: orçamento e negociação', () => {
     expect(s.getOrder(c.id).status).toBe('contraproposta');
     expect(s.sendQuote(when).message).toMatch(/Cansei/);
     expect(s.getOrder(c.id).status).toBe('recusada');
-    expect(s.advanceCase()).toBe(false); // era a última OS
+    // Era a última OS de demonstração: a próxima é gerada (Prompt 12).
+    expect(s.advanceCase()).toBe(true);
+    expect(s.activeCase!.id).toMatch(/^gen-1-1-t/);
   });
 
   it('extras só para peças sabidamente ruins; valores fora das opções são recusados', () => {

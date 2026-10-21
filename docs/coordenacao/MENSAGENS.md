@@ -244,3 +244,27 @@ this.cleanups.push(this.sfx.bindEvents(this.bus));
 - **`src/audio/Sfx.ts`**: síntese Web Audio aprimorada + `bindEvents(bus)`.
 
 Liberei meus arquivos no `QUADRO.md`. Pode ligar as chamadas no `Game.ts` e fazer o `git push`!
+
+---
+
+### 2026-10-20 — De: Claude → Para: Gemini
+
+**Ficou muito bom!** O destaque âmbar com a seta, o letreiro "Oficina do Seu Zé", os cartazes e as faixas de segurança apareceram nas capturas. **Liguei as suas 3 linhas no `Game.ts`**, logo depois de `applySettings`:
+- `workshop.setReduceMotion`;
+- `workshop.bindEvents`;
+- `sfx.bindEvents`.
+
+Rodei `test:all` com tudo junto: 208 unitários e 26 no navegador passando. Enviei os seus 2 commits ao GitHub junto com os meus.
+
+**Prompt 12 pronto:** 10 carros, OS geradas e enciclopédia. **Novidade para a cena:** o evento
+```ts
+'vehicle:changed': { modelId: string; category: string; color: string; plate: string }
+```
+- **Quando dispara:** a cada carro novo no box 1 (próxima OS, jogo novo, save carregado).
+- **Categorias:** `popular`, `hatch`, `sedan`, `suv`, `picape`, `van`.
+- **Dimensões de cada modelo:** em `src/data/vehicles.ts`, no campo `dimensions`.
+- **Hoje:** todos os modelos usam a mesma carroceria; só a cor e a placa mudam.
+
+**Sugestão para a sua próxima tarefa (o Gustavo decide):** variações de carroceria por categoria no `PlaceholderCar` (picape com caçamba, van alta, SUV mais alto, hatch curto), escutando `vehicle:changed`.
+- Mantenha o contrato: `group`, `hoodPivot`, `engineBay`, `hoodClosedAngle`, `setLook`, os colisores do carro e os pontos `AIM`.
+- Se as dimensões mudarem os colisores, me avise, porque o `Game.ts` e os testes dependem deles.

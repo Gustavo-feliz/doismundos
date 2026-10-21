@@ -29,6 +29,19 @@ Cada nível diz **quanto o tempo cai em relação a não ter o item**. O nível 
 
 Ainda falta medir quanto tempo cada nível economiza num dia de jogo real. Isso depende de telemetria (GDD §5.2).
 
+## Linhas de peças e carros (Prompt 12), em `src/data/parts.ts` e `src/data/vehicles.ts`
+
+| Linha | Modelos | Custo | Tempo de troca | Vida útil |
+| --- | --- | --- | --- | --- |
+| Leve | Faísca, Pingo, Ripa, Cometa | ×0,8 | ×0,9 | ×1 |
+| Média | Vento, Tropa | ×1 | ×1 | ×1 |
+| Pesada | Jaguara, Sertão, Carioca Van | ×1,6 | ×1,35 | ×1,15 |
+
+- **Peça original:** custa 35% a mais que a genérica da mesma linha.
+- **Mão de obra por categoria** (`src/data/pricing.ts`): popular ×0,9, hatch ×0,95, sedã ×1, SUV ×1,15, picape ×1,2, van ×1,2.
+- **Quilometragem das OS geradas:** de 8 a 19 mil km por ano de idade; a van roda ×1,6.
+- **Desgaste da peça com defeito:** de 80 a 100, conforme o serviço. As pistas falsas ficam em no máximo 70.
+
 ## Economia e campanha (Prompts 7 e 10)
 
 | Valor | Onde | Atual |

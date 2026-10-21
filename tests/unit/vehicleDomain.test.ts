@@ -59,15 +59,19 @@ function errorCode<T>(r: DomainResult<T>): string | null {
 }
 
 describe('catálogos', () => {
-  it('os dados do jogo são válidos e têm as 15 peças iniciais', () => {
-    expect(PARTS).toHaveLength(15);
+  it('os dados do jogo são válidos: 15 posições e o catálogo ampliado do Prompt 12', () => {
     expect(PART_SLOTS).toHaveLength(15);
-    expect(catalogs.parts.size).toBe(15);
+    expect(PARTS.length).toBeGreaterThanOrEqual(100);
+    expect(catalogs.parts.size).toBe(PARTS.length);
   });
 
-  it('cada posição do Brisa 2009 tem exatamente uma peça compatível no catálogo', () => {
+  it('cada posição do Brisa 2009 tem peça compatível, e a primeira é a instalada no carro de demonstração', () => {
     const v = demo();
-    for (const slot of PART_SLOTS) expect(compatiblePartsFor(v, slot.id, catalogs).map((p) => p.id)).toHaveLength(1);
+    for (const slot of PART_SLOTS) {
+      const options = compatiblePartsFor(v, slot.id, catalogs).map((p) => p.id);
+      expect(options.length).toBeGreaterThanOrEqual(1);
+      expect(options[0]).toBe(v.parts[slot.id]!.partId);
+    }
   });
 
   it('cobre vários sistemas do GDD §10.1', () => {

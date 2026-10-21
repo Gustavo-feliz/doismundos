@@ -13,7 +13,7 @@ import { CTX, buyAndReceive, catalogs, content, later, newSession, when } from '
 const PADS = 'freios.pastilhas-dianteiras';
 const lib = buildMissionLibrary(MISSIONS, DIALOGUES, Object.values(EQUIPMENT_IDS));
 const validateSession = (g: Record<string, unknown>) => [
-  ...validateSessionSnapshot(g.session, catalogs, (id) => GameSession.resolveCase(content, id), content.upgrades),
+  ...validateSessionSnapshot(g.session, catalogs, (id) => GameSession.resolveCase(content, id, catalogs), content.upgrades),
   ...missionStateProblems(g.missions, lib),
 ];
 const summary = { day: 1, time: '09:00', cashText: 'R$ 1.500,00', orderLabel: 'OS #001', reputation: 50 };

@@ -33,6 +33,8 @@ export interface SessionSnapshot {
   debt: DebtState;
   /** Nível de cada ferramenta/upgrade comprado (desde o save versão 3). */
   upgrades: Record<string, number>;
+  /** Semente das OS geradas (desde o save versão 4). */
+  seed: number;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -142,5 +144,6 @@ export function validateSessionSnapshot(
   if (!isObj(seq) || !['lot', 'purchase', 'tx', 'warranty'].every((k) => isInt(seq[k]) && (seq[k] as number) >= 0)) p.push('contadores internos inválidos');
   p.push(...debtProblems(s.debt));
   p.push(...upgradeLevelsProblems(s.upgrades, upgrades));
+  if (!isInt(s.seed) || s.seed! < 0 || s.seed! > 0xffffffff) p.push('semente inválida');
   return p;
 }

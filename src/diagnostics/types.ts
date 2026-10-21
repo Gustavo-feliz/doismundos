@@ -94,6 +94,13 @@ export interface DiagnosticCaseDef {
   finalTest: { resolved: string; persists: string };
   /** Se o cliente sair satisfeito, volta com este novo problema (GDD Prompt 8). */
   followUp?: DiagnosticCaseDef;
+  /** Ferramentas exigidas para o reparo (id de upgrade e nível mínimo). Prompt 12. */
+  requiredTools?: readonly ToolRequirement[];
+}
+
+export interface ToolRequirement {
+  upgradeId: string;
+  level: number;
 }
 
 export type TestKind = 'visual' | 'scanner' | 'funcional';

@@ -34,6 +34,9 @@ export class ServiceTab {
       h('span', { class: 'hud-label', text: view.statusLabel }),
       h('p', { class: 'os-customer' }, 'Em mãos: ', h('strong', { 'data-testid': 'held', text: view.heldName ?? 'nada' }), h('span', { class: 'muted', text: ' · as peças ficam nas estantes (estoque)' })),
       ...(view.promisedText && !view.delivery ? [h('p', { class: 'muted small', 'data-testid': 'promised', text: view.promisedText })] : []),
+      ...(view.toolsText
+        ? [h('p', { class: view.toolsOk ? 'muted small' : 'os-closed', 'data-testid': 'required-tools', text: `Ferramenta exigida: ${view.toolsText}${view.toolsOk ? ' (a oficina tem)' : ' — compre no computador, aba Oficina'}` })]
+        : []),
     );
     if (view.inactiveText && !view.completion) {
       // OS recusada: o botão de próxima OS fica só na aba Orçamento.

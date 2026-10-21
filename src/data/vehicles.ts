@@ -5,10 +5,10 @@ import { PART_SLOTS } from './partSlots';
 const ALL_SLOTS = PART_SLOTS.map((s) => s.id);
 
 /**
- * Catálogo de MODELOS. Fabricantes e modelos são fictícios (GDD §1.6).
- * O Brisa é o carro da oficina no protótipo (GDD §2.2: "um carro").
- * O Faísca existe só em dados, para provar que a lógica atende modelos
- * diferentes sem duplicação (GDD Prompt 3); ainda não aparece na cena.
+ * Catálogo de MODELOS (GDD §9, Prompt 12): 10 carros fictícios de 6 categorias.
+ * Fabricantes e modelos são inventados (GDD §1.6). As peças de cada um vêm de
+ * "linhas" (leve, média, pesada) em data/parts.ts; o Brisa tem peças próprias.
+ * PROVISÓRIO: valores de mercado e textos.
  */
 export const VEHICLES: readonly VehicleDefinition[] = [
   {
@@ -19,14 +19,9 @@ export const VEHICLES: readonly VehicleDefinition[] = [
     years: [2006, 2012],
     paintColor: '#7d1d1d',
     slots: ALL_SLOTS,
-    dimensions: {
-      length: 4.3,
-      width: 1.72,
-      height: 1.44,
-      wheelbase: 2.55,
-      wheelRadius: 0.31,
-      track: 1.46,
-    },
+    baseValue: 58_000_00,
+    blurb: 'Sedã de família que virou carro de aplicativo. Peça fácil e mecânica conhecida.',
+    dimensions: { length: 4.3, width: 1.72, height: 1.44, wheelbase: 2.55, wheelRadius: 0.31, track: 1.46 },
   },
   {
     id: 'lumen-faisca-10',
@@ -36,13 +31,104 @@ export const VEHICLES: readonly VehicleDefinition[] = [
     years: [2012, 2019],
     paintColor: '#c9c9c4',
     slots: ALL_SLOTS,
-    dimensions: {
-      length: 3.82,
-      width: 1.64,
-      height: 1.48,
-      wheelbase: 2.43,
-      wheelRadius: 0.29,
-      track: 1.4,
-    },
+    baseValue: 46_000_00,
+    blurb: 'Popular econômico, campeão de vendas. Freio e suspensão sofrem com buraco.',
+    dimensions: { length: 3.82, width: 1.64, height: 1.48, wheelbase: 2.43, wheelRadius: 0.29, track: 1.4 },
+  },
+  {
+    id: 'lumen-pingo-10',
+    manufacturer: 'Lumen',
+    model: 'Pingo 1.0',
+    category: 'popular',
+    years: [1998, 2008],
+    paintColor: '#d8c25a',
+    slots: ALL_SLOTS,
+    baseValue: 24_000_00,
+    blurb: 'O avô do Faísca. Ainda roda muito no bairro, quase sempre com história para contar.',
+    dimensions: { length: 3.7, width: 1.6, height: 1.42, wheelbase: 2.36, wheelRadius: 0.28, track: 1.37 },
+  },
+  {
+    id: 'ventura-ripa-14',
+    manufacturer: 'Ventura',
+    model: 'Ripa 1.4',
+    category: 'hatch',
+    years: [2010, 2017],
+    paintColor: '#1f5f8b',
+    slots: ALL_SLOTS,
+    baseValue: 52_000_00,
+    blurb: 'Hatch compacto da Ventura. Elétrica sensível depois de muita enchente.',
+    dimensions: { length: 3.95, width: 1.68, height: 1.47, wheelbase: 2.47, wheelRadius: 0.29, track: 1.43 },
+  },
+  {
+    id: 'tupa-cometa-16',
+    manufacturer: 'Tupã',
+    model: 'Cometa 1.6',
+    category: 'hatch',
+    years: [2016, 2023],
+    paintColor: '#e0e3e6',
+    slots: ALL_SLOTS,
+    baseValue: 78_000_00,
+    blurb: 'Hatch moderno e bem equipado. Dono exigente, que gosta de peça original.',
+    dimensions: { length: 4.05, width: 1.73, height: 1.48, wheelbase: 2.55, wheelRadius: 0.31, track: 1.48 },
+  },
+  {
+    id: 'atlantica-vento-20',
+    manufacturer: 'Atlântica',
+    model: 'Vento 2.0',
+    category: 'sedan',
+    years: [2014, 2021],
+    paintColor: '#2a2d31',
+    slots: ALL_SLOTS,
+    baseValue: 96_000_00,
+    blurb: 'Sedã médio confortável. Arrefecimento é o ponto fraco no trânsito da Avenida Brasil.',
+    dimensions: { length: 4.6, width: 1.78, height: 1.46, wheelbase: 2.68, wheelRadius: 0.32, track: 1.53 },
+  },
+  {
+    id: 'ventura-tropa-16',
+    manufacturer: 'Ventura',
+    model: 'Tropa 1.6',
+    category: 'picape',
+    years: [2013, 2020],
+    paintColor: '#b3402a',
+    slots: ALL_SLOTS,
+    baseValue: 74_000_00,
+    blurb: 'Picape leve de entrega e de feira. Trabalha carregada, então freio gasta rápido.',
+    dimensions: { length: 4.45, width: 1.7, height: 1.55, wheelbase: 2.75, wheelRadius: 0.31, track: 1.47 },
+  },
+  {
+    id: 'tupa-jaguara-20',
+    manufacturer: 'Tupã',
+    model: 'Jaguara 2.0',
+    category: 'suv',
+    years: [2015, 2022],
+    paintColor: '#3d5a40',
+    slots: ALL_SLOTS,
+    baseValue: 128_000_00,
+    blurb: 'SUV médio. A partir de 2019 mudou a suspensão dianteira: atenção à peça certa.',
+    dimensions: { length: 4.5, width: 1.84, height: 1.68, wheelbase: 2.66, wheelRadius: 0.34, track: 1.57 },
+  },
+  {
+    id: 'more-sertao-28',
+    manufacturer: 'Moré',
+    model: 'Sertão 2.8 Diesel',
+    category: 'picape',
+    years: [2008, 2016],
+    paintColor: '#8a8478',
+    slots: ALL_SLOTS,
+    baseValue: 142_000_00,
+    blurb: 'Picape grande a diesel. Tudo é mais pesado, mais caro e mais demorado de trocar.',
+    dimensions: { length: 5.25, width: 1.86, height: 1.8, wheelbase: 3.09, wheelRadius: 0.38, track: 1.55 },
+  },
+  {
+    id: 'atlantica-carioca-van-20',
+    manufacturer: 'Atlântica',
+    model: 'Carioca Van 2.0',
+    category: 'van',
+    years: [2010, 2018],
+    paintColor: '#f2f2ee',
+    slots: ALL_SLOTS,
+    baseValue: 115_000_00,
+    blurb: 'Van de transporte escolar e de turismo. Roda o dia todo: quilometragem sempre alta.',
+    dimensions: { length: 5.0, width: 1.9, height: 2.2, wheelbase: 3.0, wheelRadius: 0.35, track: 1.6 },
   },
 ];

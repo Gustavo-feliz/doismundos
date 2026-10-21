@@ -219,7 +219,7 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
 { schemaVersion, savedAt (ISO), slot, summary { dia, hora, caixa, OS, reputação },
   checksum (FNV-1a do JSON de "game"),
   game { clockMinutes, player { x, z, yaw, pitch }, equipment { liftUp, hoodOpen, drawerOpen, hallLightsOn, benchLampOn },
-         session { caseIds, caseIndex, vehicles, progress, orders, records, lots, purchases, ledger, held, scrap, reputation, warranties, seq, debt, upgrades { <id>: nível } },
+         session { caseIds, caseIndex, vehicles, progress, orders, records, lots, purchases, ledger, held, scrap, reputation, warranties, seq, debt, upgrades { <id>: nível }, seed },
          missions { completed, active { id, step } | null, flags, choices, dialogueQueue, tipsEnabled } } }
 ```
 
@@ -232,6 +232,30 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
   Os saves antigos são migrados passo a passo ao carregar. O arquivo original só muda no próximo save.
 - **Versão 2 (Prompt 10):** entraram `session.debt` e `missions`. A migração 1 → 2 cria a dívida com a primeira parcela pelo menos 2 dias depois do dia do save. Ela também cria as missões do zero, com os passos "andar" e "abrir a ficha" já cumpridos.
 - **Versão 3 (Prompt 11):** entrou `session.upgrades`. A migração 2 → 3 começa com todos os itens no nível 0.
+- **Versão 4 (Prompt 12):** entrou `session.seed`. A migração 3 → 4 usa a semente 1. As OS geradas são salvas pelo ID `gen-<semente>-<n>-t<níveis das ferramentas>`. Ao carregar, o gerador recria a OS a partir do ID; uma OS gerada nunca vem do arquivo.
+
+## Carros e peças (Prompt 12)
+
+- **Modelo (`VehicleDefinition`).** Ganhou os campos `baseValue` (valor de mercado, em centavos) e `blurb` (texto da enciclopédia). A categoria `van` também é nova.
+- **Linhas de peças.** Em `src/data/parts.ts`, a tabela `SLOT_BASES` (uma linha por posição) é combinada com `LINE` (leve, média e pesada: fatores de custo, tempo e vida útil) e com `LINE_MODELS` (quais modelos e anos usam cada linha).
+  - Para cada posição e linha, saem duas peças: genérica (Brasaço) e original (+35%).
+  - Exceções entram à parte: as peças do Brisa e o amortecedor do Jaguara 2019+.
+- **Ordem importa.** O orçamento usa a primeira peça compatível do catálogo.
+- **Cobertura.** `findCoverageGaps` (em `src/parts/validate.ts`) roda ao abrir o jogo. Se faltar peça para algum modelo e ano, o jogo para com a lista do que falta.
+
+## Serviços e gerador de OS (`src/data/services.ts`, `src/procedural/`)
+
+- **Molde de serviço (`ServiceTemplate`):**
+  - `id`, `title`, `complaints[]`;
+  - `cause` (a posição que falhou) e `hypotheses[]` (as pistas falsas);
+  - `functionalTests[]`;
+  - `causeWear` (de 75 a 100);
+  - `requiredTools[]`, cada uma com `{ upgradeId, level }`;
+  - `categories` (`null` = todas as categorias);
+  - `finalTest` e `hints`.
+- **Gerador:** `generateCase(semente, n, ferramentas, conteúdo)` é determinístico. Para cada candidata, `caseProblems` lista o que a tornaria impossível; se algo falhar, o gerador tenta outra sub-semente (até 40 vezes).
+- **Pistas falsas** ficam com desgaste no máximo 70, para não imitarem o defeito. As outras peças podem estar gastas de verdade e viram oportunidades de serviço extra.
+- **Para adicionar um serviço:** acrescente um molde em `SERVICE_TEMPLATES` e rode `npm test`. O teste de geração com 150 sementes acusa um molde que produza OS impossível.
 
 ## Ferramentas e upgrades (`src/data/upgrades.ts`)
 

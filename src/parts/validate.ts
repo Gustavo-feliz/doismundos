@@ -80,3 +80,23 @@ export function validatePartCatalog(
   if (parts.length === 0) problems.push('catálogo de peças vazio');
   if (problems.length) throw new DataValidationError(source, problems);
 }
+
+/**
+ * Cobertura do catálogo (Prompt 12): todo modelo, em todo ano de fabricação,
+ * precisa ter pelo menos uma peça para cada posição. Sem isso, um carro gerado
+ * poderia ter um defeito impossível de consertar. Lista vazia = completo.
+ */
+export function findCoverageGaps(models: readonly VehicleDefinition[], parts: readonly PartDefinition[]): string[] {
+  const gaps: string[] = [];
+  for (const m of models) {
+    for (const slot of m.slots) {
+      const missing: number[] = [];
+      for (let y = m.years[0]; y <= m.years[1]; y++) {
+        const ok = parts.some((p) => p.slot === slot && p.compatibility.some((r) => r.modelId === m.id && y >= r.years[0] && y <= r.years[1]));
+        if (!ok) missing.push(y);
+      }
+      if (missing.length) gaps.push(`${m.manufacturer} ${m.model}: nenhuma peça para "${slot}" em ${missing[0]}${missing.length > 1 ? `–${missing.at(-1)}` : ''}`);
+    }
+  }
+  return gaps;
+}

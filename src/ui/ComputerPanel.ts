@@ -15,13 +15,14 @@ export interface ComputerCallbacks {
   onClose(reason: 'resume' | 'pause'): void;
 }
 
-type Tab = 'loja' | 'pedidos' | 'caixa' | 'reputacao' | 'oficina';
+type Tab = 'loja' | 'pedidos' | 'caixa' | 'reputacao' | 'oficina' | 'catalogo';
 const TABS: ReadonlyArray<readonly [Tab, string]> = [
   ['loja', 'Loja'],
   ['pedidos', 'Pedidos'],
   ['caixa', 'Caixa'],
   ['reputacao', 'Reputação'],
   ['oficina', 'Oficina'],
+  ['catalogo', 'Catálogo'],
 ];
 
 /**
@@ -36,6 +37,8 @@ export class ComputerPanel {
   private readonly tabButtons = new Map<Tab, HTMLButtonElement>();
   private tab: Tab = 'loja';
   private onlyFits = true;
+  /** Modelo aberto na enciclopédia. */
+  private catalogModel: string | null = null;
   private view: ComputerView | null = null;
   private noticeTimer = 0;
 
@@ -132,7 +135,7 @@ export class ComputerPanel {
     this.cash.textContent = v.cashText;
     for (const [tab, b] of this.tabButtons) b.setAttribute('aria-selected', String(tab === this.tab));
     const content =
-      this.tab === 'loja' ? this.shop(v) : this.tab === 'pedidos' ? this.purchases(v) : this.tab === 'caixa' ? this.ledger(v) : this.tab === 'oficina' ? this.workshop(v) : this.reputation(v);
+      this.tab === 'loja' ? this.shop(v) : this.tab === 'pedidos' ? this.purchases(v) : this.tab === 'caixa' ? this.ledger(v) : this.tab === 'oficina' ? this.workshop(v) : this.tab === 'catalogo' ? this.catalog(v) : this.reputation(v);
     this.body.replaceChildren(...content);
   }
 
@@ -244,6 +247,55 @@ export class ComputerPanel {
     ];
   }
 
+  /** Enciclopédia: modelos (à esquerda), peças por posição do modelo escolhido e serviços conhecidos. */
+  private catalog(v: ComputerView): HTMLElement[] {
+    const models = v.catalog.models;
+    const selected = models.find((m) => m.id === this.catalogModel) ?? models[0];
+    if (!selected) return [h('p', { class: 'muted', text: 'Catálogo vazio.' })];
+    const list = h(
+      'nav',
+      { class: 'catalog-models', 'aria-label': 'Modelos' },
+      ...models.map((m) => {
+        const b = h('button', { type: 'button', class: 'catalog-model', 'data-model': m.id, 'aria-pressed': String(m.id === selected.id) }, h('strong', { text: m.name }), h('small', { text: `${m.categoryLabel} · ${m.yearsText}` }));
+        b.addEventListener('click', () => {
+          this.catalogModel = m.id;
+          this.render();
+        });
+        return b;
+      }),
+    );
+    const detail = h(
+      'section',
+      { class: 'catalog-detail', 'data-testid': 'catalog-detail' },
+      h('h3', { text: selected.name }),
+      h('p', { class: 'small' }, h('strong', { text: `${selected.categoryLabel} · ${selected.yearsText} · ${selected.valueText}` })),
+      h('p', { class: 'small', text: selected.blurb }),
+      h(
+        'table',
+        { class: 'quote-table catalog-parts', 'data-testid': 'catalog-parts' },
+        h(
+          'tbody',
+          {},
+          ...selected.slots.map((s) =>
+            h(
+              'tr',
+              {},
+              h('td', { text: s.slotName }),
+              h('td', {}, ...s.parts.map((p) => h('div', { class: 'small' }, `${p.name} · ${p.qualityLabel} · `, h('span', { class: 'muted', text: `${p.yearsText} · ${p.costText}` })))),
+            ),
+          ),
+        ),
+      ),
+    );
+    const services = h(
+      'section',
+      { class: 'catalog-services', 'data-testid': 'catalog-services' },
+      h('h3', { text: 'Serviços que chegam à oficina' }),
+      h('ul', { class: 'small' }, ...v.catalog.services.map((s) => h('li', {}, h('strong', { text: s.title }), ` — causa típica: ${s.causeName}${s.toolsText ? ` · exige ${s.toolsText}` : ''}`))),
+    );
+    return [h('div', { class: 'catalog-layout', 'data-testid': 'catalog' }, list, detail), services];
+  }
+
   /** Ferramentas e melhorias: nível atual, efeito e o antes/depois do próximo nível. */
   private workshop(v: ComputerView): HTMLElement[] {
     return [
@@ -347,7 +399,7 @@ export class ComputerPanel {
       if (!event.repeat) this.callbacks.onClose(event.key === 'Escape' ? 'pause' : 'resume');
       return;
     }
-    const digit = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(event.code);
+    const digit = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6'].indexOf(event.code);
     if (digit >= 0 && !(event.target instanceof HTMLInputElement)) {
       event.preventDefault();
       event.stopPropagation();

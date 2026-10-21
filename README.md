@@ -15,6 +15,7 @@ O design completo está em [GDD_Simulador_de_Mecanico_Claude_Code.md](GDD_Simula
 9. Save e carregamento confiáveis.
 10. Tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos e dívida do banco).
 11. Ferramentas e upgrades da oficina (3 níveis cada, efeito medido em tempo).
+12. Dez carros, peças por modelo/ano, OS geradas por semente e enciclopédia.
 
 Ainda **não** existem cidade, segunda vaga nem multiplayer.
 
@@ -255,7 +256,8 @@ Use **Salvar jogo** (no menu de pausa) e **Carregar jogo** (no menu inicial e na
 
 - missões: passo atual, missões concluídas, escolhas de diálogo, diálogos pendentes e a preferência de dicas;
 - dívida do banco (saldo, vencimento, parcelas pagas);
-- nível de cada ferramenta e upgrade.
+- nível de cada ferramenta e upgrade;
+- a semente das OS geradas (cada OS gerada é recriada pelo ID ao carregar).
 
 Saves da versão 1 (antes do Prompt 10) são migrados ao carregar: a primeira parcela vence pelo menos 2 dias depois do dia do save.
 
@@ -310,6 +312,37 @@ No computador do escritório, a aba **Oficina** (tecla 5) vende 2 ferramentas e 
 **Ainda não incluído:** a segunda vaga com elevador fica para depois.
 
 Valores para revisão: [docs/balanceamento.md](docs/balanceamento.md).
+
+## Carros, serviços e OS geradas (Prompt 12)
+
+**Catálogo.** 10 carros fictícios de 6 categorias: popular, hatch, sedã, SUV, picape e van.
+
+**Peças.**
+- São mais de 100, organizadas em **linhas** (leve, média e pesada), definidas numa tabela em `src/data/parts.ts`. Não há uma peça copiada para cada modelo.
+- Cada linha muda preço, tempo de troca e vida útil.
+- A compatibilidade vale por modelo e ano. Exemplo: o SUV Jaguara trocou de amortecedor em 2019.
+- Ao abrir o jogo, uma checagem confere que **todo modelo, em todo ano, tem peça para cada posição**.
+
+**OS geradas.**
+- Depois das 4 OS de demonstração, a "Próxima OS" é **gerada**: carro, ano, km, histórico (leilão, colisão, enchente, revisão ruim), defeito, cliente e fala.
+- Os 9 tipos de serviço ficam em `src/data/services.ts`. Dois exigem ferramenta: suspensão (chave de impacto) e radiador (armário). Eles só aparecem para quem já tem a ferramenta.
+- **Mesma semente = mesmas OS.** Cada jogo novo sorteia uma semente; o save guarda a semente e o ID de cada OS.
+
+**Nunca impossível.** Antes de entregar uma OS, o gerador confere quatro coisas:
+- existe peça de reposição para aquele carro;
+- fazendo todos os exames, a causa real fica na frente com folga;
+- o cliente aceita algum orçamento possível;
+- a oficina já tem a ferramenta exigida.
+
+Os testes geram 900 OS (150 sementes × 3 OS, com e sem ferramentas) e todas passam.
+
+**Enciclopédia:** no computador, aba **Catálogo** (tecla 6). Mostra os modelos, as peças de cada um com os anos e preços, e os serviços que chegam à oficina.
+
+**Limites conhecidos:**
+- A cena 3D ainda usa a mesma carroceria para todos os modelos; só mudam a cor e a placa. O evento `vehicle:changed` já avisa a cena do modelo e da categoria.
+- O gerador não olha o caixa: uma oficina sem dinheiro pode não conseguir comprar a peça. Ela ainda pode dispensar o cliente e seguir.
+- O orçamento sempre usa a **primeira** peça compatível. Por isso o cliente exigente (que quer peça original) só recebe carros cuja primeira opção é original.
+- Os serviços reaproveitam os 3 testes funcionais e o scanner existentes. Defeitos de embreagem, pneus, filtros, correia e bomba ainda não são gerados.
 
 ## Roteiro de teste manual
 

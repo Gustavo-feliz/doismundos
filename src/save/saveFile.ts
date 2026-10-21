@@ -9,7 +9,7 @@ import type { SessionSnapshot } from './sessionSnapshot';
  * schemaVersion, data/hora, resumo (para listar slots sem carregar tudo) e
  * uma soma de verificação do conteúdo, que detecta arquivos corrompidos.
  */
-export const SAVE_SCHEMA_VERSION = 3;
+export const SAVE_SCHEMA_VERSION = 4;
 
 export type SlotId = 'auto' | 'slot1' | 'slot2' | 'slot3';
 export const MANUAL_SLOTS: readonly SlotId[] = ['slot1', 'slot2', 'slot3'];
@@ -86,6 +86,11 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   /** 2 → 3 (Prompt 11): entram as ferramentas e upgrades, todos no nível 0. */
   2: (env) => {
     (env.game as { session: Record<string, unknown> }).session.upgrades = {};
+    return env;
+  },
+  /** 3 → 4 (Prompt 12): entra a semente das OS geradas. Saves antigos usam a semente 1. */
+  3: (env) => {
+    (env.game as { session: Record<string, unknown> }).session.seed = 1;
     return env;
   },
 };

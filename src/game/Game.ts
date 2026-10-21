@@ -15,6 +15,9 @@ import { INITIAL_STOCK } from '../data/stock';
 import { BANK_DEBT, ECONOMY } from '../data/economy';
 import { DIALOGUES, MISSIONS } from '../data/missions';
 import { TAKE_PART_MINUTES, UPGRADES } from '../data/upgrades';
+import { CAR_COLORS, CUSTOMER_NAMES, SERVICE_TEMPLATES } from '../data/services';
+import { findCoverageGaps } from '../parts/validate';
+import { DataValidationError } from '../vehicles/types';
 import { DialogueRunner } from '../missions/DialogueRunner';
 import { MissionTracker, missionStateProblems, type CurrentObjective, type MissionEvent } from '../missions/MissionTracker';
 import type { MissionWorld } from '../missions/conditions';
@@ -128,6 +131,8 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     // Dados primeiro: se estiverem inválidos, falha cedo com mensagem útil (GDD §21.3).
     this.catalogs = buildCatalogs(VEHICLES, PARTS, PART_SLOTS);
+    const gaps = findCoverageGaps(VEHICLES, PARTS);
+    if (gaps.length) throw new DataValidationError('cobertura do catálogo de peças', gaps);
     this.content = {
       cases: DIAGNOSTIC_CASES,
       diagnostics: this.diagnosticData,
@@ -140,6 +145,7 @@ export class Game {
       debt: BANK_DEBT,
       upgrades: UPGRADES,
       takePartMinutes: TAKE_PART_MINUTES,
+      generator: { templates: SERVICE_TEMPLATES, names: CUSTOMER_NAMES, colors: CAR_COLORS },
     };
     this.missionLib = buildMissionLibrary(MISSIONS, DIALOGUES, Object.values(EQUIPMENT_IDS));
     this.tracker = new MissionTracker(this.missionLib);
@@ -147,7 +153,7 @@ export class Game {
     this.session = this.newSession();
     const store = IndexedDbSaveStore.available() ? new IndexedDbSaveStore() : new MemorySaveStore();
     this.saves = new SaveService(store, (game) => [
-      ...validateSessionSnapshot(game.session, this.catalogs, (id) => GameSession.resolveCase(this.content, id), this.content.upgrades),
+      ...validateSessionSnapshot(game.session, this.catalogs, (id) => GameSession.resolveCase(this.content, id, this.catalogs), this.content.upgrades),
       ...missionStateProblems(game.missions, this.missionLib),
     ]);
     this.savesPanel = new SaveSlotsPanel({
@@ -243,6 +249,10 @@ export class Game {
     this.bus.on('state:changed', ({ to }) => this.applyStateToUi(to));
     this.bus.on('settings:changed', ({ settings }) => this.applySettings(settings, true));
     this.applySettings(this.settings, false);
+    // Cena e som escutam o barramento (destaque do tutorial, falas, missões, upgrades). Feito pelo Gemini.
+    this.workshop.setReduceMotion(this.settings.reduceMotion);
+    this.cleanups.push(this.workshop.bindEvents(this.bus));
+    this.cleanups.push(this.sfx.bindEvents(this.bus));
 
     this.listen(window, 'keydown', this.handleKeyDown);
     this.listen(window, 'blur', this.handleWindowBlur);
@@ -503,7 +513,8 @@ export class Game {
   // --- Diagnóstico (ordens de serviço) -------------------------------------
 
   private newSession(): GameSession {
-    return new GameSession(this.catalogs, [], this.content);
+    // Semente nova a cada jogo: as OS geradas mudam de um jogo para outro, mas se repetem ao carregar.
+    return new GameSession(this.catalogs, [], this.content, Math.floor(Math.random() * 0x7fffffff));
   }
 
   /** O carro do box 1 é o da OS ativa. */
@@ -553,6 +564,8 @@ export class Game {
   private applyActiveCarLook(): void {
     const car = this.session.getVehicle(this.activeVehicleId);
     this.workshop.parts.setCarLook({ color: car.color, plate: car.plate });
+    const model = this.catalogs.models.get(car.modelId);
+    this.bus.emit('vehicle:changed', { modelId: car.modelId, category: model?.category ?? 'sedan', color: car.color, plate: car.plate });
   }
 
   // --- Ferramentas e upgrades (Prompt 11) ------------------------------------

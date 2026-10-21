@@ -34,7 +34,6 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 
 | Prompt | Etapa | Sugestão de dono |
 | --- | --- | --- |
-| 12 | Mais carros, serviços e conteúdo orientado por dados | bom para dividir: um faz dados e modelos, o outro faz regras |
 | 13 | Direção e test drive | a definir (física: avaliar Rapier) |
 | 18 | QA, desempenho e lançamento | os dois |
 
@@ -50,4 +49,5 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | Prompts 1–9 | Claude | `654a5a3`, `4b8434b`, `a50e205` |
 | Prompt 10: tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos, dívida do banco, save v2) | Claude | `9d1f42b` |
 | Prompt 11: ferramentas e upgrades (5 itens × 3 níveis, efeitos nas regras, aba Oficina, save v3) | Claude | ver `git log` |
+| Prompt 12: 10 carros, peças por linha e ano, OS geradas por semente, enciclopédia, save v4; ligados no `Game.ts` os `bindEvents` da cena e do som | Claude | ver `git log` |
 | Passe de arte e som (GDD §20, Direção Híbrida A+B) + destaque do tutorial (`setHighlight`) + som/ambiência no barramento (`Sfx.bindEvents`) + visuais dos 5 upgrades (`setUpgradeLevel`) | Gemini | `e4ede73` + commit final |

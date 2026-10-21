@@ -16,4 +16,6 @@ export interface GameEvents {
   'dialogue:line': { speaker: SpeakerId; text: string };
   /** Nível de uma ferramenta/upgrade (0–3): ao comprar e ao começar/carregar um jogo. */
   'upgrade:changed': { upgradeId: string; level: number };
+  /** O carro do box 1 mudou (nova OS, jogo novo ou save carregado). Para a cena trocar a carroceria. */
+  'vehicle:changed': { modelId: string; category: string; color: string; plate: string };
 }

@@ -23,7 +23,7 @@
 | `npm run test:e2e` | Testes no navegador (Playwright). |
 | `npm run test:all` | Tipos + regras + navegador. |
 
-## 2. Estado atual: Prompts 1 a 11 concluídos
+## 2. Estado atual: Prompts 1 a 12 concluídos
 
 | Prompt | Entrega |
 | --- | --- |
@@ -38,8 +38,9 @@
 | 9 | Save no IndexedDB: 3 slots + autosave, `schemaVersion`, soma de verificação, cópia de segurança, migrações. |
 | 10 | Tutorial com o Seu Zé e começo do Ato 1: missões por dados (`src/missions/`, `src/data/missions.ts`), diálogos com escolha, dicas (H), dívida do banco. Save versão 2. |
 | 11 | Ferramentas e upgrades (`src/upgrades/`, `src/data/upgrades.ts`): 5 itens × 3 níveis, efeito em tempo aplicado nas regras, aba Oficina no computador, evento `upgrade:changed`. Save versão 3. |
+| 12 | 10 carros fictícios (6 categorias), peças em linhas com compatibilidade por modelo/ano e checagem de cobertura, 9 serviços, OS geradas por semente que nunca saem impossíveis (`src/procedural/`), enciclopédia (aba Catálogo), evento `vehicle:changed`. Save versão 4. |
 
-**Testes atuais:** 195 testes de regras e 24 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 12 (mais carros, serviços e conteúdo).**
+**Testes atuais:** 208 testes de regras e 26 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 13 (direção e test drive).**
 
 Detalhes: `README.md` (estrutura, controles, roteiro de teste manual) e `docs/formato-de-dados.md` (formato de todos os dados).
 

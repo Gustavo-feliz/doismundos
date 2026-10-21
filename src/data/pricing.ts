@@ -8,7 +8,7 @@ export const PRICING: PricingRules = {
   hourlyRate: 90_00,
   // Mão de obra arredondada para cima em blocos de meia hora.
   laborBlockMinutes: 30,
-  categoryLaborMultiplier: { popular: 0.9, hatch: 0.95, sedan: 1, suv: 1.15, picape: 1.2 },
+  categoryLaborMultiplier: { popular: 0.9, hatch: 0.95, sedan: 1, suv: 1.15, picape: 1.2, van: 1.2 },
   // Urgência: cobrada UMA vez, só sobre a mão de obra (já com o ajuste de categoria).
   urgencyRate: 0.3,
   disposalFeePerItem: 10_00,

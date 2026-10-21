@@ -3,7 +3,7 @@
  * O estado de um carro específico (placa, km, peças, histórico) fica em
  * vehicles/state.ts.
  */
-export type VehicleCategory = 'popular' | 'hatch' | 'sedan' | 'suv' | 'picape';
+export type VehicleCategory = 'popular' | 'hatch' | 'sedan' | 'suv' | 'picape' | 'van';
 
 export const CATEGORY_LABEL: Readonly<Record<VehicleCategory, string>> = {
   popular: 'Popular',
@@ -11,6 +11,7 @@ export const CATEGORY_LABEL: Readonly<Record<VehicleCategory, string>> = {
   sedan: 'Sedã',
   suv: 'SUV',
   picape: 'Picape',
+  van: 'Van',
 };
 
 export interface VehicleDimensions {
@@ -37,6 +38,10 @@ export interface VehicleDefinition {
   paintColor: string;
   /** Posições de peça que este modelo tem (ids de data/partSlots.ts). */
   slots: readonly string[];
+  /** Valor de mercado de um exemplar novo, em centavos (enciclopédia e futuras compras). */
+  baseValue: number;
+  /** Texto curto da enciclopédia. */
+  blurb: string;
 }
 
 export class DataValidationError extends Error {
@@ -70,6 +75,8 @@ export function findVehicleProblems(def: VehicleDefinition, knownSlots: Readonly
   if (!CATEGORIES.includes(def.category)) p.push(`${where}: categoria desconhecida (${String(def.category)})`);
   if (!validYearRange(def.years)) p.push(`${where}: anos inválidos (use [inicial, final] entre 1950 e 2100)`);
   if (!HEX_COLOR.test(def.paintColor ?? '')) p.push(`${where}: paintColor deve ser "#rrggbb"`);
+  if (!Number.isSafeInteger(def.baseValue) || def.baseValue <= 0) p.push(`${where}: valor-base deve ser inteiro em centavos > 0`);
+  if (!def.blurb?.trim()) p.push(`${where}: texto da enciclopédia vazio`);
 
   if (!Array.isArray(def.slots) || def.slots.length === 0) p.push(`${where}: lista de posições de peça vazia`);
   else {

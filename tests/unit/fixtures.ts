@@ -5,6 +5,7 @@ import { PART_SLOTS } from '../../src/data/partSlots';
 import { PARTS } from '../../src/data/parts';
 import { BANK_DEBT, ECONOMY } from '../../src/data/economy';
 import { TAKE_PART_MINUTES, UPGRADES } from '../../src/data/upgrades';
+import { CAR_COLORS, CUSTOMER_NAMES, SERVICE_TEMPLATES } from '../../src/data/services';
 import { DEFAULT_QUOTE_SETTINGS, PRICING } from '../../src/data/pricing';
 import { SUPPLIERS } from '../../src/data/suppliers';
 import { INITIAL_STOCK } from '../../src/data/stock';
@@ -29,8 +30,9 @@ export const content: SessionContent = {
   debt: BANK_DEBT,
   upgrades: UPGRADES,
   takePartMinutes: TAKE_PART_MINUTES,
+  generator: { templates: SERVICE_TEMPLATES, names: CUSTOMER_NAMES, colors: CAR_COLORS },
 };
-export const newSession = (patch: Partial<SessionContent> = {}) => new GameSession(catalogs, [], { ...content, ...patch });
+export const newSession = (patch: Partial<SessionContent> = {}, seed = 1) => new GameSession(catalogs, [], { ...content, ...patch }, seed);
 /** Dia 1, 09:00 (minuto absoluto 540). */
 export const when = { day: 1, time: '09:00', at: 540 };
 /** Momento `minutes` minutos depois de `when`. */
