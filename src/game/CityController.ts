@@ -37,6 +37,8 @@ export interface CityHost {
   playSound(name: SfxName): void;
   assetFailed(what: string, error: unknown): void;
   markDirty(): void;
+  /** Mostra (texto) ou esconde (null) a tela de carregamento. */
+  loading(text: string | null): void;
   /** Dados do painel que vêm da sessão (caixa, sucata, garimpo de hoje). */
   panelData(): Pick<CityPanelView, 'cashText' | 'scrapCount' | 'scrapTotalText' | 'salvageOffers'>;
 }
@@ -80,6 +82,7 @@ export class CityController {
     if (!this.host.canEnter() || this.loading || this.isActive) return false;
     if (!this.city) {
       this.loading = true;
+      this.host.loading('Saindo para a Rua das Oficinas…');
       const t0 = performance.now();
       try {
         const { buildCityNeighborhood } = await import('../world/CityNeighborhood');
@@ -95,6 +98,7 @@ export class CityController {
         return false;
       } finally {
         this.loading = false;
+        this.host.loading(null);
       }
     }
     if (!this.host.isPlaying() || !this.city || !this.cityPlayer) return false;

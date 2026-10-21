@@ -37,6 +37,7 @@ import { validateSessionSnapshot } from '../save/sessionSnapshot';
 import { ORDER_STATUS_LABEL } from '../orders/types';
 import { WORKSHOP_SIZE } from '../world/Workshop';
 import { DrivingHud } from '../ui/DrivingHud';
+import { LoadingOverlay } from '../ui/LoadingOverlay';
 import { resolveBindings } from '../core/bindings';
 import { keyText, setUiBindings } from '../ui/keys';
 import { TestDriveController } from './TestDriveController';
@@ -104,6 +105,7 @@ export class Game {
   private readonly interaction: InteractionSystem;
   private readonly hud: Hud;
   private readonly drivingHud: DrivingHud;
+  private readonly loadingOverlay: LoadingOverlay;
   /** Test drive (Prompt 13): pátio, física, câmera e painel. A oficina fica intacta enquanto isso. */
   private readonly testDrive: TestDriveController;
   /** Bairro de São Cristóvão (Prompt 14): rua, locais e painéis. */
@@ -226,6 +228,7 @@ export class Game {
 
     this.hud = new Hud(uiRoot);
     this.drivingHud = new DrivingHud(uiRoot);
+    this.loadingOverlay = new LoadingOverlay(uiRoot);
     this.testDrive = new TestDriveController(
       {
         scene: this.scene,
@@ -249,6 +252,7 @@ export class Game {
         notify: (text, kind) => this.hud.notify(text, kind),
         playSound: (name) => this.sfx.play(name),
         assetFailed: (what, error) => this.assetFailed(what, error),
+        loading: (text) => (text ? this.loadingOverlay.show(text) : this.loadingOverlay.hide()),
       },
       this.drivingHud,
     );
@@ -291,6 +295,7 @@ export class Game {
         markDirty: () => {
           this.needsRender = true;
         },
+        loading: (text) => (text ? this.loadingOverlay.show(text) : this.loadingOverlay.hide()),
         panelData: () => {
           const scrap = scrapLotValue(this.session.scrap, this.catalogs, CITY_NEIGHBORHOOD.scrapRecoveryFactor);
           return {
@@ -397,6 +402,7 @@ export class Game {
     this.bus.clear();
     this.hud.dispose();
     this.drivingHud.dispose();
+    this.loadingOverlay.dispose();
     this.cityHud.dispose();
     this.testDrive.dispose();
     this.city.dispose();

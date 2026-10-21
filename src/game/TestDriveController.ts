@@ -33,6 +33,8 @@ export interface TestDriveHost {
   notify(text: string, kind: 'ok' | 'blocked'): void;
   playSound(name: SfxName): void;
   assetFailed(what: string, error: unknown): void;
+  /** Mostra (texto) ou esconde (null) a tela de carregamento. */
+  loading(text: string | null): void;
 }
 
 /** Test drive em andamento. */
@@ -86,6 +88,7 @@ export class TestDriveController {
     if (!this.host.canStart() || this.loading || this.drive || this.blockedReason()) return;
     if (!this.track) {
       this.loading = true;
+      this.host.loading('Abrindo o pátio de teste…');
       try {
         const { buildTestTrack } = await import('../world/TestTrack');
         this.track = buildTestTrack(TEST_TRACK);
@@ -97,6 +100,7 @@ export class TestDriveController {
         return;
       } finally {
         this.loading = false;
+        this.host.loading(null);
       }
     }
     if (!this.host.canStart()) return;
