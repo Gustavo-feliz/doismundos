@@ -102,7 +102,7 @@ test('OS 001: exames geram evidências, gastam tempo e levam à causa — sem va
   await closePanel(page);
   await aim(page, AIM.carSide);
   await expect(page.getByTestId('interact-prompt')).toContainText('2011 · 96.400 km');
-  await expect(page.getByTestId('hud-objective')).toContainText('OS #002');
+  await expect(page.getByTestId('hud-objective-os')).toContainText('OS #002');
   expect(errors).toEqual([]);
 });
 

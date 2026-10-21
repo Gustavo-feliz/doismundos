@@ -1,5 +1,6 @@
 import type { ReputationState } from '../customers/reputation';
 import type { CaseProgress, DiagnosisRecord, DiagnosticCaseDef } from '../diagnostics/types';
+import { debtProblems, type DebtState } from '../economy/debt';
 import { CATEGORY_LABEL, type Transaction } from '../economy/ledger';
 import type { HeldPart, PurchaseOrder, StockLot } from '../inventory/types';
 import { ORDER_STATUS_LABEL, type OrderState } from '../orders/types';
@@ -27,6 +28,8 @@ export interface SessionSnapshot {
   reputation: ReputationState;
   warranties: WarrantyRecord[];
   seq: { lot: number; purchase: number; tx: number; warranty: number };
+  /** Dívida bancária (desde o save versão 2). */
+  debt: DebtState;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -129,5 +132,6 @@ export function validateSessionSnapshot(raw: unknown, catalogs: Catalogs, resolv
   }
   const seq: unknown = s.seq;
   if (!isObj(seq) || !['lot', 'purchase', 'tx', 'warranty'].every((k) => isInt(seq[k]) && (seq[k] as number) >= 0)) p.push('contadores internos inválidos');
+  p.push(...debtProblems(s.debt));
   return p;
 }

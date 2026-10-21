@@ -32,6 +32,17 @@ interface GameDiagnostics {
     concluded: boolean;
     records: Array<{ caseId: string; chosenSlot: string; correct: boolean }>;
   };
+  mission: {
+    id: string | null;
+    step: string | null;
+    recovering: boolean;
+    completed: string[];
+    tips: boolean;
+    dialogue: string | null;
+    awaitingChoice: boolean;
+    highlight: string | null;
+  };
+  debt: { balance: number; paidCount: number; nextDueDay: number };
   canvas: { width: number; height: number; clientWidth: number; clientHeight: number };
 }
 
@@ -58,6 +69,10 @@ interface GameTestHooks {
   bypassPointerLock(): void;
   /** Posiciona o jogador (para mirar em algo de forma determinística). */
   teleport(x: number, z: number, yaw: number, pitch?: number): string;
+  /** Escolhe a opção n (1, 2, 3) do diálogo na tela. */
+  dialogueChoose(n: number): boolean;
+  /** Pula a fala atual do diálogo. */
+  skipDialogueLine(): void;
 }
 
 interface Window {

@@ -1,3 +1,7 @@
+import { MINUTES_PER_DAY } from '../core/GameClock';
+import { BANK_DEBT } from '../data/economy';
+import { initialDebt } from '../economy/debt';
+import { initialMissionState, type MissionState } from '../missions/MissionTracker';
 import type { SessionSnapshot } from './sessionSnapshot';
 
 /**
@@ -5,7 +9,7 @@ import type { SessionSnapshot } from './sessionSnapshot';
  * schemaVersion, data/hora, resumo (para listar slots sem carregar tudo) e
  * uma soma de verificação do conteúdo, que detecta arquivos corrompidos.
  */
-export const SAVE_SCHEMA_VERSION = 1;
+export const SAVE_SCHEMA_VERSION = 2;
 
 export type SlotId = 'auto' | 'slot1' | 'slot2' | 'slot3';
 export const MANUAL_SLOTS: readonly SlotId[] = ['slot1', 'slot2', 'slot3'];
@@ -25,6 +29,8 @@ export interface SaveGame {
   player: { x: number; z: number; yaw: number; pitch: number };
   equipment: EquipmentSave;
   session: SessionSnapshot;
+  /** Campanha: missões, escolhas e diálogos pendentes (desde a versão 2). */
+  missions: MissionState;
 }
 
 export interface SaveSummary {
@@ -64,7 +70,20 @@ export function buildEnvelope(slot: SlotId, game: SaveGame, summary: SaveSummary
  * Saves antigos são atualizados passo a passo ao carregar; nunca no lugar do arquivo original.
  */
 export type Migration = (envelope: Record<string, unknown>) => Record<string, unknown>;
-export const MIGRATIONS: Readonly<Record<number, Migration>> = {};
+export const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  /**
+   * 1 → 2 (Prompt 10): entram a dívida do banco e as missões. A primeira
+   * parcela vence pelo menos 2 dias depois do dia do save, para não nascer
+   * atrasada. Quem já jogava pula os passos de andar e abrir a ficha.
+   */
+  1: (env) => {
+    const game = env.game as { clockMinutes: number; session: Record<string, unknown>; missions?: unknown };
+    const day = Math.floor(game.clockMinutes / MINUTES_PER_DAY) + 1;
+    game.session.debt = initialDebt(BANK_DEBT, Math.max(BANK_DEBT.firstDueDay, day + 2));
+    game.missions = { ...initialMissionState(), flags: ['andou', 'abriu-painel-carro'] };
+    return env;
+  },
+};
 
 export type ParseFailure = { ok: false; reason: 'json' | 'formato' | 'versao' | 'checksum' | 'dados'; problems: string[] };
 export type ParseResult = { ok: true; envelope: SaveEnvelope; migratedFrom: number | null } | ParseFailure;
@@ -87,11 +106,11 @@ export function validateGameShell(game: unknown): string[] {
 
 /**
  * Lê um save: JSON → versão → soma de verificação → migração → validação.
- * `validateSession` confere a sessão contra os dados do jogo.
+ * `validateGame` confere a sessão e as missões contra os dados do jogo.
  */
 export function parseSave(
   text: string,
-  validateSession: (session: unknown) => string[],
+  validateGame: (game: Record<string, unknown>) => string[],
   migrations: Readonly<Record<number, Migration>> = MIGRATIONS,
   currentVersion = SAVE_SCHEMA_VERSION,
 ): ParseResult {
@@ -119,7 +138,7 @@ export function parseSave(
     env = { ...step(structuredClone(env)), schemaVersion: v + 1 };
   }
 
-  const problems = [...validateGameShell(env.game), ...validateSession((env.game as Record<string, unknown>).session)];
+  const problems = [...validateGameShell(env.game), ...validateGame(env.game as Record<string, unknown>)];
   if (!isObj(env.summary) || typeof env.savedAt !== 'string' || Number.isNaN(Date.parse(env.savedAt))) problems.push('resumo ou data do save inválidos');
   if (problems.length) return { ok: false, reason: 'dados', problems };
   return { ok: true, envelope: env as unknown as SaveEnvelope, migratedFrom: version < currentVersion ? version : null };

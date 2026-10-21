@@ -7,7 +7,6 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| Prompt 10: tutorial com o Seu Zé e Ato 1 (missões, objetivos, diálogos) | Claude | em andamento | `main` | `src/missions/**` (novo), `src/data/missions.ts` (novo), `src/game/Game.ts`, `src/game/GameSession.ts`, `src/save/**`, `src/ui/` (tutorial), `src/vite-env.d.ts` |
 | Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | em andamento: referências visuais para o Gustavo escolher | `main` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
 
 ### Por que essa divisão
@@ -50,3 +49,4 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | Tarefa | Agente | Commit |
 | --- | --- | --- |
 | Prompts 1–9 | Claude | `654a5a3`, `4b8434b`, `a50e205` |
+| Prompt 10: tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos, dívida do banco, save v2) | Claude | este commit |

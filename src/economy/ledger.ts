@@ -6,13 +6,15 @@ import type { Cents } from './money';
  * categoria, valor, descrição e referência (OS ou pedido).
  */
 export type TransactionKind = 'receita' | 'despesa';
-export type TransactionCategory = 'sinal' | 'servico' | 'compra-pecas' | 'estorno-compra';
+export type TransactionCategory = 'sinal' | 'servico' | 'compra-pecas' | 'estorno-compra' | 'banco' | 'missao';
 
 export const CATEGORY_LABEL: Readonly<Record<TransactionCategory, string>> = {
   sinal: 'Sinal de serviço',
   servico: 'Pagamento de serviço',
   'compra-pecas': 'Compra de peças',
   'estorno-compra': 'Estorno de compra cancelada',
+  banco: 'Parcela do empréstimo bancário',
+  missao: 'Recompensa de missão',
 };
 
 export interface Transaction {

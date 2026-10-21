@@ -158,7 +158,7 @@ test('OS 001 de ponta a ponta: negociação de prazo, peça errada tratada, repa
   await info.attach('servico-entregue', { body: await page.screenshot(), contentType: 'image/png' });
   await expect(page.getByTestId('next-case')).toBeVisible();
   await closeAny(page);
-  await expect(page.getByTestId('hud-objective')).toContainText('OS #001 encerrada');
+  await expect(page.getByTestId('hud-objective-os')).toContainText('OS #001 encerrada');
 
   // Computador: caixa, lucro e avaliação registrados.
   await openComputer(page);

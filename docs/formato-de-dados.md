@@ -219,7 +219,8 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
 { schemaVersion, savedAt (ISO), slot, summary { dia, hora, caixa, OS, reputação },
   checksum (FNV-1a do JSON de "game"),
   game { clockMinutes, player { x, z, yaw, pitch }, equipment { liftUp, hoodOpen, drawerOpen, hallLightsOn, benchLampOn },
-         session { caseIds, caseIndex, vehicles, progress, orders, records, lots, purchases, ledger, held, scrap, reputation, warranties, seq } } }
+         session { caseIds, caseIndex, vehicles, progress, orders, records, lots, purchases, ledger, held, scrap, reputation, warranties, seq, debt },
+         missions { completed, active { id, step } | null, flags, choices, dialogueQueue, tipsEnabled } } }
 ```
 
 - **OS no save.** As OS são guardadas **pelo ID**. A definição sempre vem do conteúdo do jogo; um retorno em garantia (`<id>-garantia`) é recriado a partir da OS original.
@@ -229,6 +230,32 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
   2. registre em `MIGRATIONS` a função `versãoAntiga: (envelope) => envelope da versão seguinte`.
 
   Os saves antigos são migrados passo a passo ao carregar. O arquivo original só muda no próximo save.
+- **Versão 2 (Prompt 10):** entraram `session.debt` e `missions`. A migração 1 → 2 cria a dívida com a primeira parcela pelo menos 2 dias depois do dia do save. Ela também cria as missões do zero, com os passos "andar" e "abrir a ficha" já cumpridos.
+
+## Missões e diálogos (`src/data/missions.ts`)
+
+Tipos em `src/missions/types.ts`; validação em `src/missions/validate.ts` (erro `DataValidationError` ao abrir o jogo).
+
+- **Missão (`MissionDef`)** tem os campos `id`, `act`, `title`, `prerequisites`, `steps`, `reward { cash, text }`, `failure` (`null` quando a missão não falha) e `repeatable`. Os campos opcionais são `startDialogue` e `endDialogue`. Um pré-requisito precisa vir **antes** na lista; isso impede ciclos.
+- **Passo** tem os campos `id`, `objective`, `tip`, `highlight` (id de `EQUIPMENT_IDS` ou `null`) e `done` (a condição de conclusão). Os opcionais são `dialogue` e `recovery[]`, uma lista de `{ when, objective, tip }` para quando algo sai do roteiro.
+- **Condições** olham o **estado** do jogo, não eventos soltos. Por isso salvar e carregar não perde progresso, e uma ação feita antes da hora conta. Tipos de condição:
+  - `flag`: algo que o jogador fez, como `andou`, `abriu-painel-carro`, `abriu-computador` ou `viu-caixa`;
+  - `orders-reached { stage, count }`;
+  - `active-order { status }`;
+  - `purchases { count }`;
+  - `installments-paid { count }`;
+  - `installment-overdue`;
+  - `any { of }`.
+- **Diálogo** tem `id`, `lines[] { speaker, text }` e, opcionalmente, `choice.options[]` com `{ id, label, reply, effects }`. A escolha tem 2 ou 3 opções. Efeitos:
+  - `tips { on }` liga ou desliga as dicas;
+  - `postpone-installment { days, fee }` adia a parcela, com tarifa.
+- **Marcadores nos textos:** `{cliente}`, `{vencimento}` e `{parcela}`.
+
+## Dívida do banco (`BANK_DEBT` em `src/data/economy.ts`)
+
+- **Campos:** `total`, `installment`, `firstDueDay`, `intervalDays` e `lateFeePct`. As regras puras ficam em `src/economy/debt.ts`.
+- **Atraso:** a parcela atrasa a partir do dia seguinte ao vencimento e sai com multa.
+- **Caixa:** o pagamento entra no livro-caixa na categoria `banco`; a recompensa de missão, na categoria `missao`.
 
 ## Como adicionar
 

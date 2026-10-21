@@ -12,7 +12,13 @@ import { CUSTOMERS } from '../data/customers';
 import { DIAGNOSTIC_CASES } from '../data/diagnosticCases';
 import { DEFAULT_QUOTE_SETTINGS, PRICING } from '../data/pricing';
 import { INITIAL_STOCK } from '../data/stock';
-import { ECONOMY } from '../data/economy';
+import { BANK_DEBT, ECONOMY } from '../data/economy';
+import { DIALOGUES, MISSIONS } from '../data/missions';
+import { DialogueRunner } from '../missions/DialogueRunner';
+import { MissionTracker, missionStateProblems, type CurrentObjective, type MissionEvent } from '../missions/MissionTracker';
+import type { MissionWorld } from '../missions/conditions';
+import { fillText, SPEAKER_NAME, type DialogueLine, type MissionFlag } from '../missions/types';
+import { buildMissionLibrary, type MissionLibrary } from '../missions/validate';
 import { SUPPLIERS } from '../data/suppliers';
 import { ComputerPanel } from '../ui/ComputerPanel';
 import { Sfx, type SfxName } from '../audio/Sfx';
@@ -27,7 +33,7 @@ import { validateSessionSnapshot } from '../save/sessionSnapshot';
 import { ORDER_STATUS_LABEL } from '../orders/types';
 import { WORKSHOP_SIZE } from '../world/Workshop';
 import { FUNCTIONAL_TESTS, SCANNER } from '../data/diagnostics';
-import { EQUIPMENT } from '../data/equipment';
+import { EQUIPMENT, EQUIPMENT_IDS } from '../data/equipment';
 import { NEW_GAME } from '../data/newGame';
 import { PART_SLOTS } from '../data/partSlots';
 import { PARTS } from '../data/parts';
@@ -56,6 +62,8 @@ import { buildWorkshop, type Workshop } from '../world/Workshop';
 
 /** Intervalo do autosave enquanto se joga (segundos reais). */
 const AUTOSAVE_SECONDS = 60;
+/** Distância (m) a partir do ponto inicial que conta como "andou" no tutorial. */
+const WALKED_DISTANCE = 1.5;
 const DEBUG = import.meta.env.DEV || new URLSearchParams(window.location.search).has('debug');
 /** Força dos reflexos de ambiente com as luzes acesas. */
 const ENVIRONMENT_INTENSITY = 0.35;
@@ -95,6 +103,14 @@ export class Game {
   private readonly sfx = new Sfx();
   private readonly catalogs: Catalogs;
   private session: GameSession;
+  private readonly missionLib: MissionLibrary;
+  private tracker: MissionTracker;
+  private readonly dialogue: DialogueRunner;
+  /** Cache do objetivo: só recalcula quando a sessão, as missões ou o dia mudam. */
+  private missionKey = '';
+  private objectiveCache: CurrentObjective | null = null;
+  /** Último destaque enviado à cena (undefined = nenhum enviado ainda). */
+  private highlightSent: string | null | undefined = undefined;
   private readonly diagnosticData: DiagnosticData = { scanner: SCANNER, functional: new Map(FUNCTIONAL_TESTS.map((t) => [t.id, t])) };
   private panelVersion = -1;
   private readonly menu: MenuScreen;
@@ -120,10 +136,17 @@ export class Game {
       defaultDraft: DEFAULT_QUOTE_SETTINGS,
       suppliers: SUPPLIERS,
       economy: ECONOMY,
+      debt: BANK_DEBT,
     };
+    this.missionLib = buildMissionLibrary(MISSIONS, DIALOGUES, Object.values(EQUIPMENT_IDS));
+    this.tracker = new MissionTracker(this.missionLib);
+    this.dialogue = new DialogueRunner(this.missionLib.dialogues);
     this.session = this.newSession();
     const store = IndexedDbSaveStore.available() ? new IndexedDbSaveStore() : new MemorySaveStore();
-    this.saves = new SaveService(store, (s) => validateSessionSnapshot(s, this.catalogs, (id) => GameSession.resolveCase(this.content, id)));
+    this.saves = new SaveService(store, (game) => [
+      ...validateSessionSnapshot(game.session, this.catalogs, (id) => GameSession.resolveCase(this.content, id)),
+      ...missionStateProblems(game.missions, this.missionLib),
+    ]);
     this.savesPanel = new SaveSlotsPanel({
       onSave: (slot) => void this.saveTo(slot),
       onLoad: (slot) => void this.loadFrom(slot),
@@ -198,6 +221,10 @@ export class Game {
       onBuy: (partId, supplierId) => this.act(this.session.buyPart(partId, supplierId, 1, this.moment()), 'pegar'),
       onCancel: (id) => this.act(this.session.cancelPurchase(id, this.moment()), 'ok'),
       onWait: () => this.waitForDelivery(),
+      onPayDebt: () => this.act(this.session.payDebtInstallment(this.moment()), 'concluido'),
+      onTab: (tab) => {
+        if (tab === 'caixa') this.markFlag('viu-caixa');
+      },
       onClose: (reason) => this.closePanel(reason),
     });
     this.menu = new MenuScreen(uiRoot, this.settings, {
@@ -272,6 +299,7 @@ export class Game {
         const result = this.interaction.interact();
         if (result) this.hud.notify(result.message, result.ok ? 'ok' : 'blocked');
       }
+      this.updatePlayerMissionInput(dt);
       this.needsRender = true;
     } else {
       this.interaction.clearFocus();
@@ -283,13 +311,20 @@ export class Game {
       }
     }
 
+    if (this.state.is('playing', 'panel')) this.updateMissions();
+    const mission = this.objectiveCache;
     this.hud.update({
       money: formatBRL(this.session.cash),
       day: this.clock.day,
       time: this.clock.formatTime(),
-      objective: this.currentObjective(),
+      objective: mission ? this.fill(mission.objective) : this.currentObjective(),
+      objectiveLabel: mission ? `${mission.missionTitle} · passo ${mission.stepNumber} de ${mission.stepCount}` : 'Objetivo',
+      objectiveDetail: mission && this.session.activeCase ? this.currentObjective() : null,
       tool: this.heldPartName() ?? 'Nada',
     });
+    const playing = this.state.is('playing');
+    this.hud.setTip(playing && mission && this.tracker.tipsEnabled ? this.fill(mission.tip) : null);
+    this.hud.setDialogue(playing ? this.dialogueHud() : null);
 
     // Autosave a cada minuto real de jogo, só se algo mudou (não trava: é assíncrono).
     if (this.state.is('playing')) {
@@ -349,6 +384,7 @@ export class Game {
 
   private openInspection(): void {
     if (!this.enterPanel()) return;
+    this.markFlag('abriu-painel-carro');
     this.inspection.open(this.currentPanelViews());
   }
 
@@ -368,6 +404,7 @@ export class Game {
 
   private openComputer(): void {
     if (!this.enterPanel()) return;
+    this.markFlag('abriu-computador');
     this.computer.open(this.computerView());
   }
 
@@ -513,6 +550,118 @@ export class Game {
     this.workshop.parts.setCarLook({ color: car.color, plate: car.plate });
   }
 
+  // --- Missões, tutorial e diálogos (Prompt 10) -----------------------------
+
+  private resetMissions(tracker: MissionTracker): void {
+    this.tracker = tracker;
+    this.missionKey = '';
+    this.objectiveCache = null;
+    this.dialogue.update(0, null);
+  }
+
+  private markFlag(flag: MissionFlag): void {
+    this.tracker.setFlag(flag);
+  }
+
+  private missionWorld(): MissionWorld {
+    const c = this.session.activeCase;
+    return {
+      orderStatuses: this.session.allOrders().map((o) => o.status),
+      activeOrderStatus: c ? this.session.getOrder(c.id).status : null,
+      purchases: this.session.purchases.filter((p) => p.status !== 'cancelado').length,
+      installmentsPaid: this.session.debt.paidCount,
+      installmentOverdue: this.session.debtOverdue(this.clock.day),
+    };
+  }
+
+  /** Reavalia a campanha só quando algo mudou (sessão, missões ou dia). */
+  private updateMissions(): void {
+    const key = `${this.session.version}|${this.tracker.revision}|${this.clock.day}`;
+    if (key === this.missionKey) return;
+    const world = this.missionWorld();
+    this.applyMissionEvents(this.tracker.evaluate(world));
+    this.objectiveCache = this.tracker.current(world);
+    this.missionKey = `${this.session.version}|${this.tracker.revision}|${this.clock.day}`;
+    const highlight = this.tracker.tipsEnabled ? (this.objectiveCache?.highlight ?? null) : null;
+    if (highlight !== this.highlightSent) {
+      this.highlightSent = highlight;
+      this.bus.emit('tutorial:highlight', { targetId: highlight });
+    }
+  }
+
+  private applyMissionEvents(events: readonly MissionEvent[]): void {
+    for (const e of events) {
+      if (e.type === 'step-started' || e.type === 'step-completed') {
+        this.bus.emit('mission:step', { missionId: e.missionId, stepId: e.stepId, status: e.type === 'step-started' ? 'iniciado' : 'concluido' });
+      } else if (e.type === 'mission-completed') {
+        const m = e.mission;
+        this.session.grantReward(m.reward.cash, `${m.title}: ${m.reward.text}`, this.moment());
+        const reward = m.reward.cash > 0 ? ` +${formatBRL(m.reward.cash)}` : '';
+        this.notifyAnywhere(`Missão concluída: ${m.title}.${reward}`);
+        this.sfx.play('concluido');
+        this.bus.emit('mission:completed', { missionId: m.id });
+      }
+    }
+  }
+
+  /** Teclas do tutorial (só com o jogo rodando): andar, escolher, pular fala, dicas. */
+  private updatePlayerMissionInput(dt: number): void {
+    const s = this.workshop.spawn;
+    if (Math.hypot(this.player.position.x - s.x, this.player.position.z - s.z) > WALKED_DISTANCE) this.markFlag('andou');
+    this.handleDialogueStep(this.dialogue.update(dt, this.tracker.dialogueQueue[0] ?? null));
+    if (this.input.wasActionPressed('skipLine')) this.handleDialogueStep(this.dialogue.skip());
+    const choice = (['choice1', 'choice2', 'choice3'] as const).findIndex((a) => this.input.wasActionPressed(a));
+    if (choice >= 0) this.chooseDialogueOption(choice + 1);
+    if (this.input.wasActionPressed('toggleTips')) {
+      this.tracker.setTips(!this.tracker.tipsEnabled);
+      this.hud.notify(this.tracker.tipsEnabled ? 'Dicas do Seu Zé ligadas.' : 'Dicas do Seu Zé desligadas (H liga de novo).', 'ok');
+    }
+  }
+
+  private handleDialogueStep(step: { started: DialogueLine | null; finished: string | null }): void {
+    if (step.started) this.bus.emit('dialogue:line', { speaker: step.started.speaker, text: this.fill(step.started.text) });
+    if (step.finished) this.tracker.finishDialogue(step.finished);
+  }
+
+  /** Escolha num diálogo: a consequência fica registrada e é aplicada uma única vez. */
+  private chooseDialogueOption(n: number): boolean {
+    const id = this.dialogue.view()?.dialogueId;
+    const result = this.dialogue.choose(n);
+    if (!id || !result) return false;
+    const option = this.tracker.choose(id, result.option.id);
+    for (const effect of option?.effects ?? []) {
+      if (effect.kind === 'postpone-installment') this.session.postponeDebt(effect.days, effect.fee);
+    }
+    this.handleDialogueStep(result);
+    return true;
+  }
+
+  private dialogueHud() {
+    const v = this.dialogue.view();
+    if (!v) return null;
+    return {
+      speaker: SPEAKER_NAME[v.line.speaker],
+      speakerId: v.line.speaker,
+      text: this.fill(v.line.text),
+      options: v.options?.map((o) => this.fill(o.label)) ?? null,
+    };
+  }
+
+  /** Troca {cliente}, {vencimento} e {parcela} pelos valores atuais. */
+  private fill(text: string): string {
+    if (!text.includes('{')) return text;
+    return fillText(text, {
+      cliente: this.session.activeCase?.customerName ?? 'o cliente',
+      vencimento: String(this.session.debt.nextDueDay),
+      parcela: formatBRL(this.session.debtDue(this.clock.day).total),
+    });
+  }
+
+  private notifyAnywhere(text: string): void {
+    if (this.state.is('panel')) this.activePanel().notify(text, 'ok');
+    else this.hud.notify(text, 'ok');
+  }
+
   private currentObjective(): string {
     const c = this.session.activeCase;
     if (!c) return NEW_GAME.firstObjective;
@@ -547,6 +696,7 @@ export class Game {
       this.clock.reset();
       this.equipment.reset();
       this.session = this.newSession();
+      this.resetMissions(new MissionTracker(this.missionLib));
       this.applyActiveCarLook();
     }
     this.input.reset();
@@ -606,6 +756,7 @@ export class Game {
       player: { x: this.player.position.x, z: this.player.position.z, yaw: this.player.view.yaw, pitch: this.player.view.pitch },
       equipment: this.equipment.exportState(),
       session: this.session.toSnapshot(),
+      missions: this.tracker.toSnapshot(),
     };
   }
 
@@ -623,13 +774,14 @@ export class Game {
   /** Autosave: só quando o jogo mudou desde o último, e nunca com um jogo novo intocado. */
   private async autosave(): Promise<boolean> {
     const s = this.session;
-    const unchanged = this.autosaved.session === s && this.autosaved.version === s.version;
+    const version = s.version + this.tracker.revision;
+    const unchanged = this.autosaved.session === s && this.autosaved.version === version;
     if (this.autosaveBusy || unchanged || s.version === 0) return false;
     this.autosaveBusy = true;
     try {
       const result = await this.saves.save('auto', this.collectSave(), this.saveSummary());
       if (result.ok) {
-        this.autosaved = { session: s, version: s.version };
+        this.autosaved = { session: s, version };
         this.hud.flashSaved('Salvo automaticamente');
       } else {
         console.warn('[save]', result.message);
@@ -707,13 +859,14 @@ export class Game {
     const restored = GameSession.fromSnapshot(this.catalogs, this.content, game.session);
     if (!restored.ok) return { ok: false, message: restored.problems.slice(0, 3).join('; ') };
     this.session = restored.session;
+    this.resetMissions(new MissionTracker(this.missionLib, game.missions));
     this.clock.setAbsolute(game.clockMinutes);
     this.equipment.restore(game.equipment);
     const inside = Math.abs(game.player.x) < WORKSHOP_SIZE.halfX - 0.3 && Math.abs(game.player.z) < WORKSHOP_SIZE.halfZ - 0.3;
     if (inside) this.player.teleport(game.player.x, game.player.z, game.player.yaw, game.player.pitch);
     else this.player.respawn();
     this.applyActiveCarLook();
-    this.autosaved = { session: this.session, version: this.session.version };
+    this.autosaved = { session: this.session, version: this.session.version + this.tracker.revision };
     this.panelVersion = -1;
     return { ok: true };
   }
@@ -790,6 +943,17 @@ export class Game {
       reputation: this.session.reputation.general.score,
       computerOpen: this.computer.isOpen,
       order: this.orderDiagnostics(),
+      mission: {
+        id: this.objectiveCache?.missionId ?? null,
+        step: this.objectiveCache?.stepId ?? null,
+        recovering: this.objectiveCache?.recovering ?? false,
+        completed: [...this.tracker.completed],
+        tips: this.tracker.tipsEnabled,
+        dialogue: this.dialogue.view()?.dialogueId ?? null,
+        awaitingChoice: this.dialogue.awaitingChoice,
+        highlight: this.highlightSent ?? null,
+      },
+      debt: { balance: this.session.debt.balance, paidCount: this.session.debt.paidCount, nextDueDay: this.session.debt.nextDueDay },
       diagnosis: this.diagnosisDiagnostics(),
       equipment: this.equipment.snapshot(),
       canvas: { width: canvas.width, height: canvas.height, clientWidth: canvas.clientWidth, clientHeight: canvas.clientHeight },
@@ -860,6 +1024,8 @@ export class Game {
       vehicleState: () => structuredClone(this.session.getVehicle(this.activeVehicleId)),
       vehicleOp: (op) => this.runVehicleOp(op as VehicleOp),
       autosaveNow: () => this.autosave(),
+      dialogueChoose: (n) => this.chooseDialogueOption(n),
+      skipDialogueLine: () => this.handleDialogueStep(this.dialogue.skip()),
       bypassPointerLock: () => this.input.setLockBypass(true),
       teleport: (x, z, yaw, pitch = 0) => {
         this.player.teleport(x, z, yaw, pitch);

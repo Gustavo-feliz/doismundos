@@ -6,6 +6,10 @@ export interface ComputerCallbacks {
   onCancel(purchaseId: string): void;
   /** Avança o relógio até a próxima entrega. */
   onWait(): void;
+  /** Paga a próxima parcela do empréstimo. */
+  onPayDebt(): void;
+  /** O jogador trocou de aba (o tutorial usa para saber que ele viu o caixa). */
+  onTab?(tab: string): void;
   onClose(reason: 'resume' | 'pause'): void;
 }
 
@@ -116,6 +120,7 @@ export class ComputerPanel {
   private setTab(tab: Tab): void {
     this.tab = tab;
     this.render();
+    this.callbacks.onTab?.(tab);
   }
 
   private render(): void {
@@ -213,6 +218,7 @@ export class ComputerPanel {
         tile('Lucro bruto (OS entregues)', s.grossProfitText, 'ledger-profit'),
       ),
       h('p', { class: 'muted small', text: `OS entregues: receita ${s.deliveredRevenueText} − custo das peças usadas ${s.deliveredCostText}. Compras ${s.purchasesText}, estornos ${s.refundsText}.` }),
+      this.debtCard(v),
       v.ledger.length
         ? h(
             'table',
@@ -232,6 +238,26 @@ export class ComputerPanel {
           )
         : h('p', { class: 'muted', text: 'Nenhuma movimentação ainda.' }),
     ];
+  }
+
+  /** Internet banking: empréstimo herdado do tio. */
+  private debtCard(v: ComputerView): HTMLElement {
+    const d = v.debt;
+    if (!d.next) {
+      return h('section', { class: 'debt-card', 'data-testid': 'debt' }, h('h3', { text: 'Empréstimo do banco' }), h('p', { text: `Quitado! ${d.paidCount} parcela(s) paga(s).` }));
+    }
+    const n = d.next;
+    const pay = h('button', { type: 'button', class: 'btn btn-primary', 'data-testid': 'debt-pay', disabled: !n.affordable }, `Pagar parcela (${n.totalText})`);
+    pay.addEventListener('click', () => this.callbacks.onPayDebt());
+    return h(
+      'section',
+      { class: 'debt-card', 'data-testid': 'debt', 'data-overdue': String(n.overdue) },
+      h('h3', { text: 'Empréstimo do banco' }),
+      h('p', {}, 'Saldo devedor: ', h('strong', { 'data-testid': 'debt-balance', text: d.balanceText }), ` · ${d.paidCount} parcela(s) paga(s)`),
+      h('p', { class: n.overdue ? 'debt-due is-overdue' : 'debt-due', 'data-testid': 'debt-due' }, n.overdue ? `ATRASADA desde o dia ${n.dueDay + 1}: ` : `Próxima parcela vence no fim do dia ${n.dueDay}: `, h('strong', { text: n.totalText }), n.detail ? ` (${n.detail})` : ''),
+      h('div', { class: 'panel-actions' }, pay),
+      n.affordable ? null : h('p', { class: 'muted small', text: 'Caixa insuficiente para a parcela: entregue mais serviços.' }),
+    );
   }
 
   private reputation(v: ComputerView): HTMLElement[] {

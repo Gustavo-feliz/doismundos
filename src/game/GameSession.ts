@@ -14,6 +14,7 @@ import {
 } from '../diagnostics/rules';
 import type { CaseProgress, DiagnosisRecord, DiagnosticCaseDef, EquipmentContext, EvidenceEntry } from '../diagnostics/types';
 import { validateDiagnosticData } from '../diagnostics/validate';
+import { initialDebt, installmentDue, isOverdue, payInstallment, postponeInstallment, type DebtConfig, type DebtState, type InstallmentDue } from '../economy/debt';
 import { balance, canSpend, summarize, type LedgerSummary, type Transaction, type TransactionCategory } from '../economy/ledger';
 import { formatBRL, type Cents } from '../economy/money';
 import { computeQuote, type PricingRules, type QuoteBreakdown, type QuoteInput, type QuoteResult } from '../economy/quote';
@@ -55,6 +56,8 @@ export interface SessionContent {
   defaultDraft: Omit<QuoteDraft, 'extras'>;
   suppliers: readonly Supplier[];
   economy: { startingCash: Cents; creditLimit: Cents };
+  /** Dívida bancária herdada (Prompt 10). */
+  debt: DebtConfig;
 }
 
 const KNOWN_BAD = new Set(['gasta', 'critica', 'falhou']);
@@ -97,6 +100,7 @@ export class GameSession {
   private caseIndex = 0;
   private revision = 0;
   private seq = { lot: 0, purchase: 0, tx: 0, warranty: 0 };
+  private debtState: DebtState = { balance: 0, nextDueDay: 0, pendingFee: 0, paidCount: 0 };
 
   constructor(
     readonly catalogs: Catalogs,
@@ -111,6 +115,7 @@ export class GameSession {
     for (const s of content.suppliers) this.suppliers.set(s.id, s);
     this.validateContent(content, followUps);
     this.cashValue = content.economy.startingCash;
+    this.debtState = initialDebt(content.debt);
     for (const s of content.initialStock) this.addLot(s.partId, s.qty, 0, 'Herdada do tio');
     for (const c of content.cases) this.registerCase(c, this.cases.length, null);
   }
@@ -404,6 +409,52 @@ export class GameSession {
     return this.need().economy.creditLimit;
   }
 
+  // --- Dívida com o banco ---------------------------------------------------------
+
+  get debt(): DebtState {
+    return this.debtState;
+  }
+
+  /** Quanto custa pagar a próxima parcela no dia informado. */
+  debtDue(day: number): InstallmentDue {
+    return installmentDue(this.debtState, day, this.need().debt);
+  }
+
+  debtOverdue(day: number): boolean {
+    return isOverdue(this.debtState, day);
+  }
+
+  /** Paga a próxima parcela pelo internet banking do computador. Atrasada, sai com multa. */
+  payDebtInstallment(when: GameMoment): ActionOutcome {
+    const cfg = this.need().debt;
+    const result = payInstallment(this.debtState, when.day, cfg);
+    if (!result.ok) return this.fail(result.message);
+    const { total, lateFee, fee } = result.paid;
+    if (!canSpend(this.cash, total, this.creditLimit)) {
+      return this.fail(`Caixa insuficiente: a parcela custa ${formatBRL(total)} e há ${formatBRL(this.cash)} no caixa.`);
+    }
+    const extras = [lateFee > 0 ? `multa ${formatBRL(lateFee)}` : '', fee > 0 ? `tarifa ${formatBRL(fee)}` : ''].filter(Boolean).join(', ');
+    const n = this.debtState.paidCount + 1;
+    this.record('despesa', 'banco', total, `Parcela ${n} do empréstimo${extras ? ` (${extras})` : ''}`, 'Banco', when);
+    this.debtState = result.state;
+    this.revision++;
+    const rest = result.state.balance > 0 ? ` Próxima vence no dia ${result.state.nextDueDay}.` : ' Dívida quitada!';
+    return { ok: true, message: `Parcela ${n} paga: ${formatBRL(total)}.${rest}`, minutes: 0, tone: lateFee > 0 ? 'warn' : 'ok' };
+  }
+
+  /** Combinado com o gerente: a próxima parcela vence `days` dias depois, com uma tarifa. */
+  postponeDebt(days: number, fee: Cents): void {
+    this.debtState = postponeInstallment(this.debtState, days, fee);
+    this.revision++;
+  }
+
+  /** Recompensa de missão: entra no caixa como receita identificada. */
+  grantReward(cash: Cents, description: string, when: GameMoment): void {
+    if (cash <= 0) return;
+    this.record('receita', 'missao', cash, description, 'Missão', when);
+    this.revision++;
+  }
+
   // --- Loja e estoque ------------------------------------------------------------
 
   get supplierList(): readonly Supplier[] {
@@ -649,6 +700,7 @@ export class GameSession {
       reputation: this.rep,
       warranties: this.warrantyRecords,
       seq: this.seq,
+      debt: this.debtState,
     });
   }
 
@@ -698,6 +750,7 @@ export class GameSession {
     s.warrantyRecords = snap.warranties;
     s.caseIndex = snap.caseIndex;
     s.seq = snap.seq;
+    s.debtState = snap.debt;
     s.revision = 0;
     return { ok: true, session: s };
   }

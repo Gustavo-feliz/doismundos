@@ -1342,3 +1342,115 @@ dd.negative {
   font-size: 0.78rem;
   color: var(--muted);
 }
+
+/* ---------- Tutorial: dica, legenda de diálogo e banco (Prompt 10) ---------- */
+.hud-tip {
+  position: static;
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.hud-tip[hidden] {
+  display: none;
+}
+.hud-tip-text {
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+.hud-tip-hint {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.hud-dialogue {
+  position: absolute;
+  left: 50%;
+  bottom: 136px;
+  transform: translateX(-50%);
+  width: min(640px, calc(100vw - 32px));
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: rgba(12, 13, 15, 0.9);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+}
+.hud-dialogue[data-speaker='narrador'] {
+  border-left-color: var(--muted);
+  font-style: italic;
+}
+.hud-dialogue[data-speaker='gerente-banco'] {
+  border-left-color: #6fb1ff;
+}
+.dialogue-speaker {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.hud-dialogue[data-speaker='gerente-banco'] .dialogue-speaker {
+  color: #6fb1ff;
+}
+.dialogue-text {
+  margin: 0.2rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+.dialogue-options {
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-style: normal;
+}
+.dialogue-skip {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+.debt-card {
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+}
+.debt-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+.debt-card p {
+  margin: 0.25rem 0;
+}
+.debt-due.is-overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+.debt-card .panel-actions {
+  margin-top: 0.6rem;
+}
+@media (max-width: 900px) {
+  .hud-dialogue {
+    bottom: 150px;
+  }
+}
+.hud-objective-detail {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.hud-objective-detail[hidden] {
+  display: none;
+}

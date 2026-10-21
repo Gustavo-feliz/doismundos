@@ -1,19 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { GameSession } from '../../src/game/GameSession';
-import { buildEnvelope, checksum, parseSave, validateGameShell, type SaveGame } from '../../src/save/saveFile';
+import { buildEnvelope, checksum, parseSave, SAVE_SCHEMA_VERSION, validateGameShell, type SaveGame } from '../../src/save/saveFile';
 import { SaveService } from '../../src/save/SaveService';
 import { MemorySaveStore } from '../../src/save/SaveStore';
 import { validateSessionSnapshot } from '../../src/save/sessionSnapshot';
+import { EQUIPMENT_IDS } from '../../src/data/equipment';
+import { DIALOGUES, MISSIONS } from '../../src/data/missions';
+import { initialMissionState, missionStateProblems } from '../../src/missions/MissionTracker';
+import { buildMissionLibrary } from '../../src/missions/validate';
 import { CTX, buyAndReceive, catalogs, content, later, newSession, when } from './fixtures';
 
 const PADS = 'freios.pastilhas-dianteiras';
-const validateSession = (s: unknown) => validateSessionSnapshot(s, catalogs, (id) => GameSession.resolveCase(content, id));
+const lib = buildMissionLibrary(MISSIONS, DIALOGUES, Object.values(EQUIPMENT_IDS));
+const validateSession = (g: Record<string, unknown>) => [
+  ...validateSessionSnapshot(g.session, catalogs, (id) => GameSession.resolveCase(content, id)),
+  ...missionStateProblems(g.missions, lib),
+];
 const summary = { day: 1, time: '09:00', cashText: 'R$ 1.500,00', orderLabel: 'OS #001', reputation: 50 };
 const shell = (session: GameSession): SaveGame => ({
   clockMinutes: 600,
   player: { x: 1, z: 2, yaw: 0.5, pitch: -0.1 },
   equipment: { liftUp: true, hoodOpen: false, drawerOpen: false, hallLightsOn: true, benchLampOn: false },
   session: session.toSnapshot(),
+  missions: initialMissionState(),
 });
 const fixedNow = () => new Date('2026-10-20T12:00:00Z');
 
@@ -71,7 +80,7 @@ describe('ida e volta (round-trip)', () => {
     expect(info).toMatchObject({ state: 'ok', savedAt: '2026-10-20T12:00:00.000Z', summary });
     const loaded = await service.load('slot1');
     expect(loaded.ok && loaded.envelope.game.session).toEqual(s.toSnapshot());
-    expect(loaded.ok && loaded.envelope.schemaVersion).toBe(1);
+    expect(loaded.ok && loaded.envelope.schemaVersion).toBe(SAVE_SCHEMA_VERSION);
   });
 });
 
@@ -172,6 +181,31 @@ describe('migração entre versões', () => {
     expect(r).toMatchObject({ ok: true, migratedFrom: 0 });
     expect(r.ok && r.envelope.summary.orderLabel).toBe('migrado');
     expect(parseSave(JSON.stringify(env), validateSession, {}, 1)).toMatchObject({ ok: false, reason: 'versao' });
+  });
+
+  it('save da versão 1 (antes do Prompt 10) ganha dívida e missões ao carregar', () => {
+    const game = shell(newSession());
+    game.clockMinutes = 4 * 24 * 60 + 600; // dia 5
+    const v1 = JSON.parse(JSON.stringify(game)) as Record<string, any>;
+    delete v1.missions;
+    delete v1.session.debt;
+    const env = { schemaVersion: 1, savedAt: fixedNow().toISOString(), slot: 'slot1', summary, checksum: checksum(JSON.stringify(v1)), game: v1 };
+    const r = parseSave(JSON.stringify(env), validateSession);
+    expect(r).toMatchObject({ ok: true, migratedFrom: 1 });
+    if (!r.ok) return;
+    expect(r.envelope.schemaVersion).toBe(2);
+    // A primeira parcela não nasce atrasada: vence 2 dias depois do dia do save.
+    expect(r.envelope.game.session.debt).toMatchObject({ paidCount: 0, nextDueDay: 7 });
+    expect(r.envelope.game.missions.flags).toEqual(['andou', 'abriu-painel-carro']);
+  });
+
+  it('estado de missões inválido é recusado com mensagem útil', () => {
+    const game = shell(newSession());
+    game.missions = { ...initialMissionState(), active: { id: 'missao-que-nao-existe', step: 0 } };
+    const env = buildEnvelope('slot1', game, summary, fixedNow());
+    const r = parseSave(JSON.stringify(env), validateSession);
+    expect(r).toMatchObject({ ok: false, reason: 'dados' });
+    expect(!r.ok && r.problems.join()).toContain('missão ativa desconhecida');
   });
 
   it('relógio, jogador e equipamentos também são validados', () => {

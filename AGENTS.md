@@ -23,7 +23,7 @@
 | `npm run test:e2e` | Testes no navegador (Playwright). |
 | `npm run test:all` | Tipos + regras + navegador. |
 
-## 2. Estado atual: Prompts 1 a 9 concluídos
+## 2. Estado atual: Prompts 1 a 10 concluídos
 
 | Prompt | Entrega |
 | --- | --- |
@@ -36,8 +36,9 @@
 | 7 | Loja com 2 fornecedores e prazo de entrega, estoque em lotes, livro-caixa, pagamento na entrega. |
 | 8 | Avaliação do cliente, reputação geral e por especialidade, garantia, retornos. |
 | 9 | Save no IndexedDB: 3 slots + autosave, `schemaVersion`, soma de verificação, cópia de segurança, migrações. |
+| 10 | Tutorial com o Seu Zé e começo do Ato 1: missões por dados (`src/missions/`, `src/data/missions.ts`), diálogos com escolha, dicas (H), dívida do banco. Save versão 2. |
 
-**Testes atuais:** 166 testes de regras e 22 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 10 (tutorial e Ato 1).**
+**Testes atuais:** 182 testes de regras e 23 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 11 (ferramentas, upgrades e progressão).**
 
 Detalhes: `README.md` (estrutura, controles, roteiro de teste manual) e `docs/formato-de-dados.md` (formato de todos os dados).
 
@@ -49,6 +50,7 @@ src/data/        TODO o conteúdo (carros, peças, clientes, casos, preços, for
 src/vehicles/    estado do carro e regras de domínio (domain.ts: funções puras)
 src/diagnostics/ exames e hipóteses (rules.ts puro; view.ts = o que a UI pode ver)
 src/customers/   decisão, avaliação e reputação (puras)
+src/missions/    missões, condições, diálogos (puros; o Game traduz em HUD, som e destaque)
 src/economy/     dinheiro em centavos, fórmula do orçamento, livro-caixa
 src/orders/      estados da OS, garantia, visões das abas
 src/repairs/     regras do reparo

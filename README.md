@@ -13,8 +13,9 @@ O design completo está em [GDD_Simulador_de_Mecanico_Claude_Code.md](GDD_Simula
 7. Loja, estoque, pagamento e economia básica.
 8. Reputação, garantia e retorno de clientes.
 9. Save e carregamento confiáveis.
+10. Tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos e dívida do banco).
 
-Ainda **não** existem tutorial, cidade nem multiplayer.
+Ainda **não** existem cidade, upgrades nem multiplayer.
 
 ## Pré-requisitos
 
@@ -251,7 +252,10 @@ Use **Salvar jogo** (no menu de pausa) e **Carregar jogo** (no menu inicial e na
 - reputação e garantias;
 - relógio, posição do jogador e estado do elevador, capô, gaveta e luzes.
 
-Ainda não há upgrades nem missões no jogo; eles entram no save quando existirem.
+- missões: passo atual, missões concluídas, escolhas de diálogo, diálogos pendentes e a preferência de dicas;
+- dívida do banco (saldo, vencimento, parcelas pagas).
+
+Saves da versão 1 (antes do Prompt 10) são migrados ao carregar: a primeira parcela vence pelo menos 2 dias depois do dia do save.
 
 **Segurança contra corrupção:**
 - Cada save tem `schemaVersion`, data e hora, e uma **soma de verificação**: um arquivo cortado ou editado é detectado.
@@ -259,6 +263,34 @@ Ainda não há upgrades nem missões no jogo; eles entram no save quando existir
 - Ao sobrescrever, o save anterior vira **cópia de segurança**. Se o principal corromper, o jogo carrega a cópia e avisa.
 
 Os saves ficam no navegador (IndexedDB). Se o navegador bloquear o armazenamento, o jogo avisa que os saves só valem até fechar a página.
+
+## Tutorial e Ato 1 (Prompt 10)
+
+**História.** O tio Tonhão morreu e deixou a oficina com uma dívida no banco. O Seu Zé, mecânico antigo da casa, ensina o caminho.
+
+**Missões.** Ficam em `src/data/missions.ts` e são validadas ao abrir o jogo.
+- **Primeiro dia na oficina** (8 passos): andar, abrir a ficha, diagnosticar, orçar, comprar a peça, reparar, entregar e conferir o caixa. Recompensa: R$ 150 da caixinha do Tonhão.
+- **A primeira parcela:** o gerente do banco liga; entregue mais um carro e pague a parcela de R$ 400 no computador (aba Caixa) até o fim do dia 3.
+
+**Objetivo sempre visível.** O HUD mostra a missão, o passo ("passo 3 de 8"), o objetivo e a OS do box.
+
+**Fora do roteiro.** Os passos olham o estado do jogo, então algo feito antes da hora já conta. A campanha nunca trava:
+- se o cliente recusar o orçamento, o objetivo passa a orientar a próxima OS;
+- se a parcela atrasar, ela sai com multa de 10% e a missão continua.
+
+**Dicas e diálogos.**
+- A dica do Seu Zé aparece sob o objetivo; **H** oculta ou mostra.
+- O objeto do passo é destacado na cena pelo evento `tutorial:highlight`. O efeito visual é feito pelo passe de arte.
+- Os diálogos aparecem como legenda, sem pausar o jogo. **Enter** pula a fala; **1, 2, 3** escolhem a resposta.
+- As escolhas ficam registradas no save. No prólogo, a escolha liga ou desliga as dicas. Na ligação do banco, dá para adiar a parcela em 3 dias com tarifa de R$ 40.
+
+**Eventos** (`src/core/events.ts`), para cena e áudio:
+- `tutorial:highlight`
+- `mission:step`
+- `mission:completed`
+- `dialogue:line`
+
+PROVISÓRIO: textos, valores da dívida e recompensas serão revistos com o roteiro final do Ato 1.
 
 ## Roteiro de teste manual
 

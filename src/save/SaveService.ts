@@ -26,7 +26,7 @@ const backupKey = (slot: SlotId) => `${slot}.bak`;
 export class SaveService {
   constructor(
     private readonly store: SaveStore,
-    private readonly validateSession: (session: unknown) => string[],
+    private readonly validateGame: (game: Record<string, unknown>) => string[],
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -35,7 +35,7 @@ export class SaveService {
   }
 
   private parse(text: string | null): ReturnType<typeof parseSave> | null {
-    return text === null ? null : parseSave(text, this.validateSession);
+    return text === null ? null : parseSave(text, this.validateGame);
   }
 
   async inspect(slot: SlotId): Promise<SlotInfo> {
@@ -67,7 +67,7 @@ export class SaveService {
       return { ok: false, message: `Não foi possível montar o save: ${String(error)}` };
     }
     // Confere o que vai ser gravado ANTES de gravar: um estado inválido nunca substitui um save bom.
-    const check = parseSave(text, this.validateSession);
+    const check = parseSave(text, this.validateGame);
     if (!check.ok) return { ok: false, message: `Save não gravado: o estado atual tem problemas (${check.problems.slice(0, 3).join('; ')}). O save anterior foi mantido.` };
 
     const previous = await this.store.get(slot);

@@ -6,7 +6,19 @@ export interface HudData {
   day: number;
   time: string;
   objective: string;
+  /** Rótulo acima do objetivo (ex.: "Tutorial · passo 3 de 8"). */
+  objectiveLabel: string;
+  /** Linha extra com a OS do box (durante uma missão). null esconde. */
+  objectiveDetail: string | null;
   tool: string;
+}
+
+/** Legenda de diálogo: quem fala, o texto e as opções numeradas. */
+export interface HudDialogue {
+  speaker: string;
+  speakerId: string;
+  text: string;
+  options: readonly string[] | null;
 }
 
 const STATUS_LABEL = { busy: 'Em uso', unavailable: 'Indisponível' } as const;
@@ -21,6 +33,12 @@ export class Hud {
   private readonly money: HTMLElement;
   private readonly clock: HTMLElement;
   private readonly objective: HTMLElement;
+  private readonly objectiveLabel: HTMLElement;
+  private readonly objectiveDetail: HTMLElement;
+  private readonly tip: HTMLElement;
+  private readonly tipText: HTMLElement;
+  private readonly dialogue: HTMLElement;
+  private dialogueKey = '';
   private readonly tool: HTMLElement;
   private readonly crosshair: HTMLElement;
   private readonly prompt: HTMLElement;
@@ -37,6 +55,17 @@ export class Hud {
     this.money = h('strong', { class: 'hud-value', 'data-testid': 'hud-money' });
     this.clock = h('strong', { class: 'hud-value', 'data-testid': 'hud-clock' });
     this.objective = h('span', { class: 'hud-objective-text', 'data-testid': 'hud-objective' });
+    this.objectiveLabel = h('span', { class: 'hud-label', 'data-testid': 'hud-objective-label', text: 'Objetivo' });
+    this.objectiveDetail = h('span', { class: 'hud-objective-detail', 'data-testid': 'hud-objective-os', hidden: true });
+    this.tipText = h('span', { class: 'hud-tip-text' });
+    this.tip = h(
+      'div',
+      { class: 'hud-panel hud-tip', 'data-testid': 'hud-tip', hidden: true },
+      h('span', { class: 'hud-label', text: 'Dica do Seu Zé' }),
+      this.tipText,
+      h('span', { class: 'hud-tip-hint' }, h('kbd', { text: 'H' }), ' ocultar dicas'),
+    );
+    this.dialogue = h('div', { class: 'hud-dialogue', 'data-testid': 'hud-dialogue', role: 'log', 'aria-live': 'polite', hidden: true });
     this.tool = h('strong', { class: 'hud-value', 'data-testid': 'hud-held' });
     this.crosshair = h('div', { class: 'crosshair', 'aria-hidden': 'true' });
 
@@ -57,11 +86,12 @@ export class Hud {
         h('div', { class: 'hud-metric' }, h('span', { class: 'hud-label', text: 'Caixa' }), this.money),
         h('div', { class: 'hud-metric' }, h('span', { class: 'hud-label', text: 'Hora' }), this.clock),
       ),
-      h('div', { class: 'hud-panel hud-objective', role: 'status', 'aria-live': 'polite' }, h('span', { class: 'hud-label', text: 'Objetivo' }), this.objective),
+      h('div', { class: 'hud-panel hud-objective', role: 'status', 'aria-live': 'polite' }, this.objectiveLabel, this.objective, this.objectiveDetail, this.tip),
       h('div', { class: 'hud-panel hud-bottom-right' }, h('span', { class: 'hud-label', text: 'Em mãos' }), this.tool),
       this.crosshair,
       this.prompt,
       this.notice,
+      this.dialogue,
       this.saved,
       h('div', { class: 'prototype-badge', text: 'Protótipo · modelos e texturas temporários' }),
     );
@@ -76,6 +106,9 @@ export class Hud {
     setText(this.money, data.money);
     setText(this.clock, `Dia ${data.day} · ${data.time}`);
     setText(this.objective, data.objective);
+    setText(this.objectiveLabel, data.objectiveLabel);
+    this.objectiveDetail.hidden = !data.objectiveDetail;
+    if (data.objectiveDetail) setText(this.objectiveDetail, data.objectiveDetail);
     setText(this.tool, data.tool);
   }
 
@@ -100,6 +133,29 @@ export class Hud {
       ...(prompt.status === 'available'
         ? [h('kbd', { text: 'E' }), ` ${prompt.action ?? ''}`]
         : [h('span', { class: 'prompt-status', text: STATUS_LABEL[prompt.status] }), ` · ${prompt.reason ?? ''}`]),
+    );
+  }
+
+  /** Dica contextual (dispensável). null esconde. */
+  setTip(text: string | null): void {
+    this.tip.hidden = !text;
+    if (text) setText(this.tipText, text);
+  }
+
+  /** Legenda de diálogo. Só mexe no DOM se mudou. */
+  setDialogue(d: HudDialogue | null): void {
+    const key = d ? `${d.speaker}|${d.text}|${d.options?.join('|') ?? ''}` : '';
+    if (key === this.dialogueKey) return;
+    this.dialogueKey = key;
+    this.dialogue.hidden = !d;
+    if (!d) return;
+    this.dialogue.dataset.speaker = d.speakerId;
+    this.dialogue.replaceChildren(
+      ...(d.speaker ? [h('div', { class: 'dialogue-speaker', text: d.speaker })] : []),
+      h('p', { class: 'dialogue-text', 'data-testid': 'dialogue-text', text: d.text }),
+      d.options
+        ? h('ol', { class: 'dialogue-options', 'data-testid': 'dialogue-options' }, ...d.options.map((label, i) => h('li', {}, h('kbd', { text: String(i + 1) }), ` ${label}`)))
+        : h('div', { class: 'dialogue-skip' }, h('kbd', { text: 'Enter' }), ' pular'),
     );
   }
 

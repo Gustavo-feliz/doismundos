@@ -6,7 +6,8 @@ import type { GameSession } from '../game/GameSession';
 import { QUALITY_LABEL as PART_QUALITY_LABEL } from '../parts/types';
 import { FINAL_TEST_REQUIRES, REPAIR_ACCESS, stepMinutes } from '../repairs/rules';
 import { averageStars, SPECIALTY_LABEL, type Specialty } from '../customers/reputation';
-import { CATEGORY_LABEL } from '../economy/ledger';
+import { MINUTES_PER_DAY } from '../core/GameClock';
+import { canSpend, CATEGORY_LABEL } from '../economy/ledger';
 import { compatiblePartsFor } from '../vehicles/domain';
 import { WEAR_BAND_LABEL } from '../vehicles/state';
 import { isOrderClosed, ORDER_STATUS_LABEL, QUALITY_LABEL_TEXT, type OrderStatus } from './types';
@@ -357,6 +358,13 @@ export interface ComputerView {
   canWait: boolean;
   ledger: Array<{ id: string; when: string; category: string; description: string; ref: string; amountText: string; kind: string }>;
   summary: { revenueText: string; purchasesText: string; refundsText: string; netPurchasesText: string; deliveredRevenueText: string; deliveredCostText: string; grossProfitText: string };
+  /** Empréstimo bancário herdado. */
+  debt: {
+    balanceText: string;
+    paidCount: number;
+    /** null = quitada. */
+    next: { totalText: string; detail: string; dueDay: number; overdue: boolean; affordable: boolean } | null;
+  };
   reputation: {
     generalScore: number;
     generalStars: string;
@@ -449,6 +457,7 @@ export function buildComputerView(session: GameSession, now: number, activeVehic
       deliveredCostText: formatBRL(deliveredCost),
       grossProfitText: formatBRL(deliveredRevenue - deliveredCost),
     },
+    debt: debtView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
     reputation: {
       generalScore: rep.general.score,
       generalStars: starsText(averageStars(rep.general)),
@@ -474,5 +483,17 @@ export function buildComputerView(session: GameSession, now: number, activeVehic
         active: now <= w.expiresAt,
       })),
     },
+  };
+}
+
+function debtView(session: GameSession, day: number): ComputerView['debt'] {
+  const d = session.debt;
+  if (d.balance <= 0) return { balanceText: formatBRL(0), paidCount: d.paidCount, next: null };
+  const due = session.debtDue(day);
+  const parts = [`parcela ${formatBRL(due.base)}`, due.fee > 0 ? `tarifa ${formatBRL(due.fee)}` : '', due.lateFee > 0 ? `multa por atraso ${formatBRL(due.lateFee)}` : ''].filter(Boolean);
+  return {
+    balanceText: formatBRL(d.balance),
+    paidCount: d.paidCount,
+    next: { totalText: formatBRL(due.total), detail: parts.length > 1 ? parts.join(' + ') : '', dueDay: d.nextDueDay, overdue: due.overdue, affordable: canSpend(session.cash, due.total, session.creditLimit) },
   };
 }
