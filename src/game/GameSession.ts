@@ -1,3 +1,5 @@
+import { dailySalvageOffers } from '../city/rules';
+import type { SalvageOffer } from '../city/types';
 import { decideOnQuote, counterIsPriceOnly } from '../customers/decision';
 import { evaluateService } from '../customers/evaluation';
 import { applyReputationDelta, applyReview, applyWarrantyPenalty, initialReputation, specialtyOf, type ReputationState } from '../customers/reputation';
@@ -41,6 +43,7 @@ import {
   hireCandidate,
   initialStaffState,
   payPayroll,
+  payrollDue,
   payrollTotal,
   toggleEmployeePause,
   validateStaffCandidates,
@@ -143,6 +146,8 @@ export class GameSession {
   private seedValue = 1;
   private staffState: StaffState = initialStaffState();
   private eventState: EventState = initialEventState();
+  /** Garimpos já comprados no Ferro-Velho ("dia:peça"): cada oferta vale 1 unidade por dia. */
+  private salvageBoughtKeys: string[] = [];
 
   constructor(
     readonly catalogs: Catalogs,
@@ -693,15 +698,36 @@ export class GameSession {
     return { ok: true, message: `Tião pagou ${formatBRL(total)} por ${count} peça(s) de sucata (+10 min).`, minutes: 10 };
   }
 
+  /**
+   * Ofertas do garimpo de hoje (semente do jogo + dia + carro do box). A regra
+   * calcula o preço; a tela só mostra. Cada oferta tem 1 unidade por dia.
+   */
+  salvageOffers(day: number, priceFactor: number): Array<SalvageOffer & { bought: boolean }> {
+    const active = this.activeCase;
+    const modelId = active ? this.getVehicle(active.vehicle.id).modelId : null;
+    return dailySalvageOffers(day, this.seedValue, this.catalogs, priceFactor, modelId).map((o) => ({
+      ...o,
+      bought: this.salvageBoughtKeys.includes(`${day}:${o.partId}`),
+    }));
+  }
+
+  get salvageBought(): readonly string[] {
+    return this.salvageBoughtKeys;
+  }
+
   /** Compra peça garimpada à pronta-entrega no Ferro-Velho do Tião (Prompt 14). */
-  buySalvagePart(partId: string, unitPrice: Cents, when: GameMoment): ActionOutcome {
+  buySalvagePart(partId: string, priceFactor: number, when: GameMoment): ActionOutcome {
     const part = this.catalogs.parts.get(partId);
     if (!part) return this.fail('Peça desconhecida.');
-    if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) return this.fail('Preço de garimpo inválido.');
+    const offer = this.salvageOffers(when.day, priceFactor).find((o) => o.partId === partId);
+    if (!offer) return this.fail('Essa peça não está no garimpo de hoje.');
+    if (offer.bought) return this.fail('O Tião só tinha uma dessas: volte amanhã para novos garimpos.');
+    const unitPrice = offer.unitPrice;
     if (!canSpend(this.cash, unitPrice, this.creditLimit)) {
       return this.fail(`Caixa insuficiente: a peça custa ${formatBRL(unitPrice)} e há ${formatBRL(this.cash)} no caixa.`);
     }
     this.addLot(partId, 1, unitPrice, 'Ferro-Velho do Tião (garimpo)');
+    this.salvageBoughtKeys = [...this.salvageBoughtKeys, `${when.day}:${partId}`];
     this.record('despesa', 'compra-pecas', unitPrice, `1× ${part.name} — Ferro-Velho do Tião`, 'Ferro-Velho', when);
     this.revision++;
     return { ok: true, message: `Garimpo: 1× ${part.name} levada para o estoque por ${formatBRL(unitPrice)} (+15 min).`, minutes: 15 };
@@ -857,6 +883,11 @@ export class GameSession {
 
   get dailyPayroll(): Cents {
     return payrollTotal(this.staffState);
+  }
+
+  /** Quanto falta pagar da folha no dia (só quem ainda não recebeu). */
+  payrollDueOn(day: number): Cents {
+    return payrollDue(this.staffState, day);
   }
 
   /** Contrata um candidato disponível, cobrando o primeiro dia de salário no livro-caixa. */
@@ -1118,6 +1149,7 @@ export class GameSession {
       seed: this.seedValue,
       staff: this.staffState,
       events: this.eventState,
+      salvageBought: this.salvageBoughtKeys,
     });
   }
 
@@ -1194,6 +1226,7 @@ export class GameSession {
     s.upgradeLevels = snap.upgrades;
     s.staffState = snap.staff;
     s.eventState = snap.events;
+    s.salvageBoughtKeys = snap.salvageBought;
     s.revision = 0;
     return { ok: true, session: s };
   }

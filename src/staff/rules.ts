@@ -266,6 +266,7 @@ export function hireCandidate(
     state: 'disponivel',
     currentTaskId: null,
     hiredDay: day,
+    paidDay: day, // o adiantamento cobre o dia da contratação
     completedTasks: 0,
   };
   const nextState = assignAvailableTasks({
@@ -357,6 +358,14 @@ export function payrollTotal(state: StaffState): Cents {
   return state.employees.reduce((sum, e) => sum + e.salary, 0);
 }
 
+/** Quanto falta pagar hoje: só quem ainda não recebeu o dia (quem foi contratado hoje já recebeu). */
+export function payrollDue(state: StaffState, day: number): Cents {
+  return state.employees.filter((e) => e.paidDay < day).reduce((sum, e) => sum + e.salary, 0);
+}
+
+/** Dia do jogo de um minuto absoluto (1 = primeiro dia). */
+const dayOfMinute = (minute: number) => Math.floor(minute / (24 * 60)) + 1;
+
 /**
  * Processa o pagamento da folha salarial do dia atual.
  */
@@ -369,10 +378,11 @@ export function payPayroll(
   if (state.employees.length === 0) {
     return { ok: false, message: 'Nenhum funcionário contratado na equipe.' };
   }
-  if (state.lastPayrollDay >= day) {
+  const owed = state.employees.filter((e) => e.paidDay < day);
+  if (owed.length === 0) {
     return { ok: false, message: `A folha salarial do dia ${day} já foi paga.` };
   }
-  const total = payrollTotal(state);
+  const total = owed.reduce((sum, e) => sum + e.salary, 0);
   if (!canSpend(cash, total, creditLimit)) {
     return {
       ok: false,
@@ -381,9 +391,9 @@ export function payPayroll(
   }
   return {
     ok: true,
-    state: { ...state, lastPayrollDay: day },
+    state: { ...state, lastPayrollDay: day, employees: state.employees.map((e) => (e.paidDay < day ? { ...e, paidDay: day } : e)) },
     total,
-    count: state.employees.length,
+    count: owed.length,
   };
 }
 
@@ -427,6 +437,8 @@ export function advanceStaffWork(
       const emp = employees.find((e) => e.id === task.assignedTo);
       if (!emp || emp.state !== 'ocupado') continue;
 
+      // Sem o salário do dia, o funcionário fica parado (a tarefa espera, sem perder o progresso).
+      if (emp.paidDay < dayOfMinute(stepEndMinute)) continue;
       task.progressMinutes = Math.min(task.totalMinutes, task.progressMinutes + step);
       if (task.progressMinutes >= task.totalMinutes) {
         task.status = 'concluida';
@@ -488,6 +500,7 @@ export function staffStateProblems(
     if (!isInt(e.skill) || e.skill < 1 || e.skill > 100 || !isInt(e.salary) || e.salary <= 0) {
       p.push(`funcionário "${e.id}": atributos inválidos`);
     }
+    if (!isInt(e.paidDay) || e.paidDay < 0) p.push(`funcionário "${e.id}": dia de salário pago inválido`);
     if (e.state === 'ocupado') {
       if (typeof e.currentTaskId !== 'string' || !e.currentTaskId) {
         p.push(`funcionário "${e.id}": ocupado sem tarefa atribuída`);

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { AIM, aim, diag, openGame, pressInteract, startPlaying, watchErrors } from './helpers';
+import { AIM, aim, diag, openGame, pressInteract, startPlaying, waitFrames, watchErrors } from './helpers';
 
 test('Prompt 15: contratação, fila concorrente de tarefas, folha salarial, pausa/demissão e persistência', async ({
   page,
@@ -22,12 +22,14 @@ test('Prompt 15: contratação, fila concorrente de tarefas, folha salarial, pau
   await page.locator('[data-staff-hire="caio-ajudante"]').click();
   await page.locator('[data-staff-hire="marcos-mecanico"]').click();
 
+  await waitFrames(page, 3); // o diagnóstico só atualiza no quadro seguinte
   const afterHire = await diag(page);
   expect(afterHire.cash).toBe(initialCash - (90_00 + 180_00));
   expect(afterHire.staff.employees).toHaveLength(2);
 
   // Coloca 1 tarefa na fila: apenas 1 funcionário assume (sem concorrência duplicada)
   await page.locator('[data-enqueue-task="std-organizar-bancada"]').click();
+  await waitFrames(page, 3); // o diagnóstico só atualiza no quadro seguinte
   const afterTask1 = await diag(page);
   expect(afterTask1.staff.tasks).toHaveLength(1);
   expect(afterTask1.staff.tasks[0]!.assignedTo).toBe('caio-ajudante');
@@ -36,6 +38,7 @@ test('Prompt 15: contratação, fila concorrente de tarefas, folha salarial, pau
 
   // Coloca uma 2ª tarefa exclusiva de mecânico: o mecânico livre assume
   await page.locator('[data-enqueue-task="std-revisao-preventiva"]').click();
+  await waitFrames(page, 3); // o diagnóstico só atualiza no quadro seguinte
   const afterTask2 = await diag(page);
   expect(afterTask2.staff.tasks).toHaveLength(2);
   expect(afterTask2.staff.tasks[1]!.assignedTo).toBe('marcos-mecanico');
@@ -43,15 +46,15 @@ test('Prompt 15: contratação, fila concorrente de tarefas, folha salarial, pau
   // Avança o turno (+15 min duas vezes = 30 min): ambas as tarefas concluem
   await page.getByTestId('staff-advance-work').click();
   await page.getByTestId('staff-advance-work').click();
+  await waitFrames(page, 3); // o diagnóstico só atualiza no quadro seguinte
   const afterAdvance = await diag(page);
   expect(afterAdvance.staff.tasks.every((t) => t.status === 'concluida')).toBe(true);
   expect(afterAdvance.staff.employees.every((e) => e.state === 'disponivel' && e.completedTasks === 1)).toBe(true);
 
-  // Paga a folha salarial do dia (R$ 270,00)
-  await page.getByTestId('staff-pay-payroll').click();
-  const afterPayroll = await diag(page);
-  expect(afterPayroll.cash).toBe(afterHire.cash - 270_00);
-  expect(afterPayroll.staff.lastPayrollDay).toBe(1);
+  // A folha do dia 1 já foi coberta pelo adiantamento da contratação: não cobra de novo.
+  // (Pagar a folha do dia seguinte e parar sem salário: tests/unit/staff.test.ts.)
+  await expect(page.getByTestId('staff-pay-payroll')).toBeDisabled();
+  expect((await diag(page)).cash).toBe(afterHire.cash);
 
   // Pausa o mecânico e demite o ajudante
   await page.locator('[data-staff-pause="marcos-mecanico"]').click();
@@ -59,7 +62,7 @@ test('Prompt 15: contratação, fila concorrente de tarefas, folha salarial, pau
   await page.locator('[data-staff-fire="caio-ajudante"]').click();
   await expect(page.locator('[data-employee="caio-ajudante"]')).toHaveCount(0);
 
-  // Autosave grava o estado da equipe no save v5
+  // Autosave grava o estado da equipe no save
   expect(await page.evaluate(() => window.__GAME_TEST_HOOKS__!.autosaveNow())).toBe(true);
   expect(errors).toEqual([]);
 });

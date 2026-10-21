@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STAFF_CANDIDATES } from '../../src/data/staff';
+import { STAFF_CANDIDATES, STANDARD_STAFF_TASKS } from '../../src/data/staff';
 import { GameSession } from '../../src/game/GameSession';
 import { buildComputerView } from '../../src/orders/views';
 import { checksum, parseSave, SAVE_SCHEMA_VERSION, type SaveGame } from '../../src/save/saveFile';
@@ -173,21 +173,24 @@ describe('Prompt 15 — Funcionários e automação básica (regras puras e dom�
     expect(tight.cash).toBe(10_00);
     expect(tight.transactions.at(-1)?.category).toBe('folha-salarial');
 
-    const payrollFail = tight.payStaffPayroll(when);
+    // O adiantamento da contratação já paga o dia 1 (QA: antes cobrava o mesmo dia duas vezes).
+    expect(tight.payStaffPayroll(when).message).toMatch(/já foi paga/);
+    const day2 = later(24 * 60);
+    const payrollFail = tight.payStaffPayroll(day2);
     expect(payrollFail.ok).toBe(false);
     expect(payrollFail.message).toMatch(/Caixa insuficiente para a folha salarial/);
 
-    // Em sessão com saldo normal, paga a folha do dia 1 e impede pagar duas vezes no mesmo dia
+    // Em sessão com saldo normal, paga a folha do dia 2 e impede pagar duas vezes no mesmo dia
     const normal = newSession();
     normal.hireEmployee('caio-ajudante', when);
     normal.hireEmployee('marcos-mecanico', when);
     const cashBeforePayroll = normal.cash;
-    const payOk = normal.payStaffPayroll(when);
+    const payOk = normal.payStaffPayroll(day2);
     expect(payOk.ok).toBe(true);
     expect(normal.cash).toBe(cashBeforePayroll - (90_00 + 180_00));
     expect(normal.recomputeCash()).toBe(normal.cash);
 
-    const payDuplicate = normal.payStaffPayroll(when);
+    const payDuplicate = normal.payStaffPayroll(day2);
     expect(payDuplicate.ok).toBe(false);
     expect(payDuplicate.message).toMatch(/já foi paga/);
 
@@ -236,10 +239,27 @@ describe('Prompt 15 — Funcionários e automação básica (regras puras e dom�
     // Rejeita snapshot corrompido com dois funcionários na mesma tarefa
     const badStaff = initialStaffState();
     badStaff.employees = [
-      { id: 'caio-ajudante', name: 'Caio', role: 'ajudante', skill: 35, speed: 1.2, salary: 90_00, state: 'ocupado', currentTaskId: 'TAR-0001', hiredDay: 1, completedTasks: 0 },
-      { id: 'bianca-ajudante', name: 'Bianca', role: 'ajudante', skill: 50, speed: 1.0, salary: 110_00, state: 'ocupado', currentTaskId: 'TAR-0001', hiredDay: 1, completedTasks: 0 },
+      { id: 'caio-ajudante', name: 'Caio', role: 'ajudante', skill: 35, speed: 1.2, salary: 90_00, state: 'ocupado', currentTaskId: 'TAR-0001', hiredDay: 1, paidDay: 1, completedTasks: 0 },
+      { id: 'bianca-ajudante', name: 'Bianca', role: 'ajudante', skill: 50, speed: 1.0, salary: 110_00, state: 'ocupado', currentTaskId: 'TAR-0001', hiredDay: 1, paidDay: 1, completedTasks: 0 },
     ];
     expect(staffStateProblems(badStaff, STAFF_CANDIDATES).join(' | ')).toMatch(/concorrência inválida/);
+  });
+
+  it('QA: sem o salário do dia, o funcionário para; pagando, volta de onde parou', () => {
+    const s = newSession();
+    s.hireEmployee('marcos-mecanico', when);
+    s.enqueueStandardStaffTask(STANDARD_STAFF_TASKS[0]!.id);
+    const task = () => s.staff.tasks[0]!;
+    const day2 = later(24 * 60);
+    // Dia 2 sem pagar: o tempo passa e a tarefa não anda.
+    s.advanceStaff(30, day2);
+    const before = task().progressMinutes;
+    s.advanceStaff(30, later(24 * 60 + 30));
+    expect(task().progressMinutes).toBe(before);
+    expect(s.payrollDueOn(2)).toBe(180_00);
+    expect(s.payStaffPayroll(day2).ok).toBe(true);
+    s.advanceStaff(10, later(24 * 60 + 40));
+    expect(task().progressMinutes).toBeGreaterThan(before);
   });
 
   it('advanceStaffWork permite que funcionário conclua uma tarefa e assuma a próxima no mesmo salto de tempo', () => {

@@ -45,7 +45,6 @@ import type { Box2D } from '../world/collision';
 import { DrivingHud } from '../ui/DrivingHud';
 import { CITY_NEIGHBORHOOD } from '../data/city';
 import {
-  dailySalvageOffers,
   initialCityWorldState,
   nearestCityLocation,
   scrapLotValue,
@@ -246,7 +245,7 @@ export class Game {
     this.cityHud = new CityHud(uiRoot, CITY_NEIGHBORHOOD, {
       onSelectMarker: (id) => void this.visitCityLocation(id),
       onSellScrap: () => this.act(this.session.sellScrap(CITY_NEIGHBORHOOD.scrapRecoveryFactor, this.moment()), 'concluido'),
-      onBuySalvage: (partId, unitPrice) => this.act(this.session.buySalvagePart(partId, unitPrice, this.moment()), 'pegar'),
+      onBuySalvage: (partId) => this.act(this.session.buySalvagePart(partId, CITY_NEIGHBORHOOD.salvagePriceFactor, this.moment()), 'pegar'),
       onBuySnack: (snack) => this.act(this.session.buySnack(snack.name, snack.price, snack.minutes, snack.gossip, this.moment()), 'ok'),
       onClosePanel: (reason) => this.closePanel(reason),
     });
@@ -1011,21 +1010,12 @@ export class Game {
 
   private cityPanelView(): CityPanelView {
     const scrap = scrapLotValue(this.session.scrap, this.catalogs, CITY_NEIGHBORHOOD.scrapRecoveryFactor);
-    const activeModelId = this.session.activeCase
-      ? this.session.getVehicle(this.session.activeCase.vehicle.id).modelId
-      : null;
     return {
       mode: this.cityPanelMode,
       cashText: formatBRL(this.session.cash),
       scrapCount: scrap.count,
       scrapTotalText: formatBRL(scrap.totalCents),
-      salvageOffers: dailySalvageOffers(
-        this.clock.day,
-        this.session.seed,
-        this.catalogs,
-        CITY_NEIGHBORHOOD.salvagePriceFactor,
-        activeModelId,
-      ),
+      salvageOffers: this.session.salvageOffers(this.clock.day, CITY_NEIGHBORHOOD.salvagePriceFactor),
       snacks: CITY_NEIGHBORHOOD.snacks,
       locations: CITY_NEIGHBORHOOD.locations,
       visited: this.cityVisited,

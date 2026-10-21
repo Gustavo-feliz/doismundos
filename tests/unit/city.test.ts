@@ -11,7 +11,8 @@ import {
 } from '../../src/city/rules';
 import { CITY_NEIGHBORHOOD } from '../../src/data/city';
 import { resolveCollisions } from '../../src/world/collision';
-import { CTX, buyAndReceive, catalogs, later, newSession, when } from './fixtures';
+import { CTX, buyAndReceive, catalogs, content, later, newSession, when } from './fixtures';
+import { GameSession } from '../../src/game/GameSession';
 
 const PADS = 'freios.pastilhas-dianteiras';
 const PADS_PART = 'pastilha-freio-diant-ventura-brisa';
@@ -139,12 +140,22 @@ describe('economia dos locais do bairro (Ferro-Velho e Lanchonete)', () => {
     expect(offersA.map((o) => o.partId)).not.toEqual(offersDay2.map((o) => o.partId));
 
     const s = newSession();
-    const pick = offersA[0]!;
+    const factor = CITY_NEIGHBORHOOD.salvagePriceFactor;
+    const pick = s.salvageOffers(when.day, factor)[0]!;
     const cashBefore = s.cash;
-    const bought = s.buySalvagePart(pick.partId, pick.unitPrice, when);
+    const bought = s.buySalvagePart(pick.partId, factor, when);
     expect(bought.ok).toBe(true);
     expect(s.cash).toBe(cashBefore - pick.unitPrice);
     expect(s.stock.some((l) => l.partId === pick.partId && l.unitCost === pick.unitPrice)).toBe(true);
+    // QA (Prompt 18): 1 unidade por oferta por dia; o preço vem da regra, não da tela.
+    expect(s.salvageOffers(when.day, factor)[0]!.bought).toBe(true);
+    expect(s.buySalvagePart(pick.partId, factor, when)).toMatchObject({ ok: false, message: expect.stringMatching(/só tinha uma/) });
+    expect(s.cash).toBe(cashBefore - pick.unitPrice);
+    const notToday = [...catalogs.parts.keys()].find((id) => !s.salvageOffers(when.day, factor).some((o) => o.partId === id))!;
+    expect(s.buySalvagePart(notToday, factor, when)).toMatchObject({ ok: false, message: 'Essa peça não está no garimpo de hoje.' });
+    // E continua valendo depois de salvar e carregar.
+    const r = GameSession.fromSnapshot(catalogs, content, JSON.parse(JSON.stringify(s.toSnapshot())));
+    expect(r.ok && r.session.salvageOffers(when.day, factor)[0]!.bought).toBe(true);
   });
 
   it('compra lanche na Lanchonete da Tia Léa, avança o tempo e registra no livro-caixa', () => {
@@ -162,3 +173,4 @@ describe('economia dos locais do bairro (Ferro-Velho e Lanchonete)', () => {
     });
   });
 });
+

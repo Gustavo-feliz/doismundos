@@ -703,9 +703,10 @@ export function buildStaffView(session: GameSession, day: number): StaffView {
   const hiredIds = new Set(s.employees.map((e) => e.id));
   const taskMap = new Map(s.tasks.map((t) => [t.id, t]));
   const empMap = new Map(s.employees.map((e) => [e.id, e]));
-  const totalPayroll = session.dailyPayroll;
-  const paidToday = s.lastPayrollDay >= day;
-  const payrollAffordable = canSpend(session.cash, totalPayroll, session.creditLimit);
+  const due = session.payrollDueOn(day);
+  const totalPayroll = due > 0 ? due : session.dailyPayroll;
+  const paidToday = s.employees.length > 0 && due === 0;
+  const payrollAffordable = canSpend(session.cash, due, session.creditLimit);
   let payrollBlocked: string | null = null;
   if (s.employees.length === 0) payrollBlocked = 'Contrate ao menos 1 funcionário.';
   else if (paidToday) payrollBlocked = `Folha do dia ${day} já quitada.`;
@@ -730,7 +731,7 @@ export function buildStaffView(session: GameSession, day: number): StaffView {
         speedText: `${Math.round(e.speed * 100)}%`,
         salaryText: `${formatBRL(e.salary)}/dia`,
         state: e.state,
-        stateLabel: STAFF_STATE_LABEL[e.state],
+        stateLabel: e.paidDay < day && e.state !== 'pausado' ? `${STAFF_STATE_LABEL[e.state]} · parado: salário do dia ${day} não pago` : STAFF_STATE_LABEL[e.state],
         paused: e.state === 'pausado',
         currentTaskText: current ? `${current.title} (${current.progressMinutes}/${current.totalMinutes} min)` : null,
         completedTasks: e.completedTasks,

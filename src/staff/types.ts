@@ -62,6 +62,8 @@ export interface StaffEmployee {
   /** ID da tarefa em execução quando `state === 'ocupado'`, ou `null`. */
   currentTaskId: string | null;
   hiredDay: number;
+  /** Último dia com salário pago. Sem o salário do dia, o funcionário não trabalha (QA, Prompt 18). */
+  paidDay: number;
   completedTasks: number;
 }
 

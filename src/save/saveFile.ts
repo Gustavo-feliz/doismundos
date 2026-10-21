@@ -11,7 +11,7 @@ import type { SessionSnapshot } from './sessionSnapshot';
  * schemaVersion, data/hora, resumo (para listar slots sem carregar tudo) e
  * uma soma de verificação do conteúdo, que detecta arquivos corrompidos.
  */
-export const SAVE_SCHEMA_VERSION = 5;
+export const SAVE_SCHEMA_VERSION = 6;
 
 export type SlotId = 'auto' | 'slot1' | 'slot2' | 'slot3';
 export const MANUAL_SLOTS: readonly SlotId[] = ['slot1', 'slot2', 'slot3'];
@@ -100,6 +100,15 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     const session = (env.game as { session: Record<string, unknown> }).session;
     session.staff = initialStaffState();
     session.events = initialEventState();
+    return env;
+  },
+  /** 5 → 6 (QA, Prompt 18): o garimpo passa a ter 1 unidade por oferta por dia. */
+  5: (env) => {
+    const session = (env.game as { session: Record<string, unknown> }).session;
+    session.salvageBought = [];
+    // Salário por funcionário: quem já estava contratado conta como pago até a última folha (ou o dia da contratação).
+    const staff = session.staff as { lastPayrollDay?: number; employees?: Array<Record<string, unknown>> } | undefined;
+    for (const e of staff?.employees ?? []) e.paidDay = Math.max(Number(staff?.lastPayrollDay ?? 0), Number(e.hiredDay ?? 0));
     return env;
   },
 };

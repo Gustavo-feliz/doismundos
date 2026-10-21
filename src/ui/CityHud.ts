@@ -5,13 +5,13 @@ import type {
   CitySnackDef,
   SalvageOffer,
 } from '../city/types';
-import { formatBRL, type Cents } from '../economy/money';
+import { formatBRL } from '../economy/money';
 import { h } from './dom';
 
 export interface CityHudCallbacks {
   onSelectMarker(id: CityLocationId): void;
   onSellScrap(): void;
-  onBuySalvage(partId: string, unitPrice: Cents): void;
+  onBuySalvage(partId: string): void;
   onBuySnack(snack: CitySnackDef): void;
   onClosePanel(reason: 'resume' | 'pause'): void;
 }
@@ -28,7 +28,7 @@ export interface CityPanelView {
   cashText: string;
   scrapCount: number;
   scrapTotalText: string;
-  salvageOffers: readonly SalvageOffer[];
+  salvageOffers: ReadonlyArray<SalvageOffer & { bought: boolean }>;
   snacks: readonly CitySnackDef[];
   locations: readonly CityLocationDef[];
   visited: ReadonlySet<CityLocationId>;
@@ -280,10 +280,11 @@ export class CityHud {
             type: 'button',
             class: 'btn btn-small',
             'data-testid': `buy-salvage-${o.partId}`,
+            disabled: o.bought,
           },
-          `Garimpar por ${formatBRL(o.unitPrice)}`,
+          o.bought ? 'Já garimpada hoje' : `Garimpar por ${formatBRL(o.unitPrice)}`,
         );
-        buyBtn.addEventListener('click', () => this.callbacks.onBuySalvage(o.partId, o.unitPrice));
+        buyBtn.addEventListener('click', () => this.callbacks.onBuySalvage(o.partId));
         return h(
           'li',
           { class: 'test-item', 'data-salvage-part': o.partId },

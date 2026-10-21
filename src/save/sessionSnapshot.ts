@@ -45,6 +45,8 @@ export interface SessionSnapshot {
   staff: StaffState;
   /** Eventos, fiscalização e histórico de decisões (desde o save versão 5). */
   events: EventState;
+  /** Garimpos comprados ("dia:peça"), desde o save versão 6. */
+  salvageBought: string[];
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -159,5 +161,8 @@ export function validateSessionSnapshot(
   if (!isInt(s.seed) || s.seed! < 0 || s.seed! > 0xffffffff) p.push('semente inválida');
   p.push(...staffStateProblems(s.staff, staffCandidates));
   p.push(...eventStateProblems(s.events, gameEvents));
+  if (!Array.isArray(s.salvageBought) || !s.salvageBought.every((k) => typeof k === 'string' && /^\d+:/.test(k) && catalogs.parts.has(k.slice(k.indexOf(':') + 1)))) {
+    p.push('lista de garimpos comprados inválida');
+  }
   return p;
 }
