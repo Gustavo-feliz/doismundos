@@ -49,4 +49,4 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | Tarefa | Agente | Commit |
 | --- | --- | --- |
 | Prompts 1–9 | Claude | `654a5a3`, `4b8434b`, `a50e205` |
-| Prompt 10: tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos, dívida do banco, save v2) | Claude | este commit |
+| Prompt 10: tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos, dívida do banco, save v2) | Claude | `9d1f42b` |
