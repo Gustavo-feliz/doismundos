@@ -37,6 +37,11 @@ import { validateSessionSnapshot } from '../save/sessionSnapshot';
 import { ORDER_STATUS_LABEL } from '../orders/types';
 import { WORKSHOP_SIZE } from '../world/Workshop';
 import { DrivingHud } from '../ui/DrivingHud';
+import { CinematicOverlay } from '../ui/CinematicOverlay';
+import { CinematicPlayer, cameraAt } from '../cinematics/CinematicPlayer';
+import { cleanName, DEFAULT_PROFILE, kinTerm, profileProblems, type PlayerProfile } from '../cinematics/types';
+import { validateCinematics } from '../cinematics/validate';
+import { CINEMATICS, OPENING_ID } from '../data/cinematics';
 import { LoadingOverlay } from '../ui/LoadingOverlay';
 import { resolveBindings } from '../core/bindings';
 import { keyText, setUiBindings } from '../ui/keys';
@@ -106,6 +111,11 @@ export class Game {
   private readonly hud: Hud;
   private readonly drivingHud: DrivingHud;
   private readonly loadingOverlay: LoadingOverlay;
+  /** Abertura (Prompt 23): cena tocando, tela e o perfil do jogador. */
+  private readonly cineOverlay: CinematicOverlay;
+  private cine: CinematicPlayer | null = null;
+  private skipHold = 0;
+  private profile: PlayerProfile = { ...DEFAULT_PROFILE };
   /** Test drive (Prompt 13): pátio, física, câmera e painel. A oficina fica intacta enquanto isso. */
   private readonly testDrive: TestDriveController;
   /** Bairro de São Cristóvão (Prompt 14): rua, locais e painéis. */
@@ -155,6 +165,7 @@ export class Game {
     const gaps = findCoverageGaps(VEHICLES, PARTS);
     if (gaps.length) throw new DataValidationError('cobertura do catálogo de peças', gaps);
     validateCityData(CITY_NEIGHBORHOOD);
+    validateCinematics(CINEMATICS);
     this.content = {
       cases: DIAGNOSTIC_CASES,
       diagnostics: this.diagnosticData,
@@ -177,6 +188,7 @@ export class Game {
     this.saves = new SaveService(store, (game) => [
       ...validateSessionSnapshot(game.session, this.catalogs, (id) => GameSession.resolveCase(this.content, id, this.catalogs), this.content.upgrades),
       ...missionStateProblems(game.missions, this.missionLib),
+      ...profileProblems(game.profile),
     ]);
     this.savesPanel = new SaveSlotsPanel({
       onSave: (slot) => void this.saveTo(slot),
@@ -229,6 +241,10 @@ export class Game {
     this.hud = new Hud(uiRoot);
     this.drivingHud = new DrivingHud(uiRoot);
     this.loadingOverlay = new LoadingOverlay(uiRoot);
+    this.cineOverlay = new CinematicOverlay(uiRoot, {
+      onChoose: (n) => this.cine?.choose(n),
+      onStart: () => void this.requestPlay(false),
+    });
     this.testDrive = new TestDriveController(
       {
         scene: this.scene,
@@ -356,7 +372,7 @@ export class Game {
       onClose: (reason) => this.closePanel(reason),
     });
     this.menu = new MenuScreen(uiRoot, this.settings, {
-      onStart: () => void this.requestPlay(true),
+      onNewGame: (name, pronoun, watchIntro) => this.newGame(name, pronoun, watchIntro),
       onResume: () => void this.requestPlay(false),
       onQuitToTitle: () => this.quitToTitle(),
       onOpenSaves: (mode) => void this.openSaves(mode),
@@ -403,6 +419,7 @@ export class Game {
     this.hud.dispose();
     this.drivingHud.dispose();
     this.loadingOverlay.dispose();
+    this.cineOverlay.dispose();
     this.cityHud.dispose();
     this.testDrive.dispose();
     this.city.dispose();
@@ -449,6 +466,10 @@ export class Game {
         this.updatePlayerMissionInput(dt);
         this.needsRender = true;
       }
+    } else if (this.state.is('cutscene')) {
+      this.input.consumeMouseDelta();
+      this.updateCutscene(dt);
+      this.needsRender = true;
     } else if (this.state.is('driving')) {
       this.interaction.clearFocus();
       this.input.consumeMouseDelta(); // no test drive o mouse não gira a câmera
@@ -520,7 +541,7 @@ export class Game {
   // --- Estados -------------------------------------------------------------
 
   private async requestPlay(fresh: boolean): Promise<void> {
-    if (!this.state.is('menu', 'paused', 'panel')) return;
+    if (!this.state.is('menu', 'paused', 'panel', 'cutscene')) return;
     if (this.input.lockBypassEnabled) {
       this.enterPlaying(fresh);
       return;
@@ -879,6 +900,15 @@ export class Game {
       dicas: keyText('toggleTips'),
       correr: keyText('run'),
       andar: `${keyText('forward')} ${keyText('left')} ${keyText('backward')} ${keyText('right')}`,
+      // Abertura (Prompt 23): nome, como o Seu Zé chama o jogador e a consequência da escolha.
+      nome: this.profile.name,
+      parente: kinTerm(this.profile),
+      abertura:
+        this.profile.introChoice === 'reabrir'
+          ? 'Já que é pra reabrir, vamos fazer direito.'
+          : this.profile.introChoice === 'avaliar'
+            ? 'Pra saber se dá pra salvar, nada melhor que um serviço de verdade.'
+            : 'Bora trabalhar?',
     });
   }
 
@@ -923,19 +953,80 @@ export class Game {
       return;
     }
     if (fresh && this.state.is('menu')) {
-      this.city.resetForNewGame();
-      this.player.respawn();
-      this.clock.reset();
-      this.lastStaffClockMinute = this.clock.absoluteMinutes;
-      this.lastEventCheckDay = this.clock.day;
-      this.equipment.reset();
-      this.session = this.newSession();
-      this.resetMissions(new MissionTracker(this.missionLib));
-      this.applyActiveCarLook();
-      this.announceUpgrades();
+      this.resetWorld();
+      this.profile = { ...DEFAULT_PROFILE, introSeen: true };
+    }
+    if (this.state.is('cutscene')) {
+      this.cine = null;
+      this.cineOverlay.hide();
     }
     this.input.reset();
     this.state.transition('playing');
+  }
+
+  /** Mundo novo: oficina, relógio, sessão e missões do zero. */
+  private resetWorld(): void {
+    this.city.resetForNewGame();
+    this.player.respawn();
+    this.clock.reset();
+    this.lastStaffClockMinute = this.clock.absoluteMinutes;
+    this.lastEventCheckDay = this.clock.day;
+    this.equipment.reset();
+    this.session = this.newSession();
+    this.resetMissions(new MissionTracker(this.missionLib));
+    this.applyActiveCarLook();
+    this.announceUpgrades();
+  }
+
+  // --- Abertura (Prompt 23) ---------------------------------------------------
+
+  /** Jogo novo pelo menu: perfil escolhido e, se pedido, a abertura antes do trabalho. */
+  private newGame(name: string, pronoun: PlayerProfile['pronoun'], watchIntro: boolean): void {
+    if (!this.state.is('menu')) return;
+    this.resetWorld();
+    this.profile = { name: cleanName(name), pronoun, introChoice: null, introSeen: !watchIntro };
+    if (!watchIntro) {
+      void this.requestPlay(false);
+      return;
+    }
+    this.cine = new CinematicPlayer(CINEMATICS.find((c) => c.id === OPENING_ID)!);
+    this.skipHold = 0;
+    this.cineOverlay.show();
+    this.state.transition('cutscene');
+  }
+
+  private updateCutscene(dt: number): void {
+    const cine = this.cine;
+    if (!cine || cine.done) return;
+    const input = this.input;
+    if (input.wasActionPressed('skipLine')) cine.skipLine();
+    const choice = (['choice1', 'choice2', 'choice3'] as const).findIndex((a) => input.wasActionPressed(a));
+    if (choice >= 0) cine.choose(choice + 1);
+    // Segurar Esc por 1 s pula a abertura inteira (com indicador na tela).
+    this.skipHold = input.isCodeDown('Escape') ? this.skipHold + dt : 0;
+    if (this.skipHold >= 1) cine.skipAll();
+    cine.update(dt);
+    const f = cine.frame();
+    const cam = cameraAt(f.shot, f.progress, this.settings.reduceMotion);
+    if (cam) {
+      this.camera.position.set(cam.position[0], cam.position[1], cam.position[2]);
+      this.camera.lookAt(cam.target[0], cam.target[1], cam.target[2]);
+      this.camera.updateMatrixWorld();
+    }
+    if (cine.done) {
+      this.profile = { ...this.profile, introSeen: true, introChoice: cine.choice };
+      this.cineOverlay.showEnd();
+      return;
+    }
+    this.cineOverlay.render({
+      dark: f.shot.scene === 'preto',
+      title: f.shot.title ? this.fill(f.shot.title) : null,
+      speaker: f.line ? SPEAKER_NAME[f.line.speaker] : '',
+      speakerId: f.line?.speaker ?? '',
+      text: f.line ? this.fill(f.line.text) : null,
+      options: f.options?.map((o) => this.fill(o.label)) ?? null,
+      skipProgress: Math.min(1, this.skipHold),
+    });
   }
 
   private pause(): void {
@@ -998,6 +1089,7 @@ export class Game {
       equipment: this.equipment.exportState(),
       session: this.session.toSnapshot(),
       missions: this.tracker.toSnapshot(),
+      profile: { ...this.profile },
     };
   }
 
@@ -1103,6 +1195,7 @@ export class Game {
     this.city.exit();
     this.session = restored.session;
     this.resetMissions(new MissionTracker(this.missionLib, game.missions));
+    this.profile = { ...game.profile };
     this.clock.setAbsolute(game.clockMinutes);
     this.lastStaffClockMinute = this.clock.absoluteMinutes;
     this.lastEventCheckDay = this.clock.day;
@@ -1215,6 +1308,8 @@ export class Game {
       },
       debt: { balance: this.session.debt.balance, paidCount: this.session.debt.paidCount, nextDueDay: this.session.debt.nextDueDay },
       upgrades: { ...this.session.upgrades },
+      cinematic: this.cine ? { shot: this.cine.frame().shot.id, done: this.cine.done, choice: this.cine.choice } : null,
+      profile: { ...this.profile },
       staff: {
         employees: this.session.staff.employees.map((e) => ({
           id: e.id,
@@ -1311,6 +1406,11 @@ export class Game {
       vehicleOp: (op) => this.runVehicleOp(op as VehicleOp),
       autosaveNow: () => this.autosave(),
       dialogueChoose: (n) => this.chooseDialogueOption(n),
+      startIntro: (name = 'Bia', pronoun = 'ela') => {
+        this.input.setLockBypass(true);
+        if (this.state.is('menu')) this.newGame(name, pronoun as PlayerProfile['pronoun'], true);
+        return this.state.current;
+      },
       forceEvent: (eventId) => {
         const r = this.session.triggerEvent(eventId, this.clock.day, { force: true });
         return r.ok;

@@ -144,9 +144,8 @@ export const DIALOGUES: readonly DialogueDef[] = [
   {
     id: 'prologo',
     lines: [
-      { speaker: 'narrador', text: 'Seu tio Tonhão morreu e deixou a oficina para você. Junto, uma dívida com o banco.' },
-      { speaker: 'seu-ze', text: 'Então você é da família do Tonhão! Sou o Zé. Trabalhei trinta anos aqui com ele.' },
-      { speaker: 'seu-ze', text: 'A oficina andou perdendo cliente, mas o {cliente} já tá aí com o carro. Bora trabalhar?' },
+      { speaker: 'narrador', text: 'Primeiro dia na oficina do tio Tonhão. Na parede, a placa: Oficina do Seu Zé.' },
+      { speaker: 'seu-ze', text: '{abertura} O {cliente} já tá aí com o carro chiando. Quer que eu vá te soprando o que fazer?' },
     ],
     choice: {
       options: [

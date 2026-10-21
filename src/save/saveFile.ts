@@ -3,6 +3,7 @@ import { BANK_DEBT } from '../data/economy';
 import { initialDebt } from '../economy/debt';
 import { initialEventState } from '../events/rules';
 import { initialMissionState, type MissionState } from '../missions/MissionTracker';
+import { DEFAULT_PROFILE, type PlayerProfile } from '../cinematics/types';
 import { initialStaffState } from '../staff/rules';
 import type { SessionSnapshot } from './sessionSnapshot';
 
@@ -11,7 +12,7 @@ import type { SessionSnapshot } from './sessionSnapshot';
  * schemaVersion, data/hora, resumo (para listar slots sem carregar tudo) e
  * uma soma de verificação do conteúdo, que detecta arquivos corrompidos.
  */
-export const SAVE_SCHEMA_VERSION = 6;
+export const SAVE_SCHEMA_VERSION = 7;
 
 export type SlotId = 'auto' | 'slot1' | 'slot2' | 'slot3';
 export const MANUAL_SLOTS: readonly SlotId[] = ['slot1', 'slot2', 'slot3'];
@@ -33,6 +34,8 @@ export interface SaveGame {
   session: SessionSnapshot;
   /** Campanha: missões, escolhas e diálogos pendentes (desde a versão 2). */
   missions: MissionState;
+  /** Quem é o jogador na história e o que escolheu na abertura (desde a versão 7). */
+  profile: PlayerProfile;
 }
 
 export interface SaveSummary {
@@ -109,6 +112,11 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     // Salário por funcionário: quem já estava contratado conta como pago até a última folha (ou o dia da contratação).
     const staff = session.staff as { lastPayrollDay?: number; employees?: Array<Record<string, unknown>> } | undefined;
     for (const e of staff?.employees ?? []) e.paidDay = Math.max(Number(staff?.lastPayrollDay ?? 0), Number(e.hiredDay ?? 0));
+    return env;
+  },
+  /** 6 → 7 (Prompt 23): entra o perfil do jogador. Quem já jogava não vê a abertura de novo. */
+  6: (env) => {
+    (env.game as Record<string, unknown>).profile = { ...DEFAULT_PROFILE, introSeen: true };
     return env;
   },
 };

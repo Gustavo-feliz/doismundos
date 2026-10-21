@@ -5,6 +5,7 @@ import { buildComputerView } from '../../src/orders/views';
 import { checksum, parseSave, SAVE_SCHEMA_VERSION, type SaveGame } from '../../src/save/saveFile';
 import { validateSessionSnapshot } from '../../src/save/sessionSnapshot';
 import { initialMissionState, missionStateProblems } from '../../src/missions/MissionTracker';
+import { DEFAULT_PROFILE } from '../../src/cinematics/types';
 import { buildMissionLibrary } from '../../src/missions/validate';
 import { DIALOGUES, MISSIONS } from '../../src/data/missions';
 import { EQUIPMENT_IDS } from '../../src/data/equipment';
@@ -218,6 +219,7 @@ describe('Prompt 15 — Funcionários e automação básica (regras puras e dom�
       equipment: { liftUp: false, hoodOpen: false, drawerOpen: false, hallLightsOn: true, benchLampOn: false },
       session: newSession().toSnapshot(),
       missions: initialMissionState(),
+      profile: { ...DEFAULT_PROFILE, introSeen: true },
     };
     const v4Game = JSON.parse(JSON.stringify(shell)) as Record<string, any>;
     delete v4Game.session.staff;

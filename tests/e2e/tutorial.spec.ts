@@ -26,7 +26,7 @@ test('tutorial: prólogo com escolha, passos guiados, dicas dispensáveis e prog
   await startPlaying(page);
 
   // Começo: prólogo na legenda, objetivo do passo 1, dica e destaque no carro.
-  await expect(dialogue(page)).toContainText('deixou a oficina para você');
+  await expect(dialogue(page)).toContainText('Primeiro dia na oficina do tio Tonhão');
   await expect(page.getByTestId('hud-objective-label')).toHaveText('Primeiro dia na oficina · passo 1 de 8');
   await expect(page.getByTestId('hud-objective')).toHaveText('Ande até o carro de Marcão no box 1');
   await expect(page.getByTestId('hud-objective-os')).toContainText('OS #001');

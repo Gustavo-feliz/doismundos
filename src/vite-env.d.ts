@@ -44,6 +44,8 @@ interface GameDiagnostics {
   };
   debt: { balance: number; paidCount: number; nextDueDay: number };
   upgrades: Record<string, number>;
+  cinematic: null | { shot: string; done: boolean; choice: string | null };
+  profile: { name: string; pronoun: string; introChoice: string | null; introSeen: boolean };
   staff: {
     employees: Array<{
       id: string;
@@ -124,6 +126,8 @@ interface GameTestHooks {
   startTestDrive(): Promise<string>;
   /** Motivo de o test drive estar bloqueado (null = pode). */
   testDriveBlocked(): string | null;
+  /** Jogo novo vendo a abertura (sem capturar o mouse). */
+  startIntro(name?: string, pronoun?: string): string;
   /** Malhas visíveis da oficina por grupo (diagnóstico de desempenho). */
   sceneStats(): { total: number; groups: Record<string, number> };
   /** Dispara um evento ignorando as regras de gatilho (só testes). */

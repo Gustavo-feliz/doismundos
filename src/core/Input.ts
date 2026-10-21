@@ -79,6 +79,11 @@ export class Input {
     return this.lockBypass;
   }
 
+  /** A tecla (código físico) está apertada agora? Ex.: segurar Esc para pular a abertura. */
+  isCodeDown(code: string): boolean {
+    return this.pressed.has(code);
+  }
+
   isActionDown(action: Action): boolean {
     return this.bindings[action].some((code) => this.pressed.has(code));
   }

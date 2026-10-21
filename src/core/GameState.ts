@@ -1,16 +1,18 @@
 /**
  * 'panel' = painel aberto (ex.: inspeção): cursor livre, jogador parado, relógio parado.
  * 'driving' = test drive no pátio (Prompt 13): atividade separada da oficina.
+ * 'cutscene' = cena de cinema (Prompt 23): a abertura, antes do jogo.
  */
-export type GameStateName = 'loading' | 'menu' | 'playing' | 'paused' | 'panel' | 'driving' | 'error';
+export type GameStateName = 'loading' | 'menu' | 'playing' | 'paused' | 'panel' | 'driving' | 'cutscene' | 'error';
 
 /** Transições permitidas. Qualquer estado pode ir para 'error'. */
 const TRANSITIONS: Readonly<Record<GameStateName, readonly GameStateName[]>> = {
   loading: ['menu', 'error'],
-  menu: ['playing', 'error'],
+  menu: ['playing', 'cutscene', 'error'],
   playing: ['paused', 'panel', 'driving', 'error'],
   paused: ['playing', 'driving', 'menu', 'error'],
   driving: ['playing', 'paused', 'error'],
+  cutscene: ['playing', 'menu', 'error'],
   panel: ['playing', 'paused', 'error'],
   error: [],
 };

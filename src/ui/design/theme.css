@@ -419,3 +419,186 @@ kbd {
   background: rgba(10, 11, 13, 0.72);
   color: #c4c9ce;
 }
+
+/* ---------- Abertura e novo jogo (Prompt 23) ---------- */
+.setup-panel input[type='text'] {
+  padding: 0.7rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: 600 1.05rem/1.2 var(--font);
+}
+.setup-label {
+  font: 700 0.85rem/1 var(--font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.setup-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.setup-choice {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  cursor: pointer;
+}
+.cine {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+.cine[hidden] {
+  display: none;
+}
+.cine-dark {
+  position: absolute;
+  inset: 0;
+  background: #050506;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+.cine-dark[data-on='true'] {
+  opacity: 1;
+}
+.cine-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: #000;
+}
+.cine-bar-top {
+  top: 0;
+}
+.cine-bar-bottom {
+  bottom: 0;
+}
+.cine-title {
+  position: absolute;
+  top: 16vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #fff;
+  font: 800 clamp(1.8rem, 4vw, 3rem)/1.1 var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+}
+.cine-subtitle {
+  position: absolute;
+  left: 50%;
+  bottom: calc(9vh + 2rem);
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 32px));
+  padding: 0.9rem 1.2rem;
+  border-radius: 10px;
+  background: rgba(8, 9, 11, 0.86);
+  border-left: 4px solid var(--accent);
+  pointer-events: auto;
+}
+.cine-subtitle[data-speaker='narrador'] {
+  border-left-color: var(--muted);
+}
+.cine-subtitle[data-speaker='narrador'] .cine-text {
+  font-style: italic;
+}
+.cine-speaker {
+  color: var(--accent);
+  font: 700 0.95rem/1 var(--font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.cine-text {
+  margin: 0.35rem 0 0;
+  font-size: 1.2rem;
+  line-height: 1.45;
+}
+.cine-options {
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+.cine-option {
+  width: 100%;
+  text-transform: none;
+  letter-spacing: 0;
+  font: 600 1.02rem/1.2 var(--font);
+}
+.cine-skip {
+  position: absolute;
+  right: 1.2rem;
+  bottom: calc(9vh - 2.4rem);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #c4c9ce;
+  font-size: 0.85rem;
+}
+.cine-skip-bar {
+  display: inline-block;
+  width: 70px;
+  height: 4px;
+  margin-left: 0.4rem;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+.cine-skip-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+}
+.cine-end {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  background: radial-gradient(ellipse at 50% 50%, rgba(8, 9, 11, 0.55), rgba(8, 9, 11, 0.85));
+  pointer-events: auto;
+}
+.cine-end[hidden] {
+  display: none;
+}
+.cine-end-kicker {
+  margin: 0;
+  color: var(--accent);
+  font: 700 1rem/1 var(--font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.cine-end-text {
+  margin: 0;
+  color: #fff;
+  font: 800 clamp(2rem, 5vw, 3.4rem)/1 var(--font-display);
+  text-transform: uppercase;
+}
+.cine-start {
+  font-size: 1.25rem;
+  padding: 1rem 1.6rem;
+}
+:root[data-reduce-motion='true'] .cine-dark {
+  transition: none;
+}
+.setup-panel .menu-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.cine-skip[hidden] {
+  display: none;
+}

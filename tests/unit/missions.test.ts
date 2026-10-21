@@ -267,8 +267,6 @@ describe('diálogos (legenda)', () => {
     expect(r.update(1, 'prologo').started).toBeNull();
     const second = r.update(lineSeconds(first.started!.text), 'prologo');
     expect(second.started?.speaker).toBe('seu-ze');
-    r.skip();
-    expect(r.view()!.options).toBeNull();
     r.skip(); // fim das falas → hora de escolher
     expect(r.awaitingChoice).toBe(true);
     expect(r.view()!.options!.map((o) => o.id)).toEqual(['ensina', 'sozinho']);
