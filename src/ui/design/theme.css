@@ -602,3 +602,266 @@ kbd {
 .cine-skip[hidden] {
   display: none;
 }
+
+/* ---------- Sensação de jogo (Prompt 25): ações, recompensas e carimbo ---------- */
+.fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+.fx-action {
+  position: absolute;
+  left: 50%;
+  top: 14%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: var(--panel-solid);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-weight: 600;
+  animation: fx-pop 180ms var(--ease) both;
+}
+/* Jogando (sem painel): logo abaixo da mira, sem cobrir o objetivo. */
+body[data-state='playing'] .fx-action {
+  top: calc(50% + 48px);
+}
+.fx-action-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1.15rem;
+}
+.fx-action[data-phase='andamento'] .fx-action-icon .icon {
+  animation: fx-turn 650ms var(--ease) both;
+}
+.fx-action[data-phase='feito'] .fx-action-icon {
+  background: color-mix(in srgb, var(--ok) 22%, transparent);
+  color: var(--ok-text);
+}
+.fx-action-body {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+}
+.fx-action-bar {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.fx-action-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  animation: fx-fill linear both;
+}
+.fx-action[data-phase='feito'] .fx-action-fill {
+  background: var(--ok);
+}
+.fx-action-time {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.fx-action[data-phase='erro'] {
+  border-color: var(--danger);
+  animation: fx-shake 320ms ease-in-out both;
+}
+.fx-action[data-phase='erro'] .fx-action-icon {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  color: var(--danger-text);
+}
+.fx-action[data-phase='erro'] .fx-action-bar,
+.fx-action[data-phase='erro'] .fx-action-time {
+  display: none;
+}
+
+.fx-reward {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 18px 24px 16px;
+  border-radius: 14px;
+  background: var(--panel-solid);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-align: center;
+  animation: fx-rise 3200ms var(--ease) both;
+}
+.fx-cash {
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+}
+.fx-coins {
+  position: absolute;
+  left: 50%;
+  top: 30px;
+  width: 0;
+  height: 0;
+}
+.fx-coin {
+  position: absolute;
+  left: -9px;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffe68a, var(--accent) 60%, #b8860b);
+  box-shadow: inset 0 0 0 2px rgba(120, 80, 0, 0.45);
+  opacity: 0;
+  animation: fx-coin 1100ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.fx-stars {
+  display: flex;
+  gap: 4px;
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.25);
+}
+.fx-star {
+  display: grid;
+}
+.fx-star.is-on {
+  color: var(--accent);
+  animation: fx-star 360ms var(--ease) both;
+}
+.fx-star.is-on .icon {
+  fill: currentColor;
+}
+.fx-thanks {
+  margin: 0;
+  max-width: 36ch;
+  color: var(--text);
+}
+.fx-rep {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--ok) 18%, var(--panel-solid));
+  color: var(--ok-text);
+}
+.fx-rep[data-sign='down'] {
+  background: color-mix(in srgb, var(--danger) 18%, var(--panel-solid));
+  color: var(--danger-text);
+}
+
+.fx-stamp {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  transform: translate(-50%, 0) rotate(-6deg);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 14px 26px;
+  border: 4px double var(--accent);
+  border-radius: 8px;
+  background: rgba(17, 19, 21, 0.92);
+  color: var(--text);
+  text-align: center;
+  animation: fx-stamp 2600ms var(--ease) both;
+}
+.fx-stamp-mark {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+.fx-stamp-title {
+  font-weight: 600;
+}
+.fx-stamp-cash {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--ok-text);
+}
+
+@keyframes fx-pop {
+  from { opacity: 0; transform: translate(-50%, -8px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes fx-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes fx-turn {
+  0% { transform: rotate(-35deg); }
+  50% { transform: rotate(25deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes fx-shake {
+  0%, 100% { transform: translateX(-50%); }
+  20% { transform: translateX(calc(-50% - 7px)); }
+  40% { transform: translateX(calc(-50% + 6px)); }
+  60% { transform: translateX(calc(-50% - 4px)); }
+  80% { transform: translateX(calc(-50% + 2px)); }
+}
+@keyframes fx-rise {
+  0% { opacity: 0; transform: translate(-50%, 16px) scale(0.94); }
+  8% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  88% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -10px); }
+}
+@keyframes fx-coin {
+  0% { opacity: 0; transform: translate(0, 10px) rotate(0); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), -110px) rotate(var(--spin)); }
+}
+@keyframes fx-star {
+  from { transform: scale(0.3); opacity: 0.2; }
+  70% { transform: scale(1.25); }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes fx-stamp {
+  0% { opacity: 0; transform: translate(-50%, 0) rotate(-6deg) scale(1.8); }
+  10% { opacity: 1; transform: translate(-50%, 0) rotate(-6deg) scale(0.96); }
+  14% { transform: translate(-50%, 0) rotate(-6deg) scale(1); }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, 0) rotate(-6deg) scale(1); }
+}
+
+/* Reduzir movimento: nada se mexe, só aparece e some. */
+:root[data-reduce-motion='true'] .fx-layer *,
+:root[data-reduce-motion='true'] .fx-layer *::before {
+  animation: none !important;
+}
+:root[data-reduce-motion='true'] .fx-coins {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-layer * {
+    animation: none !important;
+  }
+  .fx-coins {
+    display: none;
+  }
+}

@@ -46,6 +46,8 @@ interface GameDiagnostics {
   upgrades: Record<string, number>;
   cinematic: null | { shot: string; done: boolean; choice: string | null };
   profile: { name: string; pronoun: string; introChoice: string | null; introSeen: boolean };
+  /** Prompt 25: balanço/inclinação da câmera e o retorno visual na tela. */
+  feel: { bob: number; roll: number; action: string | null; phase: string | null; reward: boolean; stamp: boolean };
   staff: {
     employees: Array<{
       id: string;
@@ -132,6 +134,8 @@ interface GameTestHooks {
   sceneStats(): { total: number; groups: Record<string, number> };
   /** Dispara um evento ignorando as regras de gatilho (só testes). */
   forceEvent(eventId: string): boolean;
+  /** Prompt 25: mostra os efeitos de retorno (ação, recompensa ou carimbo) para conferir o visual. */
+  previewFeedback(which: 'acao' | 'erro' | 'recompensa' | 'carimbo'): void;
   /** Sai para o bairro (Prompt 14), carregando a cena sob demanda. */
   enterNeighborhood(): Promise<boolean>;
   /** Visita um dos 5 locais do bairro (ou volta à oficina se for 'oficina'). */

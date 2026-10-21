@@ -32,6 +32,8 @@ export class SettingsPanel {
     fov: HTMLInputElement;
     invertY: HTMLInputElement;
     reduceMotion: HTMLInputElement;
+    cameraSway: HTMLInputElement;
+    aimAssist: HTMLInputElement;
     quality: HTMLSelectElement;
     assist: HTMLInputElement;
     volume: HTMLInputElement;
@@ -60,6 +62,8 @@ export class SettingsPanel {
       fov: range('set-fov', L.fov.min, L.fov.max, L.fov.step),
       invertY: h('input', { type: 'checkbox', id: 'set-invert' }),
       reduceMotion: h('input', { type: 'checkbox', id: 'set-motion' }),
+      cameraSway: h('input', { type: 'checkbox', id: 'set-sway' }),
+      aimAssist: h('input', { type: 'checkbox', id: 'set-aim' }),
       quality: select('set-quality', [
         ['baixa', 'Baixa (sem sombras)'],
         ['media', 'Média'],
@@ -109,6 +113,7 @@ export class SettingsPanel {
         'Controles',
         row('Sensibilidade do mouse', 'set-sensitivity', this.inputs.sensitivity, this.outputs.sensitivity),
         row('Inverter eixo vertical', 'set-invert', this.inputs.invertY),
+        row('Mira assistida (mouse mais lento sobre objetos)', 'set-aim', this.inputs.aimAssist),
         h('p', { class: 'settings-hint', text: 'Clique numa ação e aperte a tecla nova. Se a tecla já for de outra ação, as duas trocam. Esc cancela.' }),
         ...keyRows,
         this.keyMessage,
@@ -118,6 +123,7 @@ export class SettingsPanel {
         'Vídeo',
         row('Qualidade gráfica', 'set-quality', this.inputs.quality),
         row('Campo de visão', 'set-fov', this.inputs.fov, this.outputs.fov),
+        row('Balanço da câmera ao andar', 'set-sway', this.inputs.cameraSway),
         row('Limite de FPS', 'set-fps', this.inputs.fpsLimit),
       ),
       section('Som', row('Volume dos efeitos', 'set-volume', this.inputs.volume, this.outputs.volume)),
@@ -136,6 +142,8 @@ export class SettingsPanel {
     i.fov.addEventListener('input', () => this.commit({ fov: Number(i.fov.value) }));
     i.invertY.addEventListener('change', () => this.commit({ invertY: i.invertY.checked }));
     i.reduceMotion.addEventListener('change', () => this.commit({ reduceMotion: i.reduceMotion.checked }));
+    i.cameraSway.addEventListener('change', () => this.commit({ cameraSway: i.cameraSway.checked }));
+    i.aimAssist.addEventListener('change', () => this.commit({ aimAssist: i.aimAssist.checked }));
     i.quality.addEventListener('change', () => this.commit({ quality: i.quality.value as GraphicsQuality }));
     i.assist.addEventListener('change', () => this.commit({ diagnosisAssist: i.assist.checked }));
     i.volume.addEventListener('input', () => this.commit({ sfxVolume: Number(i.volume.value) }));
@@ -201,6 +209,8 @@ export class SettingsPanel {
     i.fov.value = String(s.fov);
     i.invertY.checked = s.invertY;
     i.reduceMotion.checked = s.reduceMotion;
+    i.cameraSway.checked = s.cameraSway;
+    i.aimAssist.checked = s.aimAssist;
     i.quality.value = s.quality;
     i.assist.checked = s.diagnosisAssist;
     i.volume.value = String(s.sfxVolume);

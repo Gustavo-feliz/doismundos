@@ -38,6 +38,10 @@ import { ORDER_STATUS_LABEL } from '../orders/types';
 import { WORKSHOP_SIZE } from '../world/Workshop';
 import { DrivingHud } from '../ui/DrivingHud';
 import { CinematicOverlay } from '../ui/CinematicOverlay';
+import { FeedbackLayer } from '../ui/FeedbackLayer';
+import { hashSeed } from '../ui/feedbackText';
+import { aimAssistScale } from '../player/cameraFeel';
+import type { FeedbackActionKind } from '../core/events';
 import { CinematicPlayer, cameraAt } from '../cinematics/CinematicPlayer';
 import { cleanName, DEFAULT_PROFILE, kinTerm, profileProblems, type PlayerProfile } from '../cinematics/types';
 import { validateCinematics } from '../cinematics/validate';
@@ -113,6 +117,8 @@ export class Game {
   private readonly loadingOverlay: LoadingOverlay;
   /** Abertura (Prompt 23): cena tocando, tela e o perfil do jogador. */
   private readonly cineOverlay: CinematicOverlay;
+  /** Retorno visual das ações e recompensas (Prompt 25). */
+  private readonly feedback: FeedbackLayer;
   private cine: CinematicPlayer | null = null;
   private skipHold = 0;
   private profile: PlayerProfile = { ...DEFAULT_PROFILE };
@@ -245,6 +251,7 @@ export class Game {
       onChoose: (n) => this.cine?.choose(n),
       onStart: () => void this.requestPlay(false),
     });
+    this.feedback = new FeedbackLayer(uiRoot);
     this.testDrive = new TestDriveController(
       {
         scene: this.scene,
@@ -275,7 +282,7 @@ export class Game {
     this.cityHud = new CityHud(uiRoot, CITY_NEIGHBORHOOD, {
       onSelectMarker: (id) => void this.city.visit(id),
       onSellScrap: () => this.act(this.session.sellScrap(CITY_NEIGHBORHOOD.scrapRecoveryFactor, this.moment()), 'concluido'),
-      onBuySalvage: (partId) => this.act(this.session.buySalvagePart(partId, CITY_NEIGHBORHOOD.salvagePriceFactor, this.moment()), 'pegar'),
+      onBuySalvage: (partId) => this.act(this.session.buySalvagePart(partId, CITY_NEIGHBORHOOD.salvagePriceFactor, this.moment()), 'pegar', 'compra'),
       onBuySnack: (snack) => this.act(this.session.buySnack(snack.id, CITY_NEIGHBORHOOD.snacks, this.moment()), 'ok'),
       onClosePanel: (reason) => this.closePanel(reason),
     });
@@ -338,11 +345,11 @@ export class Game {
         onNextCase: () => this.nextCase(),
       },
       service: {
-        onRemove: (slot) => this.act(this.session.removeOldPart(slot, this.equipmentContext(), this.moment()), 'ferramenta'),
-        onInstall: (slot) => this.act(this.session.installHeldPart(slot, this.equipmentContext(), this.moment()), 'ferramenta'),
-        onFinalTest: () => this.act(this.session.runFinalTest(this.equipmentContext(), this.moment()), 'ok'),
+        onRemove: (slot) => this.act(this.session.removeOldPart(slot, this.equipmentContext(), this.moment()), 'ferramenta', 'remover'),
+        onInstall: (slot) => this.act(this.session.installHeldPart(slot, this.equipmentContext(), this.moment()), 'ferramenta', 'instalar'),
+        onFinalTest: () => this.act(this.session.runFinalTest(this.equipmentContext(), this.moment()), 'ok', 'exame'),
         onComplete: () => this.act(this.session.completeOrder(this.moment()), 'concluido'),
-        onDeliver: () => this.act(this.session.deliverVehicle(this.moment()), 'concluido'),
+        onDeliver: () => this.act(this.withReward(() => this.session.deliverVehicle(this.moment())), 'concluido', 'entrega'),
         onNextCase: () => this.nextCase(),
       },
     });
@@ -352,8 +359,8 @@ export class Game {
       onClose: (reason) => this.closePanel(reason),
     });
     this.computer = new ComputerPanel(uiRoot, {
-      onBuy: (partId, supplierId) => this.act(this.session.buyPart(partId, supplierId, 1, this.moment()), 'pegar'),
-      onBuyMissing: (supplierId) => this.act(this.session.buyMissingParts(supplierId, this.moment()), 'pegar'),
+      onBuy: (partId, supplierId) => this.act(this.session.buyPart(partId, supplierId, 1, this.moment()), 'pegar', 'compra'),
+      onBuyMissing: (supplierId) => this.act(this.session.buyMissingParts(supplierId, this.moment()), 'pegar', 'compra'),
       onCancel: (id) => this.act(this.session.cancelPurchase(id, this.moment()), 'ok'),
       onWait: () => this.waitForDelivery(),
       onPayDebt: () => this.act(this.session.payDebtInstallment(this.moment()), 'concluido'),
@@ -420,6 +427,7 @@ export class Game {
     this.drivingHud.dispose();
     this.loadingOverlay.dispose();
     this.cineOverlay.dispose();
+    this.feedback.dispose();
     this.cityHud.dispose();
     this.testDrive.dispose();
     this.city.dispose();
@@ -451,6 +459,9 @@ export class Game {
       } else {
         // Equipamentos antes do jogador: os colisores (carro no alto, gaveta) já valem neste quadro.
         this.equipment.update(dt, this.player.position);
+        const aim = aimAssistScale(this.interaction.focusedId !== null, this.settings.aimAssist);
+        mouse.x *= aim;
+        mouse.y *= aim;
         this.player.update(dt, this.input.getMoveIntent(), mouse, this.settings);
         this.clock.advance(dt);
         this.player.applyToCamera(this.camera);
@@ -459,6 +470,7 @@ export class Game {
         if (this.input.wasActionPressed('interact')) {
           const result = this.interaction.interact();
           if (result) this.hud.notify(result.message, result.ok ? 'ok' : 'blocked');
+          if (result && !result.ok) this.feedbackAction('erro', 0);
         }
         if (this.input.wasActionPressed('openMap')) {
           void this.city.enter();
@@ -664,12 +676,46 @@ export class Game {
     else void this.requestPlay(false);
   }
 
-  /** Resultado de uma ação: gasta o tempo no relógio, avisa no painel aberto e toca um som. */
-  private act(outcome: ActionOutcome, sound: SfxName): void {
+  /**
+   * Resultado de uma ação: gasta o tempo no relógio, avisa no painel aberto e toca um som.
+   * Com `kind`, mostra a ação com começo, meio e fim (Prompt 25). Toda ação barrada
+   * ganha o retorno de "não dá" (tremida curta; a explicação vem no aviso).
+   */
+  private act(outcome: ActionOutcome, sound: SfxName, kind?: FeedbackActionKind): void {
     if (outcome.minutes > 0) this.clock.addMinutes(outcome.minutes);
     const tone = outcome.tone ?? (outcome.ok ? 'ok' : 'blocked');
     if (outcome.message) this.activePanel().notify(outcome.message, tone);
     this.sfx.play(tone === 'blocked' ? 'erro' : sound);
+    if (tone === 'blocked') this.feedbackAction('erro', 0);
+    else if (kind) this.feedbackAction(kind, outcome.minutes);
+  }
+
+  private feedbackAction(kind: FeedbackActionKind, minutes: number): void {
+    this.feedback.action(kind, minutes);
+    this.bus.emit('feedback:action', { kind, minutes });
+  }
+
+  /**
+   * Roda uma ação que pode pagar (entrega do carro) e, se entrou dinheiro,
+   * mostra a recompensa: moedas, estrelas, o cliente agradecendo e a reputação.
+   * Só observa o antes e o depois; a regra é da sessão.
+   */
+  private withReward(run: () => ActionOutcome): ActionOutcome {
+    const c = this.session.activeCase;
+    const cashBefore = this.session.cash;
+    const rep = this.session.reputation.general;
+    const outcome = run();
+    if (!outcome.ok) return outcome;
+    const after = this.session.reputation.general;
+    const cash = this.session.cash - cashBefore;
+    const stars = after.reviews > rep.reviews ? after.starsTotal - rep.starsTotal : null;
+    const reputationDelta = Math.round(after.score - rep.score);
+    if (cash > 0 || stars !== null) {
+      this.feedback.reward({ cash: Math.max(0, cash), stars, reputationDelta, customerName: c?.customerName ?? null, seed: c ? hashSeed(`${c.id}:${c.orderNumber}`) : this.frame });
+      if (cash > 0) this.bus.emit('feedback:reward', { kind: 'pagamento', amount: cash });
+      if (reputationDelta !== 0) this.bus.emit('feedback:reward', { kind: 'reputacao', amount: reputationDelta });
+    }
+    return outcome;
   }
 
   private changeDraft(patch: Partial<QuoteDraft>): void {
@@ -737,7 +783,7 @@ export class Game {
       this.act({ ok: false, message: result.error.message, minutes: 0 }, 'erro');
       return;
     }
-    this.act({ ok: true, message: `${result.value.testName}: concluído (+${result.value.minutes} min)`, minutes: result.value.minutes }, 'ferramenta');
+    this.act({ ok: true, message: `${result.value.testName}: concluído (+${result.value.minutes} min)`, minutes: result.value.minutes }, 'ferramenta', 'exame');
   }
 
   private requestHint(): void {
@@ -840,7 +886,9 @@ export class Game {
         const reward = m.reward.cash > 0 ? ` +${formatBRL(m.reward.cash)}` : '';
         this.notifyAnywhere(`Missão concluída: ${m.title}.${reward}`);
         this.sfx.play('concluido');
+        this.feedback.stamp(m.title, m.reward.cash);
         this.bus.emit('mission:completed', { missionId: m.id });
+        this.bus.emit('feedback:reward', { kind: 'missao', amount: m.reward.cash });
       }
     }
   }
@@ -966,6 +1014,7 @@ export class Game {
 
   /** Mundo novo: oficina, relógio, sessão e missões do zero. */
   private resetWorld(): void {
+    this.feedback.clear();
     this.city.resetForNewGame();
     this.player.respawn();
     this.clock.reset();
@@ -1039,6 +1088,7 @@ export class Game {
   }
 
   private quitToTitle(): void {
+    this.feedback.clear();
     this.testDrive.end(false);
     this.city.exit();
     if (this.state.transition('menu')) {
@@ -1310,6 +1360,7 @@ export class Game {
       upgrades: { ...this.session.upgrades },
       cinematic: this.cine ? { shot: this.cine.frame().shot.id, done: this.cine.done, choice: this.cine.choice } : null,
       profile: { ...this.profile },
+      feel: { bob: this.player.cameraFeel.bob, roll: this.player.cameraFeel.roll, ...this.feedback.snapshot },
       staff: {
         employees: this.session.staff.employees.map((e) => ({
           id: e.id,
@@ -1410,6 +1461,12 @@ export class Game {
         this.input.setLockBypass(true);
         if (this.state.is('menu')) this.newGame(name, pronoun as PlayerProfile['pronoun'], true);
         return this.state.current;
+      },
+      previewFeedback: (which) => {
+        if (which === 'acao') this.feedback.action('remover', 20);
+        else if (which === 'erro') this.feedback.action('erro', 0);
+        else if (which === 'recompensa') this.feedback.reward({ cash: 294_70, stars: 4, reputationDelta: 4, customerName: 'Marcão', seed: 1 });
+        else this.feedback.stamp('Primeiro dia na oficina', 500_00);
       },
       forceEvent: (eventId) => {
         const r = this.session.triggerEvent(eventId, this.clock.day, { force: true });

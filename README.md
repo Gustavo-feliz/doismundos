@@ -437,6 +437,30 @@ Depois, dá para **ver a história** ou **pular a abertura**.
 
 **O sistema de cenas** (`src/cinematics/`) é orientado por dados e validado ao abrir o jogo. Os personagens em 3D (Prompt 22) entram nas tomadas quando os modelos ficarem prontos; até lá, a câmera e as legendas contam a história.
 
+## Sensação de jogo (Prompt 25, parte visual)
+
+Só aparência: nenhuma regra, preço ou tempo de jogo muda.
+
+**Câmera** (`src/player/cameraFeel.ts`):
+- balanço ao andar e uma inclinação leve ao virar e ao andar de lado;
+- **mira assistida:** o mouse fica mais lento sobre algo interativo;
+- as duas coisas podem ser desligadas em Configurações ("Balanço da câmera ao andar" e "Mira assistida");
+- **"Reduzir movimento" desliga balanço e inclinação** de qualquer jeito.
+
+**Ações com começo, meio e fim** (`src/ui/FeedbackLayer.ts`):
+- remover, instalar, exames, compras e entrega mostram ícone, "fazendo…", barra enchendo e "feito · +X min";
+- o tempo gasto continua sendo o da regra.
+
+**Recompensas:**
+- a entrega mostra o valor com moedas subindo, as estrelas uma a uma, o cliente agradecendo (a frase varia com a nota) e a reputação ganha ou perdida;
+- missão concluída ganha um carimbo.
+
+**Falhas:** toda ação barrada mostra "Não dá" com uma tremida curta; a explicação continua no aviso.
+
+**Com "reduzir movimento":** nada se mexe; os efeitos só aparecem e somem.
+
+**Som:** o jogo emite `feedback:action` e `feedback:reward` no barramento para o áudio do Gemini tocar os sons certos.
+
 ## Interface e acessibilidade (Prompt 24)
 
 **Identidade visual.**

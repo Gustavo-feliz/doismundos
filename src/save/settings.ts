@@ -24,6 +24,10 @@ export interface Settings {
   fov: number;
   reduceMotion: boolean;
   quality: GraphicsQuality;
+  /** Balanço ao andar e inclinação ao virar (Prompt 25). "Reduzir movimento" desliga de qualquer jeito. */
+  cameraSway: boolean;
+  /** Mira assistida: o mouse fica mais lento sobre algo interativo (Prompt 25). */
+  aimAssist: boolean;
   /** Dicas do Seu Zé no diagnóstico (GDD §20.4: assistência de diagnóstico). */
   diagnosisAssist: boolean;
   /** Volume dos efeitos sonoros, 0–1. */
@@ -51,6 +55,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   fov: 75,
   reduceMotion: false,
   quality: 'alta',
+  cameraSway: true,
+  aimAssist: true,
   diagnosisAssist: true,
   sfxVolume: 0.6,
   textScale: 1,
@@ -94,6 +100,8 @@ export function parseSettings(raw: unknown): Settings {
     reduceMotion: typeof r.reduceMotion === 'boolean' ? r.reduceMotion : DEFAULT_SETTINGS.reduceMotion,
     quality: QUALITIES.includes(r.quality as GraphicsQuality) ? (r.quality as GraphicsQuality) : DEFAULT_SETTINGS.quality,
     // Campo novo na mesma versão: quem já tinha preferências salvas recebe o padrão.
+    cameraSway: typeof r.cameraSway === 'boolean' ? r.cameraSway : DEFAULT_SETTINGS.cameraSway,
+    aimAssist: typeof r.aimAssist === 'boolean' ? r.aimAssist : DEFAULT_SETTINGS.aimAssist,
     diagnosisAssist: typeof r.diagnosisAssist === 'boolean' ? r.diagnosisAssist : DEFAULT_SETTINGS.diagnosisAssist,
     sfxVolume: clampNumber(r.sfxVolume, 0, 1, DEFAULT_SETTINGS.sfxVolume),
     // Campos do Prompt 24 (mesma versão: quem já tinha preferências recebe o padrão).

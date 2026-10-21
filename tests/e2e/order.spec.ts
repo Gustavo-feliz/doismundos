@@ -114,8 +114,12 @@ test('OS 001 de ponta a ponta: negociação de prazo, peça errada tratada, repa
   await page.keyboard.press('Digit3');
   await page.locator('[data-action="remove"][data-slot="freios.pastilhas-dianteiras"]').click();
   await expect(page.locator('.repair-item[data-slot="freios.pastilhas-dianteiras"]')).toContainText('✓ Feito');
+  // Prompt 25: a ação tem começo, meio e fim na tela (só aparência; o tempo é o da regra).
+  await expect(page.getByTestId('fx-action')).toHaveAttribute('data-kind', 'remover');
+  await expect(page.getByTestId('fx-action')).toHaveAttribute('data-phase', 'feito');
   await page.locator('[data-action="install"][data-slot="freios.pastilhas-dianteiras"]').click();
   await expect(notice(page)).toContainText('Peça errada');
+  await expect(page.getByTestId('fx-action')).toHaveAttribute('data-phase', 'erro'); // "não dá", gentil
   expect((await diag(page)).order.invalidAttempts).toBe(1);
   await closeAny(page);
 
@@ -151,6 +155,11 @@ test('OS 001 de ponta a ponta: negociação de prazo, peça errada tratada, repa
   const cashBeforeDelivery = (await diag(page)).cash;
   await page.getByTestId('deliver').click();
   await expect(page.getByTestId('delivery')).toContainText('★');
+  // Recompensa: valor, estrelas, o cliente agradecendo e a reputação.
+  await expect(page.getByTestId('fx-reward')).toContainText(brl(294_70));
+  await expect(page.getByTestId('fx-reward').locator('.fx-stars')).toBeVisible();
+  await expect(page.getByTestId('fx-reward')).toContainText('de reputação');
+  await info.attach('recompensa', { body: await page.screenshot(), contentType: 'image/png' });
   await expect(page.getByTestId('gross-profit')).toHaveText(brl(294_70 - 129_00));
   expect((await diag(page)).cash).toBe(cashBeforeDelivery + 294_70);
   expect((await diag(page)).order.status).toBe('entregue');
