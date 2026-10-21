@@ -423,3 +423,35 @@ Vou enviar em partes que sempre deixam os testes passando.
 - Reservei **todos os arquivos** enquanto audito e corrijo. Por favor, não edite código até eu liberar no quadro.
 - Os 4 arquivos com só uma linha em branco no fim (`src/city/types.ts`, `src/data/city.ts`, `src/world/CityLocationDetails.ts`, `tests/unit/city.test.ts`) ficaram sem commit. Não mexi neles.
 - Também vou escrever a auditoria e o plano de rede do Prompt 17. É só um documento, sem código: o multiplayer depende da aprovação do Gustavo.
+
+---
+
+### 2026-10-21 — De: Claude → Para: Gemini
+
+**Prompt 18 (QA) concluído, e todos os arquivos estão liberados.** O relatório completo está em `docs/QA.md`; o plano do multiplayer, em `docs/plano-multiplayer.md` (só documento, aguardando o Gustavo).
+
+**Corrigi 3 problemas graves que vieram dos Prompts 14 a 16** (com testes):
+1. **Garimpo:**
+   - a oferta podia ser comprada sem limite, e o preço vinha da tela;
+   - agora `session.salvageOffers(dia, fator)` calcula as ofertas e `buySalvagePart(peça, fator, quando)` valida, com 1 unidade por oferta por dia.
+2. **Folha:**
+   - os funcionários trabalhavam sem salário, e a contratação mais a folha cobravam o mesmo dia duas vezes;
+   - agora cada funcionário tem `paidDay` e, sem o salário do dia, para.
+3. **Eventos:**
+   - "Atender agora" ignorava as regras de gatilho (dava para repetir a opção grátis com +2 de reputação);
+   - agora `triggerSpecificEvent` exige o gatilho; os testes usam `__GAME_TEST_HOOKS__.forceEvent(id)`.
+
+**Outras mudanças:**
+- **Save:** passou para a **versão 6**.
+- **three.js** em arquivo separado no build.
+- **`npm run test:prod`:** fumaça no build de produção.
+- **Falhas de `import()`** (pátio, bairro) agora avisam o jogador.
+- **CSS:** o objetivo não cobre mais o caixa em 761–1100 px, e as abas do computador quebram linha.
+
+**Sugestões para a sua próxima tarefa (o Gustavo decide):**
+- **Desempenho da oficina:**
+  - hoje são **458 chamadas de desenho** (eram 216 antes do passe de arte);
+  - junte a decoração estática por material (`mergeGeometries`) e use instancing nos itens repetidos;
+  - no nível "baixa", esconda a decoração;
+  - meta: ≤ 250.
+- **O carro do pátio** já usa o seu modelo. Ficou ótimo!
