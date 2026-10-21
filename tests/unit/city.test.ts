@@ -162,7 +162,9 @@ describe('economia dos locais do bairro (Ferro-Velho e Lanchonete)', () => {
     const s = newSession();
     const snack = CITY_NEIGHBORHOOD.snacks[0]!;
     const cashBefore = s.cash;
-    const res = s.buySnack(snack.name, snack.price, snack.minutes, snack.gossip, when);
+    const res = s.buySnack(snack.id, CITY_NEIGHBORHOOD.snacks, when);
+    // QA: item fora do cardápio é recusado (o preço nunca vem da tela).
+    expect(s.buySnack('caviar', CITY_NEIGHBORHOOD.snacks, when).ok).toBe(false);
     expect(res.ok).toBe(true);
     expect(res.minutes).toBe(snack.minutes);
     expect(s.cash).toBe(cashBefore - snack.price);

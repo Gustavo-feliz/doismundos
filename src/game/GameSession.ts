@@ -1,5 +1,5 @@
 import { dailySalvageOffers } from '../city/rules';
-import type { SalvageOffer } from '../city/types';
+import type { CitySnackDef, SalvageOffer } from '../city/types';
 import { decideOnQuote, counterIsPriceOnly } from '../customers/decision';
 import { evaluateService } from '../customers/evaluation';
 import { applyReputationDelta, applyReview, applyWarrantyPenalty, initialReputation, specialtyOf, type ReputationState } from '../customers/reputation';
@@ -734,8 +734,12 @@ export class GameSession {
   }
 
   /** Compra café ou refeição na Lanchonete da Tia Léa (Prompt 14). */
-  buySnack(name: string, price: Cents, minutes: number, gossip: string, when: GameMoment): ActionOutcome {
-    if (!name.trim() || !Number.isSafeInteger(price) || price <= 0 || !Number.isSafeInteger(minutes) || minutes <= 0) {
+  buySnack(snackId: string, menu: readonly CitySnackDef[], when: GameMoment): ActionOutcome {
+    // A tela manda só o ID; preço e tempo vêm do cardápio (dados), nunca de quem chama.
+    const snack = menu.find((s) => s.id === snackId);
+    if (!snack) return this.fail('Esse item não está no cardápio da lanchonete.');
+    const { name, price, minutes, gossip } = snack;
+    if (!Number.isSafeInteger(price) || price <= 0 || !Number.isSafeInteger(minutes) || minutes <= 0) {
       return this.fail('Pedido inválido na lanchonete.');
     }
     if (!canSpend(this.cash, price, this.creditLimit)) {

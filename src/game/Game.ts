@@ -246,7 +246,7 @@ export class Game {
       onSelectMarker: (id) => void this.visitCityLocation(id),
       onSellScrap: () => this.act(this.session.sellScrap(CITY_NEIGHBORHOOD.scrapRecoveryFactor, this.moment()), 'concluido'),
       onBuySalvage: (partId) => this.act(this.session.buySalvagePart(partId, CITY_NEIGHBORHOOD.salvagePriceFactor, this.moment()), 'pegar'),
-      onBuySnack: (snack) => this.act(this.session.buySnack(snack.name, snack.price, snack.minutes, snack.gossip, this.moment()), 'ok'),
+      onBuySnack: (snack) => this.act(this.session.buySnack(snack.id, CITY_NEIGHBORHOOD.snacks, this.moment()), 'ok'),
       onClosePanel: (reason) => this.closePanel(reason),
     });
     this.inspection = new InspectionPanel(uiRoot, (reason) => this.closePanel(reason), {
