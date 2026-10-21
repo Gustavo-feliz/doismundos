@@ -23,7 +23,7 @@
 | `npm run test:e2e` | Testes no navegador (Playwright). |
 | `npm run test:all` | Tipos + regras + navegador. |
 
-## 2. Estado atual: Prompts 1 a 16 concluídos
+## 2. Estado atual: Prompts 1 a 16 e 18 (QA) concluídos
 
 | Prompt | Entrega |
 | --- | --- |
@@ -44,7 +44,9 @@
 | 15 | Funcionários e automação básica (`src/staff/`, `src/data/staff.ts`, aba Equipe no `ComputerPanel`): 2 cargos (`mecanico` e `ajudante`), fila de tarefas com proteção de concorrência, contratação, folha salarial, pausa/demissão. Save versão 5. |
 | 16 | Eventos, fiscalização e pressão local (`src/events/`, `src/data/events.ts`, seção na aba Oficina do `ComputerPanel`): sistema de eventos reutilizável com gatilho, cooldown, escolhas sempre recuperáveis, histórico e efeitos no caixa e reputação. |
 
-**Testes atuais:** 239 testes de regras e 30 no navegador, todos passando. **O modo solo (Prompts 1 a 16) está concluído; o Prompt 17 (multiplayer) exige aprovação prévia do Gustavo e plano de rede.**
+| 18 | QA (Claude): auditoria contra o GDD, 3 problemas graves corrigidos (garimpo ilimitado, folha opcional, eventos repetíveis), falha de carregamento tratada, three.js em arquivo separado, `npm run test:prod`, teste de longo prazo. Relatório em `docs/QA.md`. Save versão 6. |
+
+**Testes atuais:** 242 testes de regras, 31 no navegador e 1 no build de produção, todos passando. **O modo solo está concluído e auditado; o Prompt 17 (multiplayer) exige aprovação do Gustavo. O plano de rede está em `docs/plano-multiplayer.md`.**
 
 Detalhes: `README.md` (estrutura, controles, roteiro de teste manual) e `docs/formato-de-dados.md` (formato de todos os dados).
 

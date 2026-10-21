@@ -20,8 +20,9 @@ O design completo está em [GDD_Simulador_de_Mecanico_Claude_Code.md](GDD_Simula
 14. Bairro de São Cristóvão e novos locais (oficina, loja de peças, ferro-velho, banco e lanchonete), mapa com marcadores e carregamento sob demanda.
 15. Funcionários e automação básica (2 cargos: mecânico e ajudante, fila de tarefas sem concorrência duplicada, contratação, folha salarial, pausa/demissão e save v5).
 16. Eventos, fiscalização e pressão local (sistema de eventos reutilizável, escolhas legíveis e recuperáveis, histórico e efeitos financeiros/reputacionais).
+18. QA e preparação de lançamento: auditoria, correções e checklist em [docs/QA.md](docs/QA.md).
 
-Ainda **não** existem segunda vaga nem multiplayer.
+Ainda **não** existem segunda vaga nem multiplayer. O Prompt 17 (multiplayer) espera aprovação; o plano está em [docs/plano-multiplayer.md](docs/plano-multiplayer.md).
 
 ## Pré-requisitos
 
