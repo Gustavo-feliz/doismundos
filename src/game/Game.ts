@@ -332,6 +332,7 @@ export class Game {
     });
     this.computer = new ComputerPanel(uiRoot, {
       onBuy: (partId, supplierId) => this.act(this.session.buyPart(partId, supplierId, 1, this.moment()), 'pegar'),
+      onBuyMissing: (supplierId) => this.act(this.session.buyMissingParts(supplierId, this.moment()), 'pegar'),
       onCancel: (id) => this.act(this.session.cancelPurchase(id, this.moment()), 'ok'),
       onWait: () => this.waitForDelivery(),
       onPayDebt: () => this.act(this.session.payDebtInstallment(this.moment()), 'concluido'),

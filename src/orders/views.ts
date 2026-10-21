@@ -367,6 +367,13 @@ export interface ComputerView {
     offers: Array<{ supplierId: string; supplierName: string; priceText: string; minutes: number; affordable: boolean }>;
   }>;
   purchases: Array<{ id: string; partName: string; qty: number; totalText: string; supplierName: string; status: string; statusLabel: string; etaText: string; canCancel: boolean }>;
+  /** "Comprar o que falta" para a OS ativa (null = nada faltando). Uma opção por fornecedor. */
+  missing: null | {
+    orderLabel: string;
+    count: number;
+    names: string;
+    options: Array<{ supplierId: string; supplierName: string; totalText: string; minutes: number; affordable: boolean; label: string }>;
+  };
   nextDeliveryText: string | null;
   canWait: boolean;
   ledger: Array<{ id: string; when: string; category: string; description: string; ref: string; amountText: string; kind: string }>;
@@ -583,6 +590,7 @@ export function buildComputerView(session: GameSession, now: number, activeVehic
       grossProfitText: formatBRL(deliveredRevenue - deliveredCost),
     },
     debt: debtView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
+    missing: missingView(session),
     upgrades: upgradesView(session),
     catalog: buildCatalogView(session),
     staff: buildStaffView(session, Math.floor(now / MINUTES_PER_DAY) + 1),
@@ -825,5 +833,30 @@ export function buildEventsView(session: GameSession, day: number): EventsView {
       outcomeText: h.outcomeText,
       when: `Dia ${h.day} · ${h.time}`,
     })),
+  };
+}
+
+function missingView(session: GameSession): ComputerView['missing'] {
+  const missing = session.missingPartsForActive();
+  const c = session.activeCase;
+  if (!c || missing.length === 0) return null;
+  const suppliers = [...session.supplierList];
+  const fastest = Math.min(...suppliers.map((s) => s.deliveryMinutes));
+  const cheapest = Math.min(...suppliers.map((s) => s.priceFactor));
+  return {
+    orderLabel: `OS #${c.orderNumber}`,
+    count: missing.reduce((n, m) => n + m.qty, 0),
+    names: missing.map((m) => `${m.qty > 1 ? `${m.qty}× ` : ''}${session.catalogs.parts.get(m.partId)?.name ?? m.partId}`).join(', '),
+    options: suppliers.map((s) => {
+      const total = session.missingPartsCost(s.id) ?? 0;
+      return {
+        supplierId: s.id,
+        supplierName: s.name,
+        totalText: formatBRL(total),
+        minutes: s.deliveryMinutes,
+        affordable: canSpend(session.cash, total, session.creditLimit),
+        label: s.deliveryMinutes === fastest ? 'Rápido' : s.priceFactor === cheapest ? 'Econômico' : 'Comprar',
+      };
+    }),
   };
 }

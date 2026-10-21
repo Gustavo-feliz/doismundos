@@ -613,6 +613,54 @@ export class GameSession {
     return { ok: true, message: `Pedido ${id}: ${qty}× ${part.name} por ${formatBRL(total)}. Chega em ${supplier.deliveryMinutes} min.`, minutes: 0 };
   }
 
+  /**
+   * Peças orçadas da OS ativa que ainda faltam: não instaladas, sem estoque e
+   * sem pedido a caminho (Prompt 24: "comprar o que falta" em 1 clique).
+   */
+  missingPartsForActive(): Array<{ partId: string; qty: number }> {
+    const c = this.activeCase;
+    const repair = c ? this.getOrder(c.id).repair : null;
+    if (!repair) return [];
+    const need = new Map<string, number>();
+    for (const item of repair.items) if (!item.installedPartId) need.set(item.plannedPartId, (need.get(item.plannedPartId) ?? 0) + 1);
+    const out: Array<{ partId: string; qty: number }> = [];
+    for (const [partId, qty] of need) {
+      const a = this.availability(partId);
+      const missing = qty - a.inStock - a.onTheWay;
+      if (missing > 0) out.push({ partId, qty: missing });
+    }
+    return out;
+  }
+
+  /** Preço total para comprar tudo o que falta num fornecedor. */
+  missingPartsCost(supplierId: string): Cents | null {
+    let total = 0;
+    for (const m of this.missingPartsForActive()) {
+      const price = this.priceOf(m.partId, supplierId);
+      if (price === null) return null;
+      total += price * m.qty;
+    }
+    return total;
+  }
+
+  /** Compra tudo o que falta para a OS ativa num fornecedor: tudo ou nada (nunca metade). */
+  buyMissingParts(supplierId: string, when: GameMoment): ActionOutcome {
+    const missing = this.missingPartsForActive();
+    if (missing.length === 0) return this.fail('Não falta nenhuma peça para esta OS.');
+    const supplier = this.suppliers.get(supplierId);
+    const total = this.missingPartsCost(supplierId);
+    if (!supplier || total === null) return this.fail('Fornecedor desconhecido.');
+    if (!canSpend(this.cash, total, this.creditLimit)) {
+      return this.fail(`Caixa insuficiente: tudo o que falta custa ${formatBRL(total)} e há ${formatBRL(this.cash)} no caixa.`);
+    }
+    for (const m of missing) {
+      const r = this.buyPart(m.partId, supplierId, m.qty, when);
+      if (!r.ok) return r; // não acontece: o caixa foi conferido antes
+    }
+    const count = missing.reduce((n, m) => n + m.qty, 0);
+    return { ok: true, message: `${count} peça(s) encomendada(s) na ${supplier.name} por ${formatBRL(total)}. Chegam em ${supplier.deliveryMinutes} min.`, minutes: 0 };
+  }
+
   /** Cancela um pedido ainda a caminho: estorno integral. */
   cancelPurchase(purchaseId: string, when: GameMoment): ActionOutcome {
     const order = this.purchaseOrders.find((p) => p.id === purchaseId);

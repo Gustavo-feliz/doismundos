@@ -1,9 +1,12 @@
 import type { ComputerView } from '../orders/views';
 import { h } from './dom';
+import { icon } from './icons';
 import { isActionKey, kbd } from './keys';
 
 export interface ComputerCallbacks {
   onBuy(partId: string, supplierId: string): void;
+  /** Compra tudo o que falta para a OS ativa num fornecedor (Prompt 24). */
+  onBuyMissing?(supplierId: string): void;
   onCancel(purchaseId: string): void;
   /** Avança o relógio até a próxima entrega. */
   onWait(): void;
@@ -183,7 +186,31 @@ export class ComputerPanel {
       this.render();
     });
     const items = v.shop.filter((p) => !this.onlyFits || p.fitsActiveCar);
+    const m = v.missing;
+    const missingCard = m
+      ? h(
+          'section',
+          { class: 'missing-card', 'data-testid': 'buy-missing' },
+          h('div', { class: 'missing-head' }, icon('carro', 'missing-icon'), h('div', {}, h('strong', { text: `Falta para a ${m.orderLabel}: ${m.count} peça(s)` }), h('span', { class: 'muted small', text: m.names }))),
+          h(
+            'div',
+            { class: 'missing-options' },
+            ...m.options.map((o) => {
+              const b = h(
+                'button',
+                { type: 'button', class: o.label === 'Rápido' ? 'btn btn-primary' : 'btn', 'data-buy-missing': o.supplierId, disabled: !o.affordable },
+                h('span', { class: 'missing-label', text: `${o.label} · ${o.totalText}` }),
+                h('small', { class: 'missing-sub', text: `${o.supplierName} · chega em ${o.minutes} min` }),
+              );
+              b.addEventListener('click', () => this.callbacks.onBuyMissing?.(o.supplierId));
+              return b;
+            }),
+          ),
+          m.options.every((o) => !o.affordable) ? h('p', { class: 'muted small', text: 'Caixa insuficiente para comprar tudo de uma vez.' }) : null,
+        )
+      : null;
     return [
+      ...(missingCard ? [missingCard] : []),
       h('label', { class: 'quote-extra', for: 'shop-filter' }, filter, h('span', { text: 'Só peças que servem no carro do box' })),
       ...(v.creditText ? [h('p', { class: 'muted small', text: v.creditText })] : []),
       h(

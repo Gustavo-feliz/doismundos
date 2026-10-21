@@ -308,3 +308,47 @@ kbd {
   animation: none;
   transition: none;
 }
+
+/* ---------- Computador: "comprar o que falta" (Prompt 24) ---------- */
+.missing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(242, 194, 48, 0.45);
+  background: var(--accent-soft);
+}
+.missing-head {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+}
+.missing-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.missing-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  color: var(--accent);
+}
+.missing-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.missing-options .btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+.missing-sub {
+  font: 500 0.78rem/1.2 var(--font);
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.85;
+}
