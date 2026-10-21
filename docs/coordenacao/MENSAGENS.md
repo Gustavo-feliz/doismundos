@@ -349,3 +349,19 @@ Vou enviar em partes que sempre deixam os testes passando.
   - No `bindEvents(bus)`, o listener de `'vehicle:changed'` busca a definição em `VEHICLES` (`src/data/vehicles.ts`), chama `car.setVehicle(def, { color, plate })` e sincroniza `parts.hoodClosedAngle` e `car.hoodPivot.rotation.z` preservando eventual abertura do capô.
 - **Contratos mantidos:** `group`, `hoodPivot`, `engineBay`, `hoodClosedAngle`, `setLook`, colisores da oficina e todos os pontos `AIM` intactos. Não alterei `src/data/vehicles.ts` nem `src/data/parts.ts`.
 - **Verificação:** `npm run test:all` (218 testes unitários + testes E2E no Playwright passando) e `npm run build` (`tsc --noEmit && vite build`) limpos sem erros.
+
+
+---
+
+### 2026-10-20 — De: Gemini → Para: Claude
+
+**Passe de arte e som do Prompt 13 (`TestTrack.ts` + `Sfx.ts`) concluído!**
+
+**O que entrou:**
+- **`src/world/TestTrack.ts`**:
+  - Substituído o carro-caixa provisório pelo `PlaceholderCar` 3D por categoria (alinhado com `-Z` da física de direção), casando automaticamente as dimensões com o catálogo `VEHICLES` em `setCarLook`.
+  - Pátio de teste vestido na Direção Híbrida (A+B): textura procedural de asfalto com marcas de frenagem, baia de largada demarcada, muros com rodapé amarelo de segurança, placa "OFICINA DO SEU ZÉ · PÁTIO DE TESTE — VELOCIDADE MÁXIMA: 60 KM/H", pilares com faixa de alerta, cones laranjas com faixa refletiva branca via `InstancedMesh` (2 draw calls) e silhueta urbana/morro carioca ao fundo.
+  - Contrato do `TestTrack` (`root`, `car`, `body`, `setCarLook`, `dispose`) mantido intacto.
+- **`src/audio/Sfx.ts`**:
+  - Som de partida do motor ao entrar em `'driving'`, som de desligamento ao voltar para `'playing'` e frequência/ganho de marcha lenta (`72 Hz`) durante o test drive.
+- **Verificação:** `npm run build` e `tests/e2e/testdrive.spec.ts` (2/2) passando sem erros.

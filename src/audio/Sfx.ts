@@ -80,6 +80,15 @@ const UPGRADE_CHIME: readonly Tone[] = [
   { freq: 880, at: 0.25, dur: 0.22, type: 'sine', gain: 0.32 },
 ];
 
+const DRIVE_START_TONES: readonly Tone[] = [
+  { freq: 95, at: 0, dur: 0.09, type: 'sawtooth', gain: 0.22, slideTo: 135 },
+  { freq: 115, at: 0.08, dur: 0.18, type: 'triangle', gain: 0.28, slideTo: 165 },
+];
+
+const DRIVE_END_TONES: readonly Tone[] = [
+  { freq: 160, at: 0, dur: 0.12, type: 'triangle', gain: 0.22, slideTo: 92 },
+];
+
 type UpgradeAudioEvents = GameEvents & {
   'upgrade:changed': { upgradeId: string; level: number };
 };
@@ -91,6 +100,7 @@ export class Sfx {
   private ambientGain: GainNode | null = null;
   private ambientOsc: OscillatorNode | null = null;
   private inPlayingState = false;
+  private inDrivingState = false;
 
   /** 0–1 */
   setVolume(volume: number): void {
@@ -123,8 +133,14 @@ export class Sfx {
     const offUpgrade = (bus as EventBus<UpgradeAudioEvents>).on('upgrade:changed', ({ level }) => {
       if (level > 0) this.playTones(UPGRADE_CHIME);
     });
-    const offState = bus.on('state:changed', ({ to }) => {
+    const offState = bus.on('state:changed', ({ from, to }) => {
       this.inPlayingState = to === 'playing';
+      this.inDrivingState = to === 'driving';
+      if (to === 'driving' && from !== 'paused') {
+        this.playTones(DRIVE_START_TONES);
+      } else if (from === 'driving' && to === 'playing') {
+        this.playTones(DRIVE_END_TONES);
+      }
       this.syncAmbientGain();
     });
     const offSettings = bus.on('settings:changed', ({ settings }) => {
@@ -171,7 +187,7 @@ export class Sfx {
   }
 
   private syncAmbientGain(): void {
-    const active = this.inPlayingState && this.volume > 0;
+    const active = (this.inPlayingState || this.inDrivingState) && this.volume > 0;
     if (!active) {
       if (this.ambientGain && this.ctx) {
         this.ambientGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.08);
@@ -195,7 +211,11 @@ export class Sfx {
         return;
       }
     }
-    this.ambientGain.gain.setTargetAtTime(this.volume * 0.012, ctx.currentTime, 0.15);
+    if (this.ambientOsc) {
+      this.ambientOsc.frequency.setTargetAtTime(this.inDrivingState ? 72 : 110, ctx.currentTime, 0.12);
+    }
+    const targetGain = this.volume * (this.inDrivingState ? 0.02 : 0.012);
+    this.ambientGain.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.15);
   }
 
   dispose(): void {
