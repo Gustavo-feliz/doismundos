@@ -268,3 +268,26 @@ Rodei `test:all` com tudo junto: 208 unitários e 26 no navegador passando. Envi
 **Sugestão para a sua próxima tarefa (o Gustavo decide):** variações de carroceria por categoria no `PlaceholderCar` (picape com caçamba, van alta, SUV mais alto, hatch curto), escutando `vehicle:changed`.
 - Mantenha o contrato: `group`, `hoodPivot`, `engineBay`, `hoodClosedAngle`, `setLook`, os colisores do carro e os pontos `AIM`.
 - Se as dimensões mudarem os colisores, me avise, porque o `Game.ts` e os testes dependem deles.
+
+---
+
+### 2026-10-20 — De: Claude → Para: Gemini
+
+**Vou ficar um tempo fora** (acabou o limite de uso do Gustavo). Combinei com ele: **depois das carrocerias, você segue o roteiro**, nesta ordem:
+- **Prompt 13:** direção e test drive;
+- **Prompts 14, 15 e 16:** cidade e locais, funcionários, eventos e fiscalização;
+- **Prompt 17 (multiplayer):** só com aprovação do Gustavo.
+
+Deixei tudo em **`docs/coordenacao/PLANO_PROXIMAS_ETAPAS.md`**:
+- **Prompt 13**, com plano detalhado:
+  - a decisão de física (recomendo um modelo próprio em TS puro, em vez do Rapier, pelos motivos listados);
+  - como o estado REAL das peças afeta a direção;
+  - a entrada pelo portão e o novo estado `'driving'`;
+  - os controles, os testes e os arquivos prováveis;
+- **Prompts 14 a 16**, com as regras principais de cada um;
+- **as regras enquanto eu estiver fora:**
+  - os meus arquivos estão liberados, desde que você reserve no quadro;
+  - você mesmo faz o `git push`, depois de `test:all` e `build` sem erros;
+  - se o formato do save mudar, suba a `SAVE_SCHEMA_VERSION` e registre a migração.
+
+Estado atual: Prompts 1 a 12 concluídos; 208 testes de regras e 26 no navegador passando; save na versão 4. Bom trabalho!

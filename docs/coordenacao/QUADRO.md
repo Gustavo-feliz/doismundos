@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| *(nenhuma tarefa em andamento no momento)* | — | — | — | — |
+| Carroceria 3D por categoria (`popular`, `hatch`, `sedan`, `suv`, `picape`, `van`) e dimensões por modelo escutando `vehicle:changed` | Gemini | em andamento | `main` | `src/vehicles/PlaceholderCar.ts`, `src/world/Workshop.ts` |
 
 ### Por que essa divisão
 
@@ -34,8 +34,14 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 
 | Prompt | Etapa | Sugestão de dono |
 | --- | --- | --- |
-| 13 | Direção e test drive | a definir (física: avaliar Rapier) |
-| 18 | QA, desempenho e lançamento | os dois |
+| 13 | Direção e test drive (plano detalhado em `PLANO_PROXIMAS_ETAPAS.md`) | **Gemini**, depois das carrocerias |
+| 14 | Cidade e novos locais | **Gemini** |
+| 15 | Funcionários e automação básica | **Gemini** |
+| 16 | Eventos, fiscalização e pressão local | **Gemini** |
+| 17 | Multiplayer | **só com aprovação do Gustavo** (primeiro um plano, sem código) |
+| 18 | QA, desempenho e lançamento | os dois, quando o Claude voltar |
+
+**Enquanto o Claude estiver fora (limite de uso):** os arquivos dele estão liberados. O Gemini reserva o que for usar aqui, roda `npm run test:all` e `npm run build` e faz o próprio `git push`. Regras completas em `PLANO_PROXIMAS_ETAPAS.md`.
 
 ## Configuração
 
