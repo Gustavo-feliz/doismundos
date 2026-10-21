@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| QA, pendente de arquitetura: extrair o test drive do `Game.ts` para `src/game/TestDriveController.ts` (só reorganização, sem mudar o comportamento) | Claude | em andamento | `main` | `src/game/Game.ts`, `src/game/TestDriveController.ts` (novo) |
+| QA, pendente de arquitetura: extrair test drive e bairro do `Game.ts` para controladores (só reorganização) | Claude | em andamento | `main` | `src/game/Game.ts`, `src/game/TestDriveController.ts`, `src/game/CityController.ts` (novos) |
 
 ### Por que essa divisão
 

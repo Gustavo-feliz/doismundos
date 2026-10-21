@@ -38,17 +38,11 @@ import { ORDER_STATUS_LABEL } from '../orders/types';
 import { WORKSHOP_SIZE } from '../world/Workshop';
 import { DrivingHud } from '../ui/DrivingHud';
 import { TestDriveController } from './TestDriveController';
+import { CityController } from './CityController';
 import { CITY_NEIGHBORHOOD } from '../data/city';
-import {
-  initialCityWorldState,
-  nearestCityLocation,
-  scrapLotValue,
-  stepCityWorld,
-  validateCityData,
-} from '../city/rules';
-import type { CityLocationId, CityWorldState } from '../city/types';
-import type { CityNeighborhood } from '../world/CityNeighborhood';
-import { CityHud, type CityPanelView } from '../ui/CityHud';
+import { scrapLotValue, validateCityData } from '../city/rules';
+import type { CityLocationId } from '../city/types';
+import { CityHud } from '../ui/CityHud';
 import { FUNCTIONAL_TESTS, SCANNER } from '../data/diagnostics';
 import { EQUIPMENT, EQUIPMENT_IDS } from '../data/equipment';
 import { NEW_GAME } from '../data/newGame';
@@ -109,17 +103,9 @@ export class Game {
   private readonly drivingHud: DrivingHud;
   /** Test drive (Prompt 13): pátio, física, câmera e painel. A oficina fica intacta enquanto isso. */
   private readonly testDrive: TestDriveController;
-  /** Bairro de São Cristóvão (Prompt 14): carregado sob demanda na primeira saída para a rua. */
-  private city: CityNeighborhood | null = null;
-  private cityLoading = false;
-  private cityActive = false;
-  private cityWorld: CityWorldState = initialCityWorldState(CITY_NEIGHBORHOOD);
-  private cityPlayer: FirstPersonController | null = null;
-  private cityInteraction: InteractionSystem | null = null;
-  private readonly cityVisited = new Set<CityLocationId>(['oficina']);
-  private cityLoadMs = 0;
-  private cityPanelMode: 'ferro-velho' | 'lanchonete' | 'mapa' = 'ferro-velho';
+  /** Bairro de São Cristóvão (Prompt 14): rua, locais e painéis. */
   private readonly cityHud: CityHud;
+  private readonly city: CityController;
   private smoothedFps = 60;
   private lastStaffClockMinute = NEW_GAME.startMinuteOfDay;
   private lastEventCheckDay = 1;
@@ -224,7 +210,7 @@ export class Game {
       },
       testDriveBlocked: () => this.testDrive.blockedReason(),
       onTestDrive: () => void this.testDrive.start(),
-      onExitToCity: () => void this.enterNeighborhood(),
+      onExitToCity: () => void this.city.enter(),
     });
     this.interaction = new InteractionSystem(this.workshop.raycastTargets, EQUIPMENT.interactionRange);
     for (const interactable of this.equipment.createInteractables()) this.interaction.register(interactable);
@@ -244,7 +230,7 @@ export class Game {
         activeVehicle: () => (this.session.activeCase ? this.session.getVehicle(this.activeVehicleId) : null),
         workshopRoot: () => this.workshop.root,
         reduceMotion: () => this.settings.reduceMotion,
-        canStart: () => this.state.is('playing') && !this.cityActive,
+        canStart: () => this.state.is('playing') && !this.city.active,
         onEnter: () => {
           this.player.halt();
           this.state.transition('driving');
@@ -261,12 +247,56 @@ export class Game {
       this.drivingHud,
     );
     this.cityHud = new CityHud(uiRoot, CITY_NEIGHBORHOOD, {
-      onSelectMarker: (id) => void this.visitCityLocation(id),
+      onSelectMarker: (id) => void this.city.visit(id),
       onSellScrap: () => this.act(this.session.sellScrap(CITY_NEIGHBORHOOD.scrapRecoveryFactor, this.moment()), 'concluido'),
       onBuySalvage: (partId) => this.act(this.session.buySalvagePart(partId, CITY_NEIGHBORHOOD.salvagePriceFactor, this.moment()), 'pegar'),
       onBuySnack: (snack) => this.act(this.session.buySnack(snack.id, CITY_NEIGHBORHOOD.snacks, this.moment()), 'ok'),
       onClosePanel: (reason) => this.closePanel(reason),
     });
+    this.city = new CityController(
+      {
+        scene: this.scene,
+        camera: this.camera,
+        input: this.input,
+        settings: () => this.settings,
+        workshopRoot: () => this.workshop.root,
+        workshopPlayer: () => this.player,
+        canEnter: () => this.state.is('playing') && !this.testDrive.active,
+        isPlaying: () => this.state.is('playing'),
+        enterPanel: () => this.enterPanel(),
+        closeWorkshopPanels: () => {
+          if (!this.state.is('panel')) return;
+          this.inspection.close();
+          this.stockPanel.close();
+          this.computer.close();
+          this.state.transition('playing');
+        },
+        openComputerAt: (tab) => {
+          if (!this.enterPanel()) return;
+          this.markFlag('abriu-computador');
+          if (tab === 'caixa') this.markFlag('viu-caixa');
+          this.computer.openAtTab(this.computerView(), tab);
+        },
+        advanceClock: (dt) => this.clock.advance(dt),
+        setPrompt: (prompt) => this.hud.setPrompt(prompt),
+        notify: (text, kind) => this.hud.notify(text, kind),
+        playSound: (name) => this.sfx.play(name),
+        assetFailed: (what, error) => this.assetFailed(what, error),
+        markDirty: () => {
+          this.needsRender = true;
+        },
+        panelData: () => {
+          const scrap = scrapLotValue(this.session.scrap, this.catalogs, CITY_NEIGHBORHOOD.scrapRecoveryFactor);
+          return {
+            cashText: formatBRL(this.session.cash),
+            scrapCount: scrap.count,
+            scrapTotalText: formatBRL(scrap.totalCents),
+            salvageOffers: this.session.salvageOffers(this.clock.day, CITY_NEIGHBORHOOD.salvagePriceFactor),
+          };
+        },
+      },
+      this.cityHud,
+    );
     this.inspection = new InspectionPanel(uiRoot, (reason) => this.closePanel(reason), {
       diagnosis: {
         onRunTest: (id) => this.runDiagnosticTest(id),
@@ -361,7 +391,7 @@ export class Game {
     this.drivingHud.dispose();
     this.cityHud.dispose();
     this.testDrive.dispose();
-    this.city?.dispose();
+    this.city.dispose();
     this.inspection.dispose();
     this.stockPanel.dispose();
     this.computer.dispose();
@@ -385,49 +415,8 @@ export class Game {
     }
     if (this.state.is('playing')) {
       const mouse = this.input.consumeMouseDelta();
-      if (this.cityActive && this.city && this.cityPlayer && this.cityInteraction) {
-        if (this.input.wasActionPressed('exitDrive')) {
-          this.exitNeighborhood();
-          return;
-        }
-        if (this.input.wasActionPressed('openMap')) {
-          this.openCityPanel('mapa');
-          return;
-        }
-        this.cityPlayer.update(dt, this.input.getMoveIntent(), mouse, this.settings);
-        this.cityWorld = stepCityWorld(this.cityWorld, dt, this.cityPlayer.position, CITY_NEIGHBORHOOD);
-        this.city.syncWorldState(this.cityWorld, this.settings.reduceMotion);
-        this.clock.advance(dt);
-        this.cityPlayer.applyToCamera(this.camera);
-        this.camera.updateMatrixWorld();
-        const rayPrompt = this.cityInteraction.update(this.camera);
-        const nearby = nearestCityLocation(this.cityPlayer.position, CITY_NEIGHBORHOOD);
-        this.hud.setPrompt(
-          rayPrompt ??
-            (nearby
-              ? {
-                  name: nearby.name,
-                  status: 'available',
-                  action: nearby.actionLabel,
-                  detail: nearby.subtitle,
-                }
-              : null),
-        );
-        if (this.input.wasActionPressed('interact')) {
-          if (rayPrompt) {
-            const result = this.cityInteraction.interact();
-            if (result?.message) this.hud.notify(result.message, result.ok ? 'ok' : 'blocked');
-          } else if (nearby) {
-            void this.visitCityLocation(nearby.id);
-          }
-        }
-        this.cityHud.updateHud({
-          playerX: this.cityPlayer.position.x,
-          playerZ: this.cityPlayer.position.z,
-          nearbyLocation: nearby,
-          visited: this.cityVisited,
-        });
-        this.needsRender = true;
+      if (this.city.active) {
+        this.city.update(dt, mouse);
       } else {
         // Equipamentos antes do jogador: os colisores (carro no alto, gaveta) já valem neste quadro.
         this.equipment.update(dt, this.player.position);
@@ -441,7 +430,7 @@ export class Game {
           if (result) this.hud.notify(result.message, result.ok ? 'ok' : 'blocked');
         }
         if (this.input.wasActionPressed('openMap')) {
-          void this.enterNeighborhood();
+          void this.city.enter();
         }
         this.updatePlayerMissionInput(dt);
         this.needsRender = true;
@@ -570,7 +559,7 @@ export class Game {
     if (this.inspection.isOpen) this.inspection.refresh(this.currentPanelViews());
     if (this.stockPanel.isOpen) this.stockPanel.refresh(buildStockView(this.session));
     if (this.computer.isOpen) this.computer.refresh(this.computerView());
-    if (this.cityHud.isPanelOpen) this.cityHud.refreshPanel(this.cityPanelView());
+    if (this.cityHud.isPanelOpen) this.cityHud.refreshPanel(this.city.panelView());
     this.panelVersion = this.session.version;
   }
 
@@ -753,165 +742,6 @@ export class Game {
 
   // --- Bairro e novos locais (Prompt 14) -----------------------------------
 
-  /** Sai da oficina para a Rua das Oficinas, carregando o bairro sob demanda. */
-  private async enterNeighborhood(): Promise<boolean> {
-    if (!this.state.is('playing') || this.cityLoading || this.cityActive || this.testDrive.active) return false;
-    if (!this.city) {
-      this.cityLoading = true;
-      const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      try {
-        const { buildCityNeighborhood } = await import('../world/CityNeighborhood');
-        this.city = buildCityNeighborhood(CITY_NEIGHBORHOOD);
-        this.city.root.visible = false;
-        this.scene.add(this.city.root);
-        this.cityPlayer = new FirstPersonController(this.city.colliders, CITY_NEIGHBORHOOD.spawn);
-        this.cityInteraction = new InteractionSystem(this.city.raycastTargets, CITY_NEIGHBORHOOD.interactRadius);
-        for (const it of this.city.createInteractables((id) => void this.visitCityLocation(id))) {
-          this.cityInteraction.register(it);
-        }
-        const elapsed = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
-        this.cityLoadMs = Math.max(1, Math.round(elapsed));
-      } catch (error) {
-        this.assetFailed('o bairro', error);
-        return false;
-      } finally {
-        this.cityLoading = false;
-      }
-    }
-    if (!this.state.is('playing') || !this.city || !this.cityPlayer) return false;
-    try {
-      await this.city.ensureLocationLoaded('oficina');
-    } catch (error) {
-      this.assetFailed('a rua da oficina', error);
-      return false;
-    }
-    this.cityActive = true;
-    this.cityVisited.add('oficina');
-    this.cityWorld = initialCityWorldState(CITY_NEIGHBORHOOD);
-    this.workshop.root.visible = false;
-    this.city.root.visible = true;
-    this.player.halt();
-    this.cityPlayer.respawn();
-    this.cityPlayer.applyToCamera(this.camera);
-    this.camera.updateMatrixWorld();
-    this.city.syncWorldState(this.cityWorld, this.settings.reduceMotion);
-    this.cityHud.setHudVisible(true);
-    this.cityHud.updateHud({
-      playerX: this.cityPlayer.position.x,
-      playerZ: this.cityPlayer.position.z,
-      nearbyLocation: nearestCityLocation(this.cityPlayer.position, CITY_NEIGHBORHOOD),
-      visited: this.cityVisited,
-    });
-    this.sfx.play('ok');
-    this.hud.notify('Bairro de São Cristóvão: caminhe até os locais ou aperte M para o mapa.', 'ok');
-    this.needsRender = true;
-    return true;
-  }
-
-  /** Volta da rua para dentro da oficina, preservando todo o estado. */
-  private exitNeighborhood(): boolean {
-    if (!this.cityActive) return false;
-    this.cityActive = false;
-    if (this.city) this.city.root.visible = false;
-    this.workshop.root.visible = true;
-    this.cityHud.setHudVisible(false);
-    this.cityHud.closePanel();
-    if (this.state.is('panel')) {
-      this.inspection.close();
-      this.stockPanel.close();
-      this.computer.close();
-      this.state.transition('playing');
-    }
-    this.player.applyToCamera(this.camera);
-    this.camera.updateMatrixWorld();
-    this.hud.setPrompt(null);
-    this.sfx.play('ok');
-    this.hud.notify('De volta à Oficina do Seu Zé.', 'ok');
-    this.needsRender = true;
-    return true;
-  }
-
-  /** Visita um dos 5 locais do bairro (carregando seus detalhes 3D sob demanda). */
-  private async visitCityLocation(id: CityLocationId): Promise<boolean> {
-    if (!this.cityActive) {
-      const entered = await this.enterNeighborhood();
-      if (!entered) return false;
-    }
-    if (id === 'oficina') {
-      return this.exitNeighborhood();
-    }
-    const loc = CITY_NEIGHBORHOOD.locations.find((l) => l.id === id);
-    if (!loc || !this.city || !this.cityPlayer) return false;
-
-    // Se já estiver com um painel aberto (ex.: clicou no Mapa Expandido), fecha antes de abrir o do local.
-    if (this.state.is('panel')) {
-      this.cityHud.closePanel();
-      this.computer.close();
-      this.stockPanel.close();
-      this.inspection.close();
-      this.state.transition('playing');
-    }
-
-    this.cityPlayer.teleport(loc.entrance.x, loc.entrance.z, loc.entrance.yaw, 0);
-    this.cityPlayer.applyToCamera(this.camera);
-    this.camera.updateMatrixWorld();
-    // Os detalhes 3D do local são enfeite: se falharem, o local funciona do mesmo jeito.
-    await this.city.ensureLocationLoaded(id).catch((error: unknown) => this.assetFailed('os detalhes deste local', error));
-    this.cityVisited.add(id);
-    this.cityHud.updateHud({
-      playerX: this.cityPlayer.position.x,
-      playerZ: this.cityPlayer.position.z,
-      nearbyLocation: loc,
-      visited: this.cityVisited,
-    });
-
-    switch (loc.actionKind) {
-      case 'open-shop':
-        if (this.enterPanel()) {
-          this.markFlag('abriu-computador');
-          this.computer.openAtTab(this.computerView(), 'loja');
-        }
-        break;
-      case 'open-bank':
-        if (this.enterPanel()) {
-          this.markFlag('abriu-computador');
-          this.markFlag('viu-caixa');
-          this.computer.openAtTab(this.computerView(), 'caixa');
-        }
-        break;
-      case 'open-scrapyard':
-        this.openCityPanel('ferro-velho');
-        break;
-      case 'open-snack':
-        this.openCityPanel('lanchonete');
-        break;
-      case 'return-workshop':
-        return this.exitNeighborhood();
-    }
-    this.needsRender = true;
-    return true;
-  }
-
-  private openCityPanel(mode: 'ferro-velho' | 'lanchonete' | 'mapa'): void {
-    this.cityPanelMode = mode;
-    if (!this.state.is('panel') && !this.enterPanel()) return;
-    this.cityHud.openPanel(this.cityPanelView());
-  }
-
-  private cityPanelView(): CityPanelView {
-    const scrap = scrapLotValue(this.session.scrap, this.catalogs, CITY_NEIGHBORHOOD.scrapRecoveryFactor);
-    return {
-      mode: this.cityPanelMode,
-      cashText: formatBRL(this.session.cash),
-      scrapCount: scrap.count,
-      scrapTotalText: formatBRL(scrap.totalCents),
-      salvageOffers: this.session.salvageOffers(this.clock.day, CITY_NEIGHBORHOOD.salvagePriceFactor),
-      snacks: CITY_NEIGHBORHOOD.snacks,
-      locations: CITY_NEIGHBORHOOD.locations,
-      visited: this.cityVisited,
-    };
-  }
-
   // --- Ferramentas e upgrades (Prompt 11) ------------------------------------
 
   private buyUpgrade(id: string): void {
@@ -1073,9 +903,7 @@ export class Game {
       return;
     }
     if (fresh && this.state.is('menu')) {
-      this.exitNeighborhood();
-      this.cityVisited.clear();
-      this.cityVisited.add('oficina');
+      this.city.resetForNewGame();
       this.player.respawn();
       this.clock.reset();
       this.lastStaffClockMinute = this.clock.absoluteMinutes;
@@ -1093,7 +921,7 @@ export class Game {
   private pause(): void {
     if (this.state.transition('paused')) {
       this.player.halt();
-      this.cityPlayer?.halt();
+      this.city.halt();
       this.input.exitPointerLock();
       void this.autosave();
     }
@@ -1101,7 +929,7 @@ export class Game {
 
   private quitToTitle(): void {
     this.testDrive.end(false);
-    this.exitNeighborhood();
+    this.city.exit();
     if (this.state.transition('menu')) {
       this.input.exitPointerLock();
       void this.autosave().finally(() => void this.refreshContinue());
@@ -1112,7 +940,7 @@ export class Game {
     document.body.dataset.state = state;
     this.hud.setVisible(state === 'playing' || state === 'panel' || (state === 'paused' && !this.testDrive.active));
     this.drivingHud.setVisible(state === 'driving' || (state === 'paused' && this.testDrive.active));
-    this.cityHud.setHudVisible(this.cityActive && (state === 'playing' || state === 'paused'));
+    this.cityHud.setHudVisible(this.city.active && (state === 'playing' || state === 'paused'));
     if (state !== 'panel') {
       this.inspection.close();
       this.stockPanel.close();
@@ -1252,7 +1080,7 @@ export class Game {
     const restored = GameSession.fromSnapshot(this.catalogs, this.content, game.session);
     if (!restored.ok) return { ok: false, message: restored.problems.slice(0, 3).join('; ') };
     this.testDrive.end(false);
-    this.exitNeighborhood();
+    this.city.exit();
     this.session = restored.session;
     this.resetMissions(new MissionTracker(this.missionLib, game.missions));
     this.clock.setAbsolute(game.clockMinutes);
@@ -1315,8 +1143,8 @@ export class Game {
   private updateDiagnostics(): void {
     const info = this.renderer.info;
     const canvas = this.renderer.domElement;
-    const activePlayer = this.cityActive && this.cityPlayer ? this.cityPlayer : this.player;
-    const activeInteraction = this.cityActive && this.cityInteraction ? this.cityInteraction : this.interaction;
+    const activePlayer = this.city.player ?? this.player;
+    const activeInteraction = this.city.interaction ?? this.interaction;
     const perfMem = (performance as unknown as { memory?: { usedJSHeapSize?: number } }).memory;
     const memoryMb = perfMem?.usedJSHeapSize ? Math.round((perfMem.usedJSHeapSize / (1024 * 1024)) * 10) / 10 : null;
     window.__GAME_DIAGNOSTICS__ = {
@@ -1381,20 +1209,7 @@ export class Game {
         historyIds: this.session.events.history.map((h) => h.eventId),
       },
       driving: this.testDrive.diagnostics(),
-      city: this.cityActive && this.city && this.cityPlayer
-        ? {
-            active: true,
-            nearbyLocation: nearestCityLocation(this.cityPlayer.position, CITY_NEIGHBORHOOD)?.id ?? null,
-            visited: [...this.cityVisited],
-            loadedLocations: [...this.city.loadedLocations],
-            trafficCount: this.cityWorld.traffic.length,
-            pedestrianCount: this.cityWorld.pedestrians.length,
-            trafficStopped: this.cityWorld.traffic.some((t) => t.stoppedForPlayer),
-            loadMs: this.cityLoadMs,
-            fps: this.smoothedFps,
-            memoryMb,
-          }
-        : null,
+      city: this.city.diagnostics(this.smoothedFps, memoryMb),
       diagnosis: this.diagnosisDiagnostics(),
       equipment: this.equipment.snapshot(),
       canvas: { width: canvas.width, height: canvas.height, clientWidth: canvas.clientWidth, clientHeight: canvas.clientHeight },
@@ -1475,13 +1290,13 @@ export class Game {
         return this.state.current;
       },
       testDriveBlocked: () => this.testDrive.blockedReason(),
-      enterNeighborhood: () => this.enterNeighborhood(),
-      visitCityLocation: (id) => this.visitCityLocation(id as CityLocationId),
-      exitNeighborhood: () => this.exitNeighborhood(),
+      enterNeighborhood: () => this.city.enter(),
+      visitCityLocation: (id) => this.city.visit(id as CityLocationId),
+      exitNeighborhood: () => this.city.exit(),
       skipDialogueLine: () => this.handleDialogueStep(this.dialogue.skip()),
       bypassPointerLock: () => this.input.setLockBypass(true),
       teleport: (x, z, yaw, pitch = 0) => {
-        const target = this.cityActive && this.cityPlayer ? this.cityPlayer : this.player;
+        const target = this.city.player ?? this.player;
         target.teleport(x, z, yaw, pitch);
         target.applyToCamera(this.camera);
         return this.state.current;
