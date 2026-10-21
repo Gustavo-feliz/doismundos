@@ -7,7 +7,8 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| _(nenhuma em andamento: Prompt 18 concluído; `Game.ts` dividido em controladores; arquivos liberados)_ | — | — | `main` | — |
+| Prompt 24: UI e UX de produto (sistema de design, HUD, menus, configurações completas, remapeamento de teclas, acessibilidade) | Claude | em andamento | `main` | `src/ui/**`, `src/styles.css`, `index.html`, `src/save/settings.ts`, `src/data/controls.ts`, `src/data/strings/**` (novo), `src/core/Input.ts`, `src/game/Game.ts`, `public/fonts/**` (novo), `tests/e2e/*.spec.ts`, `tests/unit/core.test.ts`, `tests/unit/settings*.test.ts` |
+| Prompts 19 → 20 → 21 → 22 → 25 (áudio): arte, oficina, bairro, carros e personagens, som | Gemini | a começar (pelo 19) | `main` | `src/world/**` (incl. novos `materials/`, `assets.ts`, `ArtSandbox.ts`, `workshop/`, `city/`), `src/vehicles/PlaceholderCar.ts` e `src/vehicles/models/**`, `src/characters/**` (novo), `src/utils/canvasTextures.ts`, `src/utils/mergeStatic.ts`, `src/audio/**`, `src/data/lighting.ts` (novo), `public/` (exceto `public/fonts/`), `docs/arte/**` |
 
 ### Por que essa divisão
 
