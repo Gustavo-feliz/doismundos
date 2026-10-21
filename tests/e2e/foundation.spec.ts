@@ -147,7 +147,7 @@ test('configurações são salvas e sobrevivem ao recarregar', async ({ page }) 
   await expect(page.locator('#set-fov')).toHaveValue('90');
   await expect(page.locator('#set-quality')).toHaveValue('baixa');
 
-  await page.getByRole('button', { name: 'Restaurar padrão' }).click();
+  await page.getByRole('button', { name: 'Restaurar tudo' }).click();
   await expect(page.locator('#set-fov')).toHaveValue('75');
   expect(errors).toEqual([]);
 });

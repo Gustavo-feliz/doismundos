@@ -1,5 +1,6 @@
 import type { ComputerView } from '../orders/views';
 import { h } from './dom';
+import { isActionKey, kbd } from './keys';
 
 export interface ComputerCallbacks {
   onBuy(partId: string, supplierId: string): void;
@@ -66,7 +67,7 @@ export class ComputerPanel {
     this.body = h('div', { class: 'computer-body', 'data-testid': 'computer-body' });
     this.notice = h('p', { class: 'panel-notice', role: 'status', 'aria-live': 'polite', 'data-testid': 'computer-notice', hidden: true });
     this.cash = h('strong', { 'data-testid': 'computer-cash' });
-    const close = h('button', { type: 'button', class: 'btn btn-primary panel-close' }, h('kbd', { text: 'E' }), ' Voltar ao trabalho');
+    const close = h('button', { type: 'button', class: 'btn btn-primary panel-close' }, kbd('interact'), ' Voltar ao trabalho');
     close.addEventListener('click', () => this.callbacks.onClose('resume'));
     const nav = h('nav', { class: 'panel-tabs', role: 'tablist', 'aria-label': 'Computador' });
     TABS.forEach(([tab, label], i) => {
@@ -733,7 +734,7 @@ export class ComputerPanel {
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (!this.isOpen) return;
-    if (event.code === 'KeyE' || event.key === 'Escape') {
+    if (isActionKey('interact', event.code) || event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       if (!event.repeat) this.callbacks.onClose(event.key === 'Escape' ? 'pause' : 'resume');

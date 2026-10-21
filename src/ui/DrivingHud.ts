@@ -1,5 +1,6 @@
 import type { WarningLight } from '../driving/types';
 import { h, setText } from './dom';
+import { kbd } from './keys';
 
 export interface DrivingHudData {
   speedKmh: number;
@@ -74,18 +75,18 @@ export class DrivingHud {
         'div',
         { class: 'drive-help' },
         'Test drive · ',
-        h('kbd', { text: 'W' }),
+        kbd('forward'),
         ' acelerar · ',
-        h('kbd', { text: 'S' }),
+        kbd('backward'),
         ' frear/ré · ',
-        h('kbd', { text: 'A' }),
-        h('kbd', { text: 'D' }),
+        kbd('left'),
+        kbd('right'),
         ' esterçar · ',
-        h('kbd', { text: 'Espaço' }),
+        kbd('handbrake'),
         ' freio de mão · ',
-        h('kbd', { text: 'R' }),
+        kbd('resetCar'),
         ' recomeçar · ',
-        h('kbd', { text: 'F' }),
+        kbd('exitDrive'),
         ' voltar à oficina',
       ),
     );

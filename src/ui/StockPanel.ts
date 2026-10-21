@@ -1,5 +1,6 @@
 import type { StockView } from '../orders/views';
 import { h } from './dom';
+import { isActionKey, kbd } from './keys';
 
 export interface StockCallbacks {
   onTake(lotId: string): void;
@@ -23,7 +24,7 @@ export class StockPanel {
   ) {
     this.body = h('div', { class: 'stock-body' });
     this.notice = h('p', { class: 'panel-notice', role: 'status', 'aria-live': 'polite', hidden: true });
-    const close = h('button', { type: 'button', class: 'btn btn-primary panel-close', 'data-testid': 'stock-close' }, h('kbd', { text: 'E' }), ' Voltar ao trabalho');
+    const close = h('button', { type: 'button', class: 'btn btn-primary panel-close', 'data-testid': 'stock-close' }, kbd('interact'), ' Voltar ao trabalho');
     close.addEventListener('click', () => this.callbacks.onClose('resume'));
     this.element = h(
       'div',
@@ -114,7 +115,7 @@ export class StockPanel {
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (!this.isOpen) return;
-    if (event.code === 'KeyE' || event.key === 'Escape') {
+    if (isActionKey('interact', event.code) || event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       if (!event.repeat) this.callbacks.onClose(event.key === 'Escape' ? 'pause' : 'resume');

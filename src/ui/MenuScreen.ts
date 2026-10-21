@@ -1,4 +1,4 @@
-import { CONTROL_HINTS } from '../data/controls';
+import { controlHints } from './keys';
 import type { Settings } from '../save/settings';
 import { h } from './dom';
 import { SettingsPanel } from './SettingsPanel';
@@ -31,6 +31,7 @@ export class MenuScreen {
   private readonly mainPanel: HTMLElement;
   private readonly controlsPanel: HTMLElement;
   private readonly settingsPanel: HTMLElement;
+  private readonly controlsList: HTMLElement;
   private readonly primary: HTMLButtonElement;
   private readonly quit: HTMLButtonElement;
   private readonly continueSaved: HTMLButtonElement;
@@ -76,15 +77,12 @@ export class MenuScreen {
       return btn;
     };
 
+    this.controlsList = h('dl', { class: 'controls-list' });
     this.controlsPanel = h(
       'section',
       { class: 'menu-panel', 'aria-label': 'Controles', hidden: true },
       h('h2', { text: 'Controles' }),
-      h(
-        'dl',
-        { class: 'controls-list' },
-        ...CONTROL_HINTS.flatMap(([keys, action]) => [h('dt', {}, h('kbd', { text: keys })), h('dd', { text: action })]),
-      ),
+      this.controlsList,
       h('p', { class: 'menu-note', text: 'Clique em "Iniciar" para capturar o mouse. Pressione Esc a qualquer momento para pausar e liberá-lo.' }),
       back(),
     );
@@ -175,6 +173,10 @@ export class MenuScreen {
 
   private showPanel(panel: Panel): void {
     this.panel = panel;
+    if (panel === 'controls') {
+      // Montada na hora: mostra as teclas que o jogador escolheu.
+      this.controlsList.replaceChildren(...controlHints().flatMap(([keys, action]) => [h('dt', {}, h('kbd', { text: keys })), h('dd', { text: action })]));
+    }
     this.mainPanel.hidden = panel !== 'main';
     this.controlsPanel.hidden = panel !== 'controls';
     this.settingsPanel.hidden = panel !== 'settings';

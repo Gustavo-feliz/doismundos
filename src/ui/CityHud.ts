@@ -7,6 +7,7 @@ import type {
 } from '../city/types';
 import { formatBRL } from '../economy/money';
 import { h } from './dom';
+import { isActionKey, kbd } from './keys';
 
 export interface CityHudCallbacks {
   onSelectMarker(id: CityLocationId): void;
@@ -121,11 +122,11 @@ export class CityHud {
         { class: 'city-hud-controls' },
         h('kbd', { text: 'W A S D' }),
         ' andar · ',
-        h('kbd', { text: 'E' }),
+        kbd('interact'),
         ' entrar · ',
-        h('kbd', { text: 'M' }),
+        kbd('openMap'),
         ' mapa · ',
-        h('kbd', { text: 'F' }),
+        kbd('exitDrive'),
         ' voltar à oficina',
       ),
     );
@@ -146,7 +147,7 @@ export class CityHud {
     const closeBtn = h(
       'button',
       { type: 'button', class: 'btn btn-primary panel-close', 'data-testid': 'city-panel-close' },
-      h('kbd', { text: 'E' }),
+      kbd('interact'),
       ' Voltar à rua',
     );
     closeBtn.addEventListener('click', () => this.callbacks.onClosePanel('resume'));
@@ -380,7 +381,7 @@ export class CityHud {
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (!this.isPanelOpen) return;
-    if (event.code === 'KeyE' || event.key === 'Escape') {
+    if (isActionKey('interact', event.code) || event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       if (!event.repeat) this.callbacks.onClosePanel(event.key === 'Escape' ? 'pause' : 'resume');

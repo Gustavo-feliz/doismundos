@@ -1,5 +1,6 @@
 import type { InteractionPrompt } from '../interaction/types';
 import { h, setText } from './dom';
+import { kbd } from './keys';
 
 export interface HudData {
   money: string;
@@ -63,7 +64,7 @@ export class Hud {
       { class: 'hud-panel hud-tip', 'data-testid': 'hud-tip', hidden: true },
       h('span', { class: 'hud-label', text: 'Dica do Seu Zé' }),
       this.tipText,
-      h('span', { class: 'hud-tip-hint' }, h('kbd', { text: 'H' }), ' ocultar dicas'),
+      h('span', { class: 'hud-tip-hint' }, kbd('toggleTips'), ' ocultar dicas'),
     );
     this.dialogue = h('div', { class: 'hud-dialogue', 'data-testid': 'hud-dialogue', role: 'log', 'aria-live': 'polite', hidden: true });
     this.tool = h('strong', { class: 'hud-value', 'data-testid': 'hud-held' });
@@ -131,7 +132,7 @@ export class Hud {
     this.promptDetail.hidden = !prompt.detail;
     this.promptAction.replaceChildren(
       ...(prompt.status === 'available'
-        ? [h('kbd', { text: 'E' }), ` ${prompt.action ?? ''}`]
+        ? [kbd('interact'), ` ${prompt.action ?? ''}`]
         : [h('span', { class: 'prompt-status', text: STATUS_LABEL[prompt.status] }), ` · ${prompt.reason ?? ''}`]),
     );
   }
@@ -155,7 +156,7 @@ export class Hud {
       h('p', { class: 'dialogue-text', 'data-testid': 'dialogue-text', text: d.text }),
       d.options
         ? h('ol', { class: 'dialogue-options', 'data-testid': 'dialogue-options' }, ...d.options.map((label, i) => h('li', {}, h('kbd', { text: String(i + 1) }), ` ${label}`)))
-        : h('div', { class: 'dialogue-skip' }, h('kbd', { text: 'Enter' }), ' pular'),
+        : h('div', { class: 'dialogue-skip' }, kbd('skipLine'), ' pular'),
     );
   }
 

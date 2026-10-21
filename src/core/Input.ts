@@ -36,7 +36,7 @@ export class Input {
 
   constructor(
     private readonly lockTarget: HTMLElement,
-    private readonly bindings: KeyBindings,
+    private bindings: KeyBindings,
     private readonly onLockChange: (locked: boolean) => void,
   ) {
     this.listen(window, 'keydown', this.handleKeyDown);
@@ -47,6 +47,13 @@ export class Input {
     this.listen(document, 'mousedown', this.handleMouseDown);
     this.listen(document, 'mouseup', this.handleMouseUp);
     this.listen(document, 'pointerlockchange', this.handleLockChange);
+  }
+
+  /** Troca o mapa de teclas (remapeamento nas configurações). */
+  setBindings(bindings: KeyBindings): void {
+    this.bindings = bindings;
+    this.pressed.clear();
+    this.justPressed.clear();
   }
 
   /** true se a ação foi acionada neste quadro (borda de subida). */

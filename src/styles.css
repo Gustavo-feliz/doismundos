@@ -8,6 +8,18 @@
   --accent: #f2c230;
   --accent-ink: #1b1b1b;
   --danger: #ff6b5b;
+  /* Cores de estado (Prompt 24): sempre por variável, para o modo daltônico trocar tudo de uma vez. */
+  --ok: #44be6e;
+  --ok-text: #8fe0a9;
+  --ok-soft: #c9f2d6;
+  --warn: #f0a030;
+  --warn-text: #f6c071;
+  --warn-soft: #fbd99f;
+  --danger-text: #ffb0a6;
+  --danger-soft: #ffd0ca;
+  --danger-strong: #ff8f80;
+  --danger-deep: #a3261c;
+  --text-scale: 1;
   --radius: 10px;
   --font: 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-display: 'Arial Black', 'Segoe UI Black', Impact, var(--font);
@@ -160,7 +172,7 @@ body[data-state='paused'] .menu-card {
   border-radius: 8px;
   background: rgba(255, 107, 91, 0.12);
   border: 1px solid rgba(255, 107, 91, 0.4);
-  color: #ffd0ca;
+  color: var(--danger-soft);
   line-height: 1.4;
 }
 .menu-panel {
@@ -317,7 +329,7 @@ select {
   transition: width 90ms, height 90ms, margin 90ms;
 }
 .crosshair[data-status='busy'] {
-  border-color: #f0a030;
+  border-color: var(--warn);
 }
 .crosshair[data-status='unavailable'] {
   border-color: #b8bec4;
@@ -378,7 +390,7 @@ body[data-state='paused'] .interact-prompt {
   color: #d5d9dd;
 }
 .interact-prompt[data-status='unavailable'] .prompt-status {
-  color: #ff8f80;
+  color: var(--danger-strong);
 }
 
 /* Retorno de ações */
@@ -396,7 +408,7 @@ body[data-state='paused'] .interact-prompt {
 }
 .hud-notice[data-kind='blocked'] {
   border-color: rgba(255, 107, 91, 0.6);
-  color: #ffd0ca;
+  color: var(--danger-soft);
 }
 .hud-notice.is-fresh {
   animation: notice-in 160ms ease-out;
@@ -468,7 +480,7 @@ body[data-state='paused'] .interact-prompt {
   padding: 0.8rem;
   border-radius: 6px;
   font: 0.9rem/1.45 Consolas, 'Courier New', monospace;
-  color: #ffd0ca;
+  color: var(--danger-soft);
 }
 .error-card .btn {
   align-self: flex-start;
@@ -638,18 +650,18 @@ body[data-state='paused'] .interact-prompt {
 }
 .badge[data-band='boa'] {
   background: rgba(68, 190, 110, 0.18);
-  color: #8fe0a9;
+  color: var(--ok-text);
 }
 .badge[data-band='gasta'] {
   background: rgba(240, 160, 48, 0.18);
-  color: #f6c071;
+  color: var(--warn-text);
 }
 .badge[data-band='critica'] {
   background: rgba(255, 107, 91, 0.2);
-  color: #ffb0a6;
+  color: var(--danger-text);
 }
 .badge[data-band='falhou'] {
-  background: #a3261c;
+  background: var(--danger-deep);
   color: #fff;
 }
 .badge[data-band='removida'] {
@@ -770,7 +782,7 @@ body[data-state='paused'] .interact-prompt {
 .panel-notice[data-kind='blocked'] {
   background: rgba(255, 107, 91, 0.12);
   border-color: rgba(255, 107, 91, 0.45);
-  color: #ffd0ca;
+  color: var(--danger-soft);
 }
 .parts-section {
   display: flex;
@@ -873,11 +885,11 @@ body[data-state='paused'] .interact-prompt {
   color: var(--muted);
 }
 .test-status[data-status='feito'] {
-  color: #8fe0a9;
+  color: var(--ok-text);
   font-weight: 700;
 }
 .test-status[data-status='bloqueado'] {
-  color: #f6c071;
+  color: var(--warn-text);
 }
 .hyp-row {
   display: grid;
@@ -920,13 +932,13 @@ body[data-state='paused'] .interact-prompt {
   transition: width 260ms ease-out;
 }
 .hyp-fill[data-label='media'] {
-  background: #f0a030;
+  background: var(--warn);
 }
 .hyp-fill[data-label='alta'] {
-  background: #44be6e;
+  background: var(--ok);
 }
 .hyp-value[data-label='alta'] {
-  color: #8fe0a9;
+  color: var(--ok-text);
 }
 .conclude-row {
   display: flex;
@@ -1057,7 +1069,7 @@ body[data-state='paused'] .interact-prompt {
   white-space: nowrap;
 }
 .quote-table tr[data-kind='desconto'] .num {
-  color: #8fe0a9;
+  color: var(--ok-text);
 }
 .quote-table tfoot th {
   border-bottom: none;
@@ -1073,7 +1085,7 @@ body[data-state='paused'] .interact-prompt {
   border-radius: 7px;
   background: rgba(255, 107, 91, 0.1);
   border: 1px solid rgba(255, 107, 91, 0.35);
-  color: #ffd0ca;
+  color: var(--danger-soft);
   font-size: 0.88rem;
 }
 .test-ok {
@@ -1085,10 +1097,10 @@ body[data-state='paused'] .interact-prompt {
   font-size: 0.88rem;
 }
 .evidence-list li[data-decision='aceita'] {
-  border-left: 3px solid #44be6e;
+  border-left: 3px solid var(--ok);
 }
 .evidence-list li[data-decision='contraproposta'] {
-  border-left: 3px solid #f0a030;
+  border-left: 3px solid var(--warn);
 }
 .evidence-list li[data-decision='recusa'],
 .evidence-list li[data-kind='erro'] {
@@ -1117,7 +1129,7 @@ body[data-state='paused'] .interact-prompt {
   margin: 0;
   padding-left: 1.1rem;
   font-size: 0.85rem;
-  color: #f6c071;
+  color: var(--warn-text);
 }
 .stock-card {
   width: min(680px, 100%);
@@ -1152,7 +1164,7 @@ body[data-state='paused'] .interact-prompt {
 .panel-notice[data-kind='warn'] {
   background: rgba(240, 160, 48, 0.12);
   border-color: rgba(240, 160, 48, 0.45);
-  color: #fbd99f;
+  color: var(--warn-soft);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -1163,10 +1175,10 @@ body[data-state='paused'] .interact-prompt {
 /* ---------- Entrega, avaliação e computador de gestão ---------- */
 .avail {
   font-size: 0.78rem;
-  color: #f6c071;
+  color: var(--warn-text);
 }
 .avail.ok {
-  color: #8fe0a9;
+  color: var(--ok-text);
 }
 .delivery {
   display: flex;
@@ -1189,17 +1201,17 @@ body[data-state='paused'] .interact-prompt {
   line-height: 1.45;
 }
 .review-reasons li[data-effect='positivo']::marker {
-  color: #44be6e;
+  color: var(--ok);
 }
 .review-reasons li[data-effect='negativo'] {
-  color: #ffb0a6;
+  color: var(--danger-text);
 }
 dd.positive {
-  color: #8fe0a9;
+  color: var(--ok-text);
   font-weight: 700;
 }
 dd.negative {
-  color: #ff8f80;
+  color: var(--danger-strong);
   font-weight: 700;
 }
 .computer-card {
@@ -1256,10 +1268,10 @@ dd.negative {
   font-variant-numeric: tabular-nums;
 }
 .ledger-amount[data-kind='receita'] {
-  color: #8fe0a9;
+  color: var(--ok-text);
 }
 .ledger-amount[data-kind='despesa'] {
-  color: #ffb0a6;
+  color: var(--danger-text);
 }
 .rep-score {
   font: 900 2rem/1 var(--font-display);
@@ -1284,7 +1296,7 @@ dd.negative {
 .menu-message[data-kind='ok'] {
   background: rgba(68, 190, 110, 0.12);
   border-color: rgba(68, 190, 110, 0.45);
-  color: #c9f2d6;
+  color: var(--ok-soft);
 }
 .save-slots {
   list-style: none;
@@ -1314,11 +1326,11 @@ dd.negative {
   color: var(--muted);
 }
 .save-state[data-state='ok'] {
-  color: #8fe0a9;
+  color: var(--ok-text);
 }
 .save-state[data-state='corrompido'],
 .save-state[data-state='recuperavel'] {
-  color: #ffb0a6;
+  color: var(--danger-text);
 }
 .save-actions,
 .save-confirm {
@@ -1792,4 +1804,86 @@ dd.negative {
     top: 84px;
     max-width: min(520px, calc(100vw - 32px));
   }
+}
+
+/* ---------- Prompt 24: acessibilidade (texto e daltonismo) e configurações ---------- */
+/* Tamanho do texto: a interface usa rem, então escalar a raiz escala tudo (o canvas 3D não muda). */
+html {
+  font-size: calc(16px * var(--text-scale));
+}
+/* Protanopia e deuteranopia: azul × laranja (paleta Okabe-Ito), nunca vermelho × verde. */
+:root[data-color-vision='protanopia'],
+:root[data-color-vision='deuteranopia'] {
+  --ok: #3a9ad9;
+  --ok-text: #9fd0f5;
+  --ok-soft: #cfe7f9;
+  --warn: #e8c547;
+  --warn-text: #f1da7e;
+  --warn-soft: #f7e9b5;
+  --danger: #e8743b;
+  --danger-text: #f5b28f;
+  --danger-soft: #fad3bf;
+  --danger-strong: #f09060;
+  --danger-deep: #9c4314;
+}
+/* Tritanopia: verde-azulado × magenta (sem azul × amarelo). */
+:root[data-color-vision='tritanopia'] {
+  --ok: #2bb38f;
+  --ok-text: #8fe3cb;
+  --ok-soft: #c8f2e5;
+  --warn: #ff8fab;
+  --warn-text: #ffb8c9;
+  --warn-soft: #ffd9e2;
+  --danger: #e0457b;
+  --danger-text: #f2a0bd;
+  --danger-soft: #f8cddc;
+  --danger-strong: #ea6f99;
+  --danger-deep: #8f1f47;
+}
+.menu-panel {
+  max-height: min(78vh, 760px);
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+.settings-section {
+  margin: 0;
+  padding: 0.6rem 0.9rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.settings-section legend {
+  padding: 0 0.4rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+.settings-label {
+  color: var(--text);
+}
+.settings-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.btn-key {
+  min-width: 7.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.btn-key[data-waiting='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.settings-key-message {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+.settings-section select {
+  max-width: 16rem;
 }

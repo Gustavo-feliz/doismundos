@@ -8,6 +8,7 @@ import { h } from './dom';
 import { formatKm, formatKmAgo, formatMinutes } from './format';
 import { QuoteTab, type QuoteCallbacks } from './QuoteTab';
 import { ServiceTab, type ServiceCallbacks } from './ServiceTab';
+import { isActionKey, kbd } from './keys';
 
 export type PanelCloseReason = 'resume' | 'pause';
 export type PanelTab = 'diagnostico' | 'orcamento' | 'servico' | 'pecas';
@@ -96,7 +97,7 @@ export class InspectionPanel {
     this.list = h('div', { class: 'parts-list', role: 'listbox', 'aria-label': 'Peças do veículo', 'data-testid': 'parts-list' });
     this.detail = h('section', { class: 'part-detail', 'aria-live': 'polite', 'data-testid': 'part-detail' });
 
-    const close = h('button', { type: 'button', class: 'btn btn-primary panel-close', 'data-testid': 'panel-close' }, h('kbd', { text: 'E' }), ' Voltar ao trabalho');
+    const close = h('button', { type: 'button', class: 'btn btn-primary panel-close', 'data-testid': 'panel-close' }, kbd('interact'), ' Voltar ao trabalho');
     close.addEventListener('click', () => this.onClose('resume'));
 
     this.element = h(
@@ -326,7 +327,7 @@ export class InspectionPanel {
     if (!this.isOpen) return;
     // Teclas tratadas aqui não seguem para o jogo: senão o mesmo E que fecha
     // o painel seria lido como "interagir" e o reabriria no quadro seguinte.
-    if (event.code === 'KeyE') {
+    if (isActionKey('interact', event.code)) {
       event.preventDefault();
       event.stopPropagation();
       if (!event.repeat) this.onClose('resume');

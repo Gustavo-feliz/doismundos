@@ -6,7 +6,16 @@
 export const SETTINGS_SCHEMA_VERSION = 1;
 export const SETTINGS_STORAGE_KEY = 'simulador-mecanico:settings';
 
+import { sanitizeOverrides, type BindingOverrides } from '../core/bindings';
+
 export type GraphicsQuality = 'baixa' | 'media' | 'alta';
+/** Modo para daltonismo (GDD §20.4): troca as cores de estado por paletas seguras. */
+export type ColorVision = 'normal' | 'protanopia' | 'deuteranopia' | 'tritanopia';
+export const COLOR_VISIONS: readonly ColorVision[] = ['normal', 'protanopia', 'deuteranopia', 'tritanopia'];
+/** Limite de quadros por segundo (0 = sem limite, segue o monitor). */
+export const FPS_LIMITS = [0, 30, 60, 120] as const;
+/** Velocidade do relógio do jogo (GDD §20.4: velocidade do tempo). */
+export const TIME_SPEEDS = [0.5, 1, 2] as const;
 
 export interface Settings {
   schemaVersion: typeof SETTINGS_SCHEMA_VERSION;
@@ -19,12 +28,20 @@ export interface Settings {
   diagnosisAssist: boolean;
   /** Volume dos efeitos sonoros, 0–1. */
   sfxVolume: number;
+  /** Escala do texto da interface (Prompt 24). */
+  textScale: number;
+  colorVision: ColorVision;
+  fpsLimit: (typeof FPS_LIMITS)[number];
+  timeSpeed: (typeof TIME_SPEEDS)[number];
+  /** Teclas trocadas pelo jogador (só as diferentes do padrão). */
+  keyBindings: BindingOverrides;
 }
 
 export const SETTINGS_LIMITS = {
   mouseSensitivity: { min: 0.2, max: 3, step: 0.05 },
   fov: { min: 60, max: 100, step: 1 },
   sfxVolume: { min: 0, max: 1, step: 0.05 },
+  textScale: { min: 0.85, max: 1.5, step: 0.05 },
 } as const;
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -36,6 +53,11 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   quality: 'alta',
   diagnosisAssist: true,
   sfxVolume: 0.6,
+  textScale: 1,
+  colorVision: 'normal',
+  fpsLimit: 0,
+  timeSpeed: 1,
+  keyBindings: {},
 };
 
 const QUALITIES: readonly GraphicsQuality[] = ['baixa', 'media', 'alta'];
@@ -74,6 +96,12 @@ export function parseSettings(raw: unknown): Settings {
     // Campo novo na mesma versão: quem já tinha preferências salvas recebe o padrão.
     diagnosisAssist: typeof r.diagnosisAssist === 'boolean' ? r.diagnosisAssist : DEFAULT_SETTINGS.diagnosisAssist,
     sfxVolume: clampNumber(r.sfxVolume, 0, 1, DEFAULT_SETTINGS.sfxVolume),
+    // Campos do Prompt 24 (mesma versão: quem já tinha preferências recebe o padrão).
+    textScale: Math.round(clampNumber(r.textScale, SETTINGS_LIMITS.textScale.min, SETTINGS_LIMITS.textScale.max, DEFAULT_SETTINGS.textScale) * 100) / 100,
+    colorVision: COLOR_VISIONS.includes(r.colorVision as ColorVision) ? (r.colorVision as ColorVision) : DEFAULT_SETTINGS.colorVision,
+    fpsLimit: (FPS_LIMITS as readonly number[]).includes(r.fpsLimit as number) ? (r.fpsLimit as Settings['fpsLimit']) : DEFAULT_SETTINGS.fpsLimit,
+    timeSpeed: (TIME_SPEEDS as readonly number[]).includes(r.timeSpeed as number) ? (r.timeSpeed as Settings['timeSpeed']) : DEFAULT_SETTINGS.timeSpeed,
+    keyBindings: sanitizeOverrides(r.keyBindings),
   };
 }
 

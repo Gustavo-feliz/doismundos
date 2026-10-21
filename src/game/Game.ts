@@ -37,6 +37,8 @@ import { validateSessionSnapshot } from '../save/sessionSnapshot';
 import { ORDER_STATUS_LABEL } from '../orders/types';
 import { WORKSHOP_SIZE } from '../world/Workshop';
 import { DrivingHud } from '../ui/DrivingHud';
+import { resolveBindings } from '../core/bindings';
+import { setUiBindings } from '../ui/keys';
 import { TestDriveController } from './TestDriveController';
 import { CityController } from './CityController';
 import { CITY_NEIGHBORHOOD } from '../data/city';
@@ -374,6 +376,7 @@ export class Game {
       () => this.render(),
       (error) => this.fail('O jogo encontrou um erro e foi interrompido', error),
     );
+    this.loop.setFpsLimit(this.settings.fpsLimit);
 
     this.state.transition('menu');
     if (DEBUG) this.installDebugHooks();
@@ -1131,6 +1134,16 @@ export class Game {
     this.maxDpr = profile.maxDpr;
     this.sfx.setVolume(settings.sfxVolume);
     this.workshop.setShadowQuality(profile.shadows, profile.shadowMapSize);
+    // Prompt 24: teclas, tempo, FPS, texto e cores valem na hora.
+    const bindings = resolveBindings(settings.keyBindings);
+    this.input.setBindings(bindings);
+    setUiBindings(bindings);
+    this.clock.setSpeed(settings.timeSpeed);
+    (this.loop as Loop | undefined)?.setFpsLimit(settings.fpsLimit);
+    const root = document.documentElement;
+    root.style.setProperty('--text-scale', String(settings.textScale));
+    root.dataset.colorVision = settings.colorVision;
+    root.dataset.reduceMotion = String(settings.reduceMotion);
     this.needsRender = true;
     if (persist && !this.settingsStore.save(settings)) {
       showToast('Não foi possível salvar as configurações neste navegador.');

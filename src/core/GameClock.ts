@@ -24,9 +24,17 @@ export class GameClock {
     this.totalMinutes = options.startMinuteOfDay;
   }
 
+  /** Multiplicador da velocidade do tempo (configuração do jogador; 1 = normal). */
+  private speed = 1;
+
+  setSpeed(multiplier: number): void {
+    if (!Number.isFinite(multiplier) || multiplier <= 0) throw new RangeError(`velocidade do tempo inválida: ${multiplier}`);
+    this.speed = multiplier;
+  }
+
   advance(realSeconds: number): void {
     if (!Number.isFinite(realSeconds) || realSeconds <= 0) return;
-    this.totalMinutes += realSeconds * this.options.minutesPerRealSecond;
+    this.totalMinutes += realSeconds * this.options.minutesPerRealSecond * this.speed;
   }
 
   /** Minuto absoluto desde o início do jogo (para prazos e entregas). */
