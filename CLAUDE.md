@@ -12,7 +12,7 @@ Stack: **Three.js + Vite + TypeScript**. Multiplayer (ASP.NET Core + SignalR) s�
 Implemente **somente o escopo da etapa atual**. Não simule funcionalidades futuras como se estivessem prontas.
 
 ## Estado e comandos
-Etapas concluídas: **Prompts 1–16, 18 (QA) e 24 (UI/UX)**. O Prompt 17 (multiplayer) espera a aprovação do Gustavo; o plano está em `docs/plano-multiplayer.md`. Relatório de QA, checklist manual e limitações: `docs/QA.md`. Balanceamento: `docs/balanceamento.md`. Próximo roteiro (polimento, Prompts 19–26): `docs/roadmap-polimento.md`.
+Etapas concluídas: **Prompts 1–16, 18 (QA), 23 (abertura) e 24 (UI/UX)**. O Prompt 17 (multiplayer) espera a aprovação do Gustavo; o plano está em `docs/plano-multiplayer.md`. Relatório de QA, checklist manual e limitações: `docs/QA.md`. Balanceamento: `docs/balanceamento.md`. Próximo roteiro (polimento, Prompts 19–26): `docs/roadmap-polimento.md`.
 - `npm run dev` (porta 5188) · `npm run build` · `npm test` (Vitest, unitários) · `npm run test:e2e` (Playwright) · `npm run test:prod` (fumaça no build de produção) · `npm run test:all`
 - Node 24 em `C:\Program Files\nodejs`; no Bash, prefixe `export PATH="/c/Program Files/nodejs:$PATH"` se `npm` não for achado.
 - Testes e2e entram no jogo via `window.__GAME_TEST_HOOKS__` (só em dev/`?debug`), porque o headless não captura o mouse. Leia `__GAME_DIAGNOSTICS__` só depois de esperar alguns quadros.

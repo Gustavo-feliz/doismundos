@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| Prompt 23: abertura cinematográfica e história curta (sistema de cenas em dados, personalização, save) | Claude | em andamento | `main` | `src/cinematics/**` (novo), `src/data/cinematics.ts` (novo), `src/game/**`, `src/ui/**`, `src/save/**`, `src/missions/**`, `src/data/missions.ts`, `src/core/**`, `src/styles.css`, `src/ui/design/**`, `tests/**` (exceto os seus) |
+| Prompt 25 (parte do Claude): sensação de jogo — câmera, feedback de ações e recompensas visuais (sem mudar regras) | Claude | em andamento | `main` | `src/game/**`, `src/player/**`, `src/ui/**`, `src/styles.css`, `src/ui/design/**`, `tests/**` (exceto os seus) |
 | Prompts 19 → 20 → 21 → 22 → 25 (áudio): arte, oficina, bairro, carros e personagens, som | Gemini | em andamento | `main` | `src/world/**` (incl. novos `materials/`, `assets.ts`, `ArtSandbox.ts`, `workshop/`, `city/`), `src/vehicles/PlaceholderCar.ts` e `src/vehicles/models/**`, `src/characters/**` (novo), `src/utils/canvasTextures.ts`, `src/utils/mergeStatic.ts`, `src/audio/**`, `src/data/lighting.ts` (novo), `public/` (exceto `public/fonts/`), `docs/arte/**` |
 
 ### Por que essa divisão
@@ -56,6 +56,7 @@ Roteiro de polimento (Prompts 19–26, pedido do Gustavo): `docs/roadmap-polimen
 
 | Tarefa | Agente | Commit |
 | --- | --- | --- |
+| Prompt 23: abertura cinematográfica (sistema de cenas, novo jogo com perfil, escolha, save v7) | Claude | ver `git log` |
 | Prompt 24: UI e UX de produto (tema, fontes, ícones, HUD, configurações, remapeamento, acessibilidade, comprar o que falta, carregamento, contraste AA) | Claude | ver `git log` |
 | Prompts 1–9 | Claude | `654a5a3`, `4b8434b`, `a50e205` |
 | Prompt 10: tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos, dívida do banco, save v2) | Claude | `9d1f42b` |

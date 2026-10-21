@@ -45,6 +45,7 @@
 | 16 | Eventos, fiscalização e pressão local (`src/events/`, `src/data/events.ts`, seção na aba Oficina do `ComputerPanel`): sistema de eventos reutilizável com gatilho, cooldown, escolhas sempre recuperáveis, histórico e efeitos no caixa e reputação. |
 
 | 18 | QA (Claude): auditoria contra o GDD, 3 problemas graves corrigidos (garimpo ilimitado, folha opcional, eventos repetíveis), falha de carregamento tratada, three.js em arquivo separado, `npm run test:prod`, teste de longo prazo. Relatório em `docs/QA.md`. Save versão 6. |
+| 23 | Abertura (Claude): sistema de cenas em dados (`src/cinematics/`, `src/data/cinematics.ts`), novo jogo com nome e tratamento, abertura de 7 tomadas com escolha, estado `cutscene`, save versão 7 com o perfil. |
 | 24 | UI/UX (Claude): tema e fontes, ícones, HUD com avisos empilhados, configurações em seções com remapeamento de teclas, tamanho de texto, modo daltônico, limite de FPS, velocidade do tempo; "comprar o que falta"; tela de carregamento; contraste AA testado. |
 
 **Testes atuais:** 242 testes de regras, 31 no navegador e 1 no build de produção, todos passando. **O modo solo está concluído e auditado; o Prompt 17 (multiplayer) exige aprovação do Gustavo. O plano de rede está em `docs/plano-multiplayer.md`.**

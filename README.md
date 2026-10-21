@@ -407,6 +407,36 @@ Detalhes e avaliação do Rapier: [docs/fisica.md](docs/fisica.md).
 - **Trânsito e pedestres:** 2 veículos e 3 pedestres com movimento puro e determinístico (`src/city/rules.ts`), marcados como temporários (`PLACEHOLDER_`). Os carros param antes da faixa de pedestres quando o jogador atravessa.
 - **Desempenho medido** (teste automático E2E em Chromium): carregamento inicial do bairro em ~5–15 ms, ~60 FPS estáveis, ~45 chamadas de desenho, ~1.200 triângulos e ~25–35 MB de JS heap (`performance.memory` quando exposto pelo Chromium).
 
+## Abertura e história (Prompt 23)
+
+**Novo jogo.** "Iniciar jogo" pede:
+- **o nome**, usado nas falas;
+- **como o Seu Zé te chama:** sobrinho, sobrinha ou só pelo nome.
+
+Depois, dá para **ver a história** ou **pular a abertura**.
+
+**A abertura** (até cerca de 2 minutos, em `src/data/cinematics.ts`) tem 7 tomadas:
+1. A ligação à noite.
+2. A Rua das Oficinas de manhã.
+3. O Seu Zé com as chaves.
+4. O portão subindo.
+5. A bancada do Tonhão.
+6. Uma escolha: "reabrir" ou "ver se dá pra salvar".
+7. O Marcão buzinando.
+
+**Controles da abertura:**
+- legendas sempre ligadas;
+- **Enter** avança a fala; **1/2** escolhem a resposta;
+- **segurar Esc por 1 s** pula tudo;
+- com "reduzir movimento", a câmera corta em vez de deslizar.
+
+**Depois da abertura:**
+- o botão **Começar a trabalhar** leva ao tutorial;
+- a escolha muda a primeira fala do Seu Zé;
+- o perfil fica no save (versão 7), e carregar um jogo nunca repete a abertura.
+
+**O sistema de cenas** (`src/cinematics/`) é orientado por dados e validado ao abrir o jogo. Os personagens em 3D (Prompt 22) entram nas tomadas quando os modelos ficarem prontos; até lá, a câmera e as legendas contam a história.
+
 ## Interface e acessibilidade (Prompt 24)
 
 **Identidade visual.**
