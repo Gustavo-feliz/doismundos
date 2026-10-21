@@ -1,15 +1,14 @@
 # Quadro de tarefas — Claude × Gemini
 
-**Endereço único deste arquivo:** `C:\Users\Gustavo\Desktop\jogo mecanico\docs\coordenacao\QUADRO.md`.
 Atualize sempre que pegar, terminar ou abandonar uma tarefa. Não edite a linha do outro agente: peça no `MENSAGENS.md`.
 Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 ## Em andamento / propostas
 
-| Tarefa | Agente | Status | Branch | Arquivos reservados |
+| Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| Prompt 10: tutorial com o Seu Zé e Ato 1 (missões, objetivos, diálogos) | Claude | em andamento | `main` (pasta do Claude) | `src/missions/**` (novo), `src/data/missions.ts` (novo), `src/game/Game.ts`, `src/game/GameSession.ts`, `src/save/**`, `src/ui/` (tutorial), `src/vite-env.d.ts` |
-| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | em andamento: referências visuais para o Gustavo escolher | `gemini/arte-som` (pasta `jogo mecanico (gemini)`) | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
+| Prompt 10: tutorial com o Seu Zé e Ato 1 (missões, objetivos, diálogos) | Claude | em andamento | `main` | `src/missions/**` (novo), `src/data/missions.ts` (novo), `src/game/Game.ts`, `src/game/GameSession.ts`, `src/save/**`, `src/ui/` (tutorial), `src/vite-env.d.ts` |
+| Passe de arte e som (GDD §20): direção visual, modelos e texturas da oficina e do carro, sons de ferramentas e ambiente; destaque visual do tutorial (evento `tutorial:highlight`) | Gemini | em andamento: referências visuais para o Gustavo escolher | `main` | `src/world/**`, `src/vehicles/PlaceholderCar.ts`, `src/utils/canvasTextures.ts`, `src/audio/**`, `public/` (assets novos) |
 
 ### Por que essa divisão
 
@@ -41,10 +40,9 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | 13 | Direção e test drive | a definir (física: avaliar Rapier) |
 | 18 | QA, desempenho e lançamento | os dois |
 
-## Configuração pendente (precisa do Gustavo)
+## Configuração
 
-- [x] Pasta do Gemini criada: `C:\Users\Gustavo\Desktop\jogo mecanico (gemini)`, branch `gemini/arte-som`, portas 5288/4288, dependências instaladas.
-- [ ] Gustavo: abrir essa pasta no Antigravity.
+- [x] Os dois agentes trabalham na mesma pasta (`jogo mecanico`), na `main`, cada um nos seus arquivos. A pasta separada (worktree) foi descartada: o Antigravity não a abria.
 - [x] Direção visual: o Gustavo autorizou o Gemini a gerar as duas imagens de referência; ele escolhe depois.
 
 ## Concluídas
