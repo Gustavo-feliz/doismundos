@@ -18,7 +18,7 @@ npm run preview      # serve o pacote de produção: http://127.0.0.1:4188
 | Comando | O que roda |
 | --- | --- |
 | `npm test` | Regras (Vitest): 242 testes em 18 arquivos. |
-| `npm run test:e2e` | Navegador (Playwright, Chromium): 31 testes no servidor de desenvolvimento. |
+| `npm run test:e2e` | Navegador (Playwright, Chromium): 32 testes no servidor de desenvolvimento, incluindo o orçamento de desempenho. |
 | `npm run test:prod` | Gera o build e roda a fumaça no **pacote de produção**. |
 | `npm run test:all` | Tipos + regras + navegador. |
 
@@ -30,7 +30,7 @@ npm run preview      # serve o pacote de produção: http://127.0.0.1:4188
 | --- | --- |
 | `tsc --noEmit` | sem erros |
 | `npm test` | 242 de 242 passando |
-| `npm run test:e2e` | 31 de 31 passando, 1 execução |
+| `npm run test:e2e` | 32 de 32 passando (com o orçamento de desempenho) |
 | `npm run test:prod` | 1 de 1 passando: abre, joga, test drive e bairro carregam, console sem erros |
 | `npm run build` | ok, sem aviso de tamanho |
 | `npm audit` | 0 vulnerabilidades |
@@ -78,6 +78,22 @@ Medido com Chromium em modo de teste, 1280×720, máquina de desenvolvimento do 
 | Bairro | 47 | 1.024 | ~29 MB |
 
 Tempo até o primeiro quadro do jogo: ~2,3 s (servidor de desenvolvimento). O pátio e o bairro carregam sob demanda, em arquivos de 4 a 6 kB.
+
+### Orçamento de desempenho (GDD §22)
+
+O teste `tests/e2e/desempenho.spec.ts` falha se uma mudança passar do **teto**, o que barra regressões. A **meta** é onde queremos chegar.
+
+| Medida | Teto (teste) | Meta | Hoje |
+| --- | --- | --- | --- |
+| Oficina: chamadas de desenho | 500 | 250 | 458 (acima da meta) |
+| Oficina: triângulos | 60.000 | 50.000 | ~25.800 |
+| Pátio de teste: chamadas | 200 | 150 | 104 |
+| Bairro: chamadas | 150 | 120 | 47 |
+| Memória JS | 150 MB | 100 MB | ~31 MB |
+| Carregamento até o primeiro quadro (dev) | 10 s | 3 s | ~2,3 s |
+| Pacote do jogo (sem o three.js) | — | ≤ 500 kB | 365 kB |
+
+Quando a oficina chegar à meta (≤ 250 chamadas), abaixe o teto do teste junto.
 
 ## 5. O que está concluído de verdade (e como foi verificado)
 
