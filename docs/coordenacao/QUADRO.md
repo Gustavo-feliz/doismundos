@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| QA, pendente de arquitetura: extrair test drive e bairro do `Game.ts` para controladores (só reorganização) | Claude | em andamento | `main` | `src/game/Game.ts`, `src/game/TestDriveController.ts`, `src/game/CityController.ts` (novos) |
+| _(nenhuma em andamento: Prompt 18 concluído; `Game.ts` dividido em controladores; arquivos liberados)_ | — | — | `main` | — |
 
 ### Por que essa divisão
 

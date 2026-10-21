@@ -50,6 +50,9 @@ npm run preview      # serve o pacote de produção: http://127.0.0.1:4188
 | Média | **Pacote principal de 939 kB** (aviso no build). | O three.js foi para um arquivo próprio (576 kB, fica no cache entre versões); o jogo tem 365 kB. |
 | Baixa | **Janela de 761 a 1100 px:** o objetivo cobria o caixa e a hora; as abas do computador sumiam na borda. | Novo posicionamento; as abas quebram linha. |
 | Baixa | Teste da equipe lia o diagnóstico antes do quadro seguinte (instável). | Espera os quadros, como manda o `CLAUDE.md`. |
+| Baixa | A lanchonete recebia preço e tempo da tela. | A tela manda só o ID; preço e tempo vêm do cardápio. |
+| Baixa | Na rua, sair (F) ou abrir o mapa (M) encerrava o quadro no meio, pulando a limpeza da entrada e o diagnóstico. | O quadro termina normalmente (veio junto com a extração do bairro). |
+| Média (arquitetura) | `Game.ts` com ~1.700 linhas. | Test drive e bairro extraídos para `src/game/TestDriveController.ts` e `src/game/CityController.ts`, ligados por interfaces pequenas. O `Game.ts` agora tem ~1.320 linhas, com o mesmo comportamento e a suíte inteira passando. |
 
 **Save:** passou para a **versão 6**, com migrações 1 → 6 testadas.
 
@@ -58,8 +61,8 @@ npm run preview      # serve o pacote de produção: http://127.0.0.1:4188
 | Severidade | Ponto | Recomendação |
 | --- | --- | --- |
 | Média | **Desempenho da oficina:** 458 chamadas de desenho e ~25,8 mil triângulos depois do passe de arte (antes eram 216). | Juntar os objetos estáticos de decoração por material (`mergeGeometries`) e usar instancing nos repetidos (pneus, caixas, latas). No nível "baixa", esconder a decoração. Meta: ≤ 250 chamadas. |
-| Média | **Arquivos grandes:** `src/game/Game.ts` (~1.700 linhas) e `src/game/GameSession.ts` (~1.450). O GDD pede módulos sem arquivo monolítico. | Extrair controladores por área (test drive, bairro, equipe, eventos) para `src/game/controllers/`, sem mudar o comportamento, um por vez e com a suíte rodando a cada passo. |
-| Baixa | Lanchonete (`buySnack`) e sucata (`sellScrap`) recebem valor e fator de quem chama. Hoje esses valores vêm de dados, não do jogador. | Passar só o ID e ler o valor dos dados dentro da sessão, como foi feito no garimpo. |
+| Média | **`src/game/GameSession.ts` com ~1.450 linhas.** O `Game.ts` já foi dividido. | Mover equipe, eventos e bairro da sessão para serviços que recebem o estado e devolvem o novo estado (como as regras puras já fazem), um por vez e com a suíte rodando. |
+| Baixa | A sucata (`sellScrap`) recebe o fator de quem chama; hoje ele vem de dados, não do jogador. | Ler o fator dos dados dentro da sessão. |
 | Baixa | Não existe remapeamento de teclas (GDD §20.4). | Entra junto com a tela de controles completa. |
 | Baixa | Se o arquivo do pátio ou do bairro falhar uma vez, o navegador só tenta de novo depois de recarregar a página. | A mensagem já pede para recarregar. |
 | Baixa | Aviso do Vite sobre `import "./dev-ports"` sem extensão no `vite.config.ts`. | Inofensivo hoje; ajustar quando o carregador nativo de config virar padrão. |
