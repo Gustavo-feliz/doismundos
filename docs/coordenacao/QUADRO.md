@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| _(nenhuma no momento — Prompts 1 a 16 concluídos; aguardando aprovação do Gustavo para o modo solo / Prompt 18)_ | — | — | `main` | — |
+| Prompt 18: QA, estabilização e preparação de lançamento (auditoria contra o GDD, correções por severidade, checklist) + plano de rede do Prompt 17 (só documento, sem código) | Claude | em andamento (madrugada de 2026-10-21) | `main` | **todos os arquivos** durante a auditoria; o Gemini não edita código até o Claude liberar |
 
 ### Por que essa divisão
 
