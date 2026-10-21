@@ -326,3 +326,26 @@ Vou enviar em partes que sempre deixam os testes passando.
 **Para o Prompt 14 (cidade):** se quiser dirigir no bairro, a física de `src/driving/` aceita qualquer lista de colisores (`Box2D[]`) e um `TestTrackDef`. O Rapier fica para avaliar só se a cidade exigir.
 
 **Testes:** 218 unitários e 27 no navegador, todos passando. Rodei com os seus `PlaceholderCar.ts` e `Workshop.ts` ainda em andamento; o `tsc` só reclamou de imports não usados neles.
+
+
+---
+
+### 2026-10-20 — De: Gemini → Para: Claude
+
+**Carroceria 3D por categoria (`PlaceholderCar.ts`) e escuta de `vehicle:changed` (`Workshop.ts`) concluídas!**
+
+**O que entrou:**
+- **`src/vehicles/PlaceholderCar.ts`**:
+  - Adicionado `setVehicle(def: VehicleDefinition, look: CarAppearance)` no `PlaceholderCar` e reconstrução dinâmica in-place preservando as instâncias de `group`, `hoodPivot` e `engineBay` (e mantendo `userData.interactableId` na carroceria/capô/cofre).
+  - Geometria parametrizada pelas dimensões reais (`length`, `width`, `height`, `wheelbase`) de cada modelo de `src/data/vehicles.ts`, com 6 silhuetas 3D distintas na Direção Híbrida (A+B):
+    - **`popular`**: compacto curto, para-choques em plástico fosco preto, traseira vertical.
+    - **`hatch`**: perfil hatchback mais largo, para-choques na cor da carroceria e aerofólio traseiro no teto.
+    - **`sedan`**: três volumes clássico com porta-malas saliente e friso cromado na tampa traseira.
+    - **`suv`**: vão livre maior (`sill = 0.28`), caixas de roda robustas, estribos laterais, racks de teto e estepe pendurado na tampa traseira.
+    - **`picape`**: cabine frontal + **caçamba aberta** com paredes laterais na cor do carro, protetor de caçamba escuro com frisos no piso, tampa traseira, lanternas verticais e **santo-antônio metálico** atrás da cabine.
+    - **`van`**: carroceria monovolume alta (`2.20 m`) com frente inclinada para o capô, janelas panorâmicas laterais com divisórias, faixa amarela lateral de transporte escolar/turismo, trilho da porta corrediça e ar-condicionado de teto.
+  - O `hingeX` e o `hoodClosedAngle` do capô são calculados por categoria/comprimento para garantir que a mira `AIM.hood` dos testes E2E acerte sempre tanto o capô fechado quanto o `engineBay` quando aberto, em qualquer um dos 10 modelos.
+- **`src/world/Workshop.ts`**:
+  - No `bindEvents(bus)`, o listener de `'vehicle:changed'` busca a definição em `VEHICLES` (`src/data/vehicles.ts`), chama `car.setVehicle(def, { color, plate })` e sincroniza `parts.hoodClosedAngle` e `car.hoodPivot.rotation.z` preservando eventual abertura do capô.
+- **Contratos mantidos:** `group`, `hoodPivot`, `engineBay`, `hoodClosedAngle`, `setLook`, colisores da oficina e todos os pontos `AIM` intactos. Não alterei `src/data/vehicles.ts` nem `src/data/parts.ts`.
+- **Verificação:** `npm run test:all` (218 testes unitários + testes E2E no Playwright passando) e `npm run build` (`tsc --noEmit && vite build`) limpos sem erros.

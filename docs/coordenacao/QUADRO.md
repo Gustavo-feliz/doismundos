@@ -7,7 +7,7 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
-| Carroceria 3D por categoria (`popular`, `hatch`, `sedan`, `suv`, `picape`, `van`) e dimensões por modelo escutando `vehicle:changed` | Gemini | em andamento | `main` | `src/vehicles/PlaceholderCar.ts`, `src/world/Workshop.ts` |
+| _(nenhuma no momento — pronto para iniciar o Prompt 14 ou polimento do `TestTrack`)_ | — | — | `main` | — |
 
 ### Por que essa divisão
 
@@ -56,4 +56,5 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | Prompt 11: ferramentas e upgrades (5 itens × 3 níveis, efeitos nas regras, aba Oficina, save v3) | Claude | ver `git log` |
 | Prompt 12: 10 carros, peças por linha e ano, OS geradas por semente, enciclopédia, save v4; ligados no `Game.ts` os `bindEvents` da cena e do som | Claude | ver `git log` |
 | Prompt 13: test drive (física própria, estado `driving`, pátio sob demanda, painel do carro) | Claude | ver `git log` |
-| Passe de arte e som (GDD §20, Direção Híbrida A+B) + destaque do tutorial (`setHighlight`) + som/ambiência no barramento (`Sfx.bindEvents`) + visuais dos 5 upgrades (`setUpgradeLevel`) | Gemini | `e4ede73` + commit final |
+| Passe de arte e som (GDD §20, Direção Híbrida A+B) + destaque do tutorial (`setHighlight`) + som/ambiência no barramento (`Sfx.bindEvents`) + visuais dos 5 upgrades (`setUpgradeLevel`) | Gemini | `e4ede73`, `4a3c499` |
+| Carroceria 3D por categoria (`popular`, `hatch`, `sedan`, `suv`, `picape`, `van`) e dimensões por modelo (`VEHICLES`) escutando `vehicle:changed` | Gemini | ver `git log` |

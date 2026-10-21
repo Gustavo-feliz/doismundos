@@ -3,7 +3,8 @@ import type { EventBus } from '../core/EventBus';
 import type { GameEvents } from '../core/events';
 import type { SpawnPoint } from '../player/FirstPersonController';
 import { buildPlaceholderCar, type CarAppearance } from '../vehicles/PlaceholderCar';
-import type { VehicleDefinition } from '../vehicles/types';
+import type { VehicleCategory, VehicleDefinition } from '../vehicles/types';
+import { VEHICLES } from '../data/vehicles';
 import {
   concreteFloorRoughnessTexture,
   concreteFloorTexture,
@@ -269,27 +270,29 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
   const highlight = buildHighlightSystem(root, car.group);
   const upgrades = buildUpgradeVisuals(m, lift.group, bench.group, cabinet.group, shelves, lighting.hall);
 
+  const parts: WorkshopParts = {
+    liftCarriage: lift.carriage,
+    car: car.group,
+    hoodPivot: car.hoodPivot,
+    hoodClosedAngle: car.hoodClosedAngle,
+    carCollider,
+    carFootprint,
+    drawer: cabinet.drawer,
+    drawerCollider: cabinet.drawerCollider,
+    benchLamp: bench.lamp,
+    hallLights: lighting.hall,
+    setCarLook: car.setLook,
+    setHighlight: highlight.setHighlight,
+    setReduceMotion: highlight.setReduceMotion,
+    setUpgradeLevel: upgrades.setUpgradeLevel,
+  };
+
   return {
     root,
     colliders,
     spawn,
     raycastTargets,
-    parts: {
-      liftCarriage: lift.carriage,
-      car: car.group,
-      hoodPivot: car.hoodPivot,
-      hoodClosedAngle: car.hoodClosedAngle,
-      carCollider,
-      carFootprint,
-      drawer: cabinet.drawer,
-      drawerCollider: cabinet.drawerCollider,
-      benchLamp: bench.lamp,
-      hallLights: lighting.hall,
-      setCarLook: car.setLook,
-      setHighlight: highlight.setHighlight,
-      setReduceMotion: highlight.setReduceMotion,
-      setUpgradeLevel: upgrades.setUpgradeLevel,
-    },
+    parts,
     setShadowQuality(enabled: boolean, mapSize: number) {
       for (const light of lighting.shadowLights) {
         light.castShadow = enabled;
@@ -313,10 +316,21 @@ export function buildWorkshop(vehicle: VehicleDefinition, look: CarAppearance): 
       const offUpgrade = bus.on('upgrade:changed', ({ upgradeId, level }) => {
         upgrades.setUpgradeLevel(upgradeId, level);
       });
+      const offVehicle = bus.on('vehicle:changed', ({ modelId, category, color, plate }) => {
+        const def =
+          VEHICLES.find((v) => v.id === modelId) ??
+          ({ ...vehicle, id: modelId, category: (category as VehicleCategory) || vehicle.category } satisfies VehicleDefinition);
+        const prevClosed = parts.hoodClosedAngle;
+        const openDelta = car.hoodPivot.rotation.z - prevClosed;
+        car.setVehicle(def, { color, plate });
+        parts.hoodClosedAngle = car.hoodClosedAngle;
+        car.hoodPivot.rotation.z = car.hoodClosedAngle + openDelta;
+      });
       return () => {
         offHighlight();
         offSettings();
         offUpgrade();
+        offVehicle();
       };
     },
   };
