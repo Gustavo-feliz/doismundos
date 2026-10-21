@@ -44,6 +44,17 @@ interface GameDiagnostics {
   };
   debt: { balance: number; paidCount: number; nextDueDay: number };
   upgrades: Record<string, number>;
+  driving: null | {
+    speedKmh: number;
+    rpm: number;
+    gear: number;
+    x: number;
+    z: number;
+    collisions: number;
+    distance: number;
+    lights: string[];
+    cannotStart: string | null;
+  };
   canvas: { width: number; height: number; clientWidth: number; clientHeight: number };
 }
 
@@ -74,6 +85,10 @@ interface GameTestHooks {
   dialogueChoose(n: number): boolean;
   /** Pula a fala atual do diálogo. */
   skipDialogueLine(): void;
+  /** Começa o test drive (como sair pelo portão) e devolve o estado. */
+  startTestDrive(): Promise<string>;
+  /** Motivo de o test drive estar bloqueado (null = pode). */
+  testDriveBlocked(): string | null;
 }
 
 interface Window {

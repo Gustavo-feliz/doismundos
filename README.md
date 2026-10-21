@@ -16,6 +16,7 @@ O design completo está em [GDD_Simulador_de_Mecanico_Claude_Code.md](GDD_Simula
 10. Tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos e dívida do banco).
 11. Ferramentas e upgrades da oficina (3 níveis cada, efeito medido em tempo).
 12. Dez carros, peças por modelo/ano, OS geradas por semente e enciclopédia.
+13. Direção e test drive num pátio de teste, com física própria.
 
 Ainda **não** existem cidade, segunda vaga nem multiplayer.
 
@@ -343,6 +344,47 @@ Os testes geram 900 OS (150 sementes × 3 OS, com e sem ferramentas) e todas pas
 - O gerador não olha o caixa: uma oficina sem dinheiro pode não conseguir comprar a peça. Ela ainda pode dispensar o cliente e seguir.
 - O orçamento sempre usa a **primeira** peça compatível. Por isso o cliente exigente (que quer peça original) só recebe carros cuja primeira opção é original.
 - Os serviços reaproveitam os 3 testes funcionais e o scanner existentes. Defeitos de embreagem, pneus, filtros, correia e bomba ainda não são gerados.
+
+## Test drive (Prompt 13)
+
+**Como começar.** Saia pelo **portão** da oficina ("Fazer test drive"). O portão exige três coisas:
+- o carro no chão;
+- o capô fechado;
+- nenhuma peça faltando.
+
+O pátio de teste é carregado na primeira vez (import sob demanda), e a oficina fica escondida enquanto você dirige.
+
+**Controles:**
+
+| Tecla | Ação |
+| --- | --- |
+| W | Acelerar |
+| S | Frear; parado, vira ré lenta |
+| A / D | Esterçar |
+| Espaço | Freio de mão |
+| R | Recomeçar na largada |
+| F | Voltar à oficina |
+| Esc | Pausar |
+
+**Painel:** velocímetro (limite de 60 km/h no pátio), conta-giros, marcha, temperatura e luzes de alerta (bateria, óleo, temperatura, freio e injeção).
+
+**O carro anda conforme o estado REAL das peças:**
+- pneu gasto escorrega na curva;
+- freio gasto para mais longe; disco empenado faz o carro tremer ao frear;
+- vela crítica faz o motor falhar;
+- arrefecimento ruim faz a temperatura subir;
+- bateria morta não deixa o carro pegar.
+
+Detalhes e avaliação do Rapier: [docs/fisica.md](docs/fisica.md).
+
+**Atividade separada.** Bater ou desistir não muda a oficina. Ao voltar com **F**, só os km rodados entram no carro (regra de domínio `driveKm`). Sair para o menu ou carregar um save descarta a volta.
+
+**Desempenho medido** (teste automático, Chromium headless): o pátio usa 15 chamadas de desenho e cerca de 550 triângulos; os cones usam instancing.
+
+**Limites:**
+- o carro do pátio é um modelo provisório simples;
+- a colisão usa dois círculos, não a forma exata do carro;
+- não há trânsito nem corrida, como o GDD pede nesta etapa.
 
 ## Roteiro de teste manual
 

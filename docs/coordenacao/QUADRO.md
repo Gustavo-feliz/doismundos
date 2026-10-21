@@ -8,7 +8,6 @@ Status possíveis: `proposta` · `em andamento` · `bloqueada` · `concluída`.
 | Tarefa | Agente | Status | Branch | Arquivos reservados (só o dono edita) |
 | --- | --- | --- | --- | --- |
 | Carroceria 3D por categoria (`popular`, `hatch`, `sedan`, `suv`, `picape`, `van`) e dimensões por modelo escutando `vehicle:changed` | Gemini | em andamento | `main` | `src/vehicles/PlaceholderCar.ts`, `src/world/Workshop.ts` |
-| Prompt 13: direção e test drive (física própria, estado `driving`, portão, HUD de direção) | Claude | em andamento | `main` | `src/driving/**` (novo), `src/data/driving.ts` (novo), `src/world/TestTrack.ts` (novo), `src/ui/DrivingHud.ts` (novo), `src/core/GameState.ts`, `src/core/events.ts`, `src/data/controls.ts`, `src/data/equipment.ts`, `src/equipment/**`, `src/game/**`, `src/vite-env.d.ts`, `src/styles.css` (só acréscimo), `tests/**`, `docs/fisica.md` |
 
 ### Por que essa divisão
 
@@ -35,8 +34,7 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 
 | Prompt | Etapa | Sugestão de dono |
 | --- | --- | --- |
-| 13 | Direção e test drive (plano em `PLANO_PROXIMAS_ETAPAS.md`) | **Claude** (em andamento; se o limite acabar, o Claude termina quando voltar) |
-| 14 | Cidade e novos locais | **Gemini**, depois que o Prompt 13 estiver concluído |
+| 14 | Cidade e novos locais (o 13 já está concluído) | **Gemini** |
 | 15 | Funcionários e automação básica | **Gemini** |
 | 16 | Eventos, fiscalização e pressão local | **Gemini** |
 | 17 | Multiplayer | **só com aprovação do Gustavo** (primeiro um plano, sem código) |
@@ -57,4 +55,5 @@ Se um objeto mudar de lugar, atualize `AIM` e avise no `MENSAGENS.md`.
 | Prompt 10: tutorial com o Seu Zé e começo do Ato 1 (missões, diálogos, dívida do banco, save v2) | Claude | `9d1f42b` |
 | Prompt 11: ferramentas e upgrades (5 itens × 3 níveis, efeitos nas regras, aba Oficina, save v3) | Claude | ver `git log` |
 | Prompt 12: 10 carros, peças por linha e ano, OS geradas por semente, enciclopédia, save v4; ligados no `Game.ts` os `bindEvents` da cena e do som | Claude | ver `git log` |
+| Prompt 13: test drive (física própria, estado `driving`, pátio sob demanda, painel do carro) | Claude | ver `git log` |
 | Passe de arte e som (GDD §20, Direção Híbrida A+B) + destaque do tutorial (`setHighlight`) + som/ambiência no barramento (`Sfx.bindEvents`) + visuais dos 5 upgrades (`setUpgradeLevel`) | Gemini | `e4ede73` + commit final |

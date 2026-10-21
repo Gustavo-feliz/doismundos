@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { AIM, aim, diag, openGame, pressInteract, startPlaying, waitFrames, watchErrors } from './helpers';
+import { AIM, aim, diag, openGame, pressInteract, setLift, startPlaying, waitFrames, watchErrors } from './helpers';
 
 /**
  * Prompt 2 do GDD: mira por raycast, ação por tecla, estados explícitos
@@ -128,14 +128,19 @@ test('luzes, luminária e gaveta alternam; segurar a tecla não repete a ação;
   expect(errors).toEqual([]);
 });
 
-test('portão aparece como indisponível com o motivo; computador abre a gestão', async ({ page }) => {
+test('portão leva ao test drive, mas só com o carro no chão; computador abre a gestão', async ({ page }) => {
   const errors = watchErrors(page);
   await aim(page, AIM.gate);
   await expect(prompt(page)).toContainText('Portão');
+  await expect(prompt(page)).toHaveAttribute('data-status', 'available');
+  await expect(prompt(page)).toContainText('Fazer test drive');
+  // Com o carro no alto, o portão explica por que não dá.
+  await setLift(page, 'extended');
+  await aim(page, AIM.gate);
   await expect(prompt(page)).toHaveAttribute('data-status', 'unavailable');
-  await expect(prompt(page)).toContainText('etapa futura');
+  await expect(prompt(page)).toContainText('Desça o carro do elevador');
   await pressInteract(page);
-  await expect(notice(page)).toContainText('etapa futura');
+  await expect(notice(page)).toContainText('Desça o carro do elevador');
 
   await aim(page, AIM.computer);
   await expect(prompt(page)).toContainText('Computador do escritório');

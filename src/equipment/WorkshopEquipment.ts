@@ -32,6 +32,10 @@ export interface EquipmentCallbacks {
   describeVehicle(): { name: string; detail: string };
   /** Escala da luz ambiente da cena (1 = luzes acesas). */
   onAmbientScale(scale: number): void;
+  /** Motivo de o test drive não poder começar agora (null = pode). Prompt 13. */
+  testDriveBlocked(): string | null;
+  /** O jogador saiu pelo portão para o test drive. */
+  onTestDrive(): void;
 }
 
 /**
@@ -205,8 +209,16 @@ export class WorkshopEquipment {
       createInteractable({
         id: EQUIPMENT_IDS.gate,
         name: E.gate.name,
-        evaluate: () => ({ status: 'unavailable', reason: E.gate.unavailable }),
-        perform: () => '',
+        evaluate: () => {
+          if (this.lift.phase !== 'retracted') return { status: 'unavailable', reason: E.gate.needsFloor };
+          if (this.hood.phase !== 'retracted') return { status: 'unavailable', reason: E.gate.needsHoodClosed };
+          const blocked = this.callbacks.testDriveBlocked();
+          return blocked ? { status: 'unavailable', reason: blocked } : { status: 'available', action: E.gate.action, detail: E.gate.detail };
+        },
+        perform: () => {
+          this.callbacks.onTestDrive();
+          return '';
+        },
       }),
       createInteractable({
         id: EQUIPMENT_IDS.computer,

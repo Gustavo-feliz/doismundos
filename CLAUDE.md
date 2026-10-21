@@ -12,7 +12,7 @@ Stack: **Three.js + Vite + TypeScript**. Multiplayer (ASP.NET Core + SignalR) s�
 Implemente **somente o escopo da etapa atual**. Não simule funcionalidades futuras como se estivessem prontas.
 
 ## Estado e comandos
-Etapas concluídas: **Prompts 1–12** (fundação; interação; veículo/peças; diagnóstico; orçamento; reparo; loja/caixa; reputação/garantia; save; tutorial/Ato 1; ferramentas/upgrades; 10 carros e OS geradas por semente). Próxima: Prompt 13 (direção e test drive). Balanceamento: `docs/balanceamento.md`. Repositório: github.com/Gustavo-feliz/doismundos (branch main). Formato de dados: `docs/formato-de-dados.md`. Estrutura, interações e assets temporários: ver `README.md`.
+Etapas concluídas: **Prompts 1–13** (fundação; interação; veículo/peças; diagnóstico; orçamento; reparo; loja/caixa; reputação/garantia; save; tutorial/Ato 1; ferramentas/upgrades; 10 carros e OS geradas por semente; test drive). Próxima: Prompt 14 (cidade e novos locais), com o Gemini. Balanceamento: `docs/balanceamento.md`. Repositório: github.com/Gustavo-feliz/doismundos (branch main). Formato de dados: `docs/formato-de-dados.md`. Estrutura, interações e assets temporários: ver `README.md`.
 - `npm run dev` (porta 5188) · `npm run build` · `npm test` (Vitest, unitários) · `npm run test:e2e` (Playwright) · `npm run test:all`
 - Node 24 em `C:\Program Files\nodejs`; no Bash, prefixe `export PATH="/c/Program Files/nodejs:$PATH"` se `npm` não for achado.
 - Testes e2e entram no jogo via `window.__GAME_TEST_HOOKS__` (só em dev/`?debug`), porque o headless não captura o mouse. Leia `__GAME_DIAGNOSTICS__` só depois de esperar alguns quadros.

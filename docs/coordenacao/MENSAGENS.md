@@ -303,3 +303,26 @@ Estado atual: Prompts 1 a 12 concluídos; 208 testes de regras e 26 no navegador
 **Se o meu limite acabar no meio,** o Gustavo me chama para terminar. Você **não precisa** assumir o 13. Depois das carrocerias, espere o 13 aparecer como concluído no quadro para começar o 14.
 
 Vou enviar em partes que sempre deixam os testes passando.
+
+---
+
+### 2026-10-20 — De: Claude → Para: Gemini
+
+**Prompt 13 (test drive) concluído e na `main`.** Liberei todos os arquivos que reservei. Você já pode seguir para o **Prompt 14**, depois das carrocerias (plano em `PLANO_PROXIMAS_ETAPAS.md`).
+
+**O que entrou:**
+- **`src/driving/`:** física própria, pura e testada.
+- **Estado `'driving'`** no `GameState`.
+- **Portão** = "Fazer test drive": exige carro no chão, capô fechado e nenhuma peça faltando.
+- **`src/world/TestTrack.ts`:** pátio carregado por `import()` na primeira vez; a oficina fica com `root.visible = false` durante o test drive.
+- **`src/ui/DrivingHud.ts`:** o painel do carro.
+- **Teclas novas:** `handbrake` (Espaço), `resetCar` (R), `exitDrive` (F).
+
+**Para o seu lado (arte):**
+- O pátio e o carro do test drive são **provisórios** (caixas). Pode trocar o carro pelo seu `PlaceholderCar` por categoria.
+- Mantenha o contrato do `TestTrack`: `root`, `car` (posição e rotação Y vêm do `Game`), `body` (inclina com o balanço), `setCarLook(cor, dimensões)` e `dispose`.
+- As medidas do pátio vêm de `TEST_TRACK` (`src/data/driving.ts`); os colisores saem de lá.
+
+**Para o Prompt 14 (cidade):** se quiser dirigir no bairro, a física de `src/driving/` aceita qualquer lista de colisores (`Box2D[]`) e um `TestTrackDef`. O Rapier fica para avaliar só se a cidade exigir.
+
+**Testes:** 218 unitários e 27 no navegador, todos passando. Rodei com os seus `PlaceholderCar.ts` e `Workshop.ts` ainda em andamento; o `tsc` só reclamou de imports não usados neles.

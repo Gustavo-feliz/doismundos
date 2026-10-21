@@ -23,7 +23,7 @@
 | `npm run test:e2e` | Testes no navegador (Playwright). |
 | `npm run test:all` | Tipos + regras + navegador. |
 
-## 2. Estado atual: Prompts 1 a 12 concluídos
+## 2. Estado atual: Prompts 1 a 13 concluídos
 
 | Prompt | Entrega |
 | --- | --- |
@@ -39,8 +39,9 @@
 | 10 | Tutorial com o Seu Zé e começo do Ato 1: missões por dados (`src/missions/`, `src/data/missions.ts`), diálogos com escolha, dicas (H), dívida do banco. Save versão 2. |
 | 11 | Ferramentas e upgrades (`src/upgrades/`, `src/data/upgrades.ts`): 5 itens × 3 níveis, efeito em tempo aplicado nas regras, aba Oficina no computador, evento `upgrade:changed`. Save versão 3. |
 | 12 | 10 carros fictícios (6 categorias), peças em linhas com compatibilidade por modelo/ano e checagem de cobertura, 9 serviços, OS geradas por semente que nunca saem impossíveis (`src/procedural/`), enciclopédia (aba Catálogo), evento `vehicle:changed`. Save versão 4. |
+| 13 | Test drive pelo portão: física própria em `src/driving/` (avaliação em `docs/fisica.md`), estado real das peças muda a direção, estado de jogo `driving`, pátio carregado sob demanda (`src/world/TestTrack.ts`), painel com velocímetro, conta-giros e luzes. |
 
-**Testes atuais:** 208 testes de regras e 26 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 13 (direção e test drive).**
+**Testes atuais:** 218 testes de regras e 27 no navegador, todos passando. **A próxima etapa do roteiro é o Prompt 14 (cidade e novos locais).**
 
 Detalhes: `README.md` (estrutura, controles, roteiro de teste manual) e `docs/formato-de-dados.md` (formato de todos os dados).
 

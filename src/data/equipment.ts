@@ -86,7 +86,10 @@ export const EQUIPMENT = {
 
   gate: {
     name: 'Portão',
-    unavailable: 'A rua e o bairro chegam numa etapa futura',
+    action: 'Fazer test drive',
+    detail: 'Pátio de teste nos fundos (até 60 km/h)',
+    needsFloor: 'Desça o carro do elevador antes do test drive',
+    needsHoodClosed: 'Feche o capô antes do test drive',
   },
 
   stock: {

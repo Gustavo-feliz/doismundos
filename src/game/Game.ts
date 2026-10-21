@@ -36,6 +36,13 @@ import type { SaveGame, SaveSummary, SlotId } from '../save/saveFile';
 import { validateSessionSnapshot } from '../save/sessionSnapshot';
 import { ORDER_STATUS_LABEL } from '../orders/types';
 import { WORKSHOP_SIZE } from '../world/Workshop';
+import { DRIVING_PROFILES, TEST_TRACK } from '../data/driving';
+import { drivingCondition } from '../driving/condition';
+import { FIXED_STEP, forward, initialDriveState, kmh, simulate, trackColliders, type CarGeometry } from '../driving/physics';
+import type { DriveState, DrivingCondition, DrivingProfile, WarningLight } from '../driving/types';
+import type { TestTrack } from '../world/TestTrack';
+import type { Box2D } from '../world/collision';
+import { DrivingHud } from '../ui/DrivingHud';
 import { FUNCTIONAL_TESTS, SCANNER } from '../data/diagnostics';
 import { EQUIPMENT, EQUIPMENT_IDS } from '../data/equipment';
 import { NEW_GAME } from '../data/newGame';
@@ -93,6 +100,12 @@ export class Game {
   private readonly equipment: WorkshopEquipment;
   private readonly interaction: InteractionSystem;
   private readonly hud: Hud;
+  private readonly drivingHud: DrivingHud;
+  /** Test drive em andamento (Prompt 13). A oficina fica intacta enquanto isso. */
+  private drive: ActiveDrive | null = null;
+  /** Pátio de teste: carregado sob demanda no primeiro test drive. */
+  private track: TestTrack | null = null;
+  private trackLoading = false;
   private readonly inspection: InspectionPanel;
   private readonly stockPanel: StockPanel;
   private readonly computer: ComputerPanel;
@@ -191,6 +204,8 @@ export class Game {
       onAmbientScale: (scale) => {
         this.scene.environmentIntensity = ENVIRONMENT_INTENSITY * scale;
       },
+      testDriveBlocked: () => this.testDriveBlocked(),
+      onTestDrive: () => void this.startTestDrive(),
     });
     this.interaction = new InteractionSystem(this.workshop.raycastTargets, EQUIPMENT.interactionRange);
     for (const interactable of this.equipment.createInteractables()) this.interaction.register(interactable);
@@ -199,6 +214,7 @@ export class Game {
     this.input = new Input(canvas, DEFAULT_BINDINGS, (locked) => this.handlePointerLockChange(locked));
 
     this.hud = new Hud(uiRoot);
+    this.drivingHud = new DrivingHud(uiRoot);
     this.inspection = new InspectionPanel(uiRoot, (reason) => this.closePanel(reason), {
       diagnosis: {
         onRunTest: (id) => this.runDiagnosticTest(id),
@@ -282,6 +298,8 @@ export class Game {
     this.input.dispose();
     this.bus.clear();
     this.hud.dispose();
+    this.drivingHud.dispose();
+    this.track?.dispose();
     this.inspection.dispose();
     this.stockPanel.dispose();
     this.computer.dispose();
@@ -314,6 +332,12 @@ export class Game {
         if (result) this.hud.notify(result.message, result.ok ? 'ok' : 'blocked');
       }
       this.updatePlayerMissionInput(dt);
+      this.needsRender = true;
+    } else if (this.state.is('driving')) {
+      this.interaction.clearFocus();
+      this.input.consumeMouseDelta(); // no test drive o mouse não gira a câmera
+      this.updateDriving(dt);
+      this.clock.advance(dt);
       this.needsRender = true;
     } else {
       this.interaction.clearFocus();
@@ -568,6 +592,152 @@ export class Game {
     this.bus.emit('vehicle:changed', { modelId: car.modelId, category: model?.category ?? 'sedan', color: car.color, plate: car.plate });
   }
 
+  // --- Test drive (Prompt 13) ----------------------------------------------
+
+  /** Por que o test drive não pode começar (o portão já confere elevador e capô). */
+  private testDriveBlocked(): string | null {
+    if (!this.session.activeCase) return 'Nenhum carro no box';
+    const v = this.session.getVehicle(this.activeVehicleId);
+    if (Object.values(v.parts).some((p) => p === null)) return 'Falta peça no carro: termine o reparo antes do test drive';
+    return null;
+  }
+
+  /** Sai pelo portão: carrega o pátio (só na primeira vez) e esconde a oficina. */
+  private async startTestDrive(): Promise<void> {
+    if (!this.state.is('playing') || this.trackLoading || this.drive || this.testDriveBlocked()) return;
+    if (!this.track) {
+      this.trackLoading = true;
+      try {
+        const { buildTestTrack } = await import('../world/TestTrack');
+        this.track = buildTestTrack(TEST_TRACK);
+        this.track.root.visible = false;
+        this.scene.add(this.track.root);
+      } finally {
+        this.trackLoading = false;
+      }
+    }
+    if (!this.state.is('playing')) return;
+    const v = this.session.getVehicle(this.activeVehicleId);
+    const model = this.catalogs.models.get(v.modelId)!;
+    this.drive = {
+      vehicleId: v.id,
+      state: initialDriveState(TEST_TRACK),
+      profile: DRIVING_PROFILES[model.category],
+      geometry: { wheelbase: model.dimensions.wheelbase, width: model.dimensions.width, length: model.dimensions.length },
+      condition: drivingCondition(v, this.catalogs),
+      colliders: trackColliders(TEST_TRACK),
+      steer: 0,
+      accumulator: 0,
+      topKmh: 0,
+      impactUntil: 0,
+      drivenBefore: 0,
+      hitsBefore: 0,
+    };
+    this.track!.setCarLook(v.color, model.dimensions);
+    this.workshop.root.visible = false;
+    this.track!.root.visible = true;
+    this.player.halt();
+    this.placeDriveCamera(true);
+    this.state.transition('driving');
+  }
+
+  private updateDriving(dt: number): void {
+    const d = this.drive;
+    if (!d) return;
+    const i = this.input;
+    if (i.wasActionPressed('exitDrive')) {
+      this.endTestDrive(true);
+      return;
+    }
+    if (i.wasActionPressed('resetCar')) {
+      // Recomeçar não apaga o que já foi rodado nem as batidas.
+      d.drivenBefore += d.state.distance;
+      d.hitsBefore += d.state.collisions;
+      d.state = initialDriveState(TEST_TRACK);
+      d.steer = 0;
+      d.accumulator = 0;
+    }
+    // Teclado dá -1/0/1; o volante gira até lá aos poucos.
+    const target = (i.isActionDown('right') ? 1 : 0) - (i.isActionDown('left') ? 1 : 0);
+    d.steer += Math.max(-dt * 3, Math.min(dt * 3, target - d.steer));
+    d.accumulator = Math.min(d.accumulator + dt, FIXED_STEP * 10);
+    const steps = Math.floor(d.accumulator / FIXED_STEP);
+    if (steps > 0) {
+      d.accumulator -= steps * FIXED_STEP;
+      const hits = d.state.collisions;
+      const input = { throttle: i.isActionDown('forward') ? 1 : 0, brake: i.isActionDown('backward') ? 1 : 0, steer: d.steer, handbrake: i.isActionDown('handbrake') };
+      d.state = simulate(d.state, input, steps * FIXED_STEP, d.profile, d.geometry, d.condition, TEST_TRACK, d.colliders);
+      if (d.state.collisions > hits) {
+        d.impactUntil = d.state.time + 2;
+        this.sfx.play('erro');
+      }
+    }
+    d.topKmh = Math.max(d.topKmh, Math.abs(kmh(d.state.speed)));
+    this.placeDriveCamera(false, dt);
+    const s = d.state;
+    this.drivingHud.update({
+      speedKmh: Math.abs(kmh(s.speed)),
+      limitKmh: TEST_TRACK.speedLimitKmh,
+      rpm: s.rpm,
+      maxRpm: d.profile.maxRpm,
+      gear: s.speed < -0.1 ? 'R' : String(s.gear),
+      temperature: s.temperature,
+      lights: this.driveLights(),
+      message: d.condition.cannotStart ?? (s.time < d.impactUntil ? 'Batida! Aperte R para recomeçar ou F para voltar à oficina.' : null),
+    });
+  }
+
+  private driveLights(): WarningLight[] {
+    const d = this.drive;
+    if (!d) return [];
+    return d.state.temperature >= 0.8 ? [...d.condition.lights, 'temperatura'] : [...d.condition.lights];
+  }
+
+  /** Câmera atrás do carro, com suavização; carro e balanço da carroceria. */
+  private placeDriveCamera(snap: boolean, dt = 0): void {
+    const d = this.drive;
+    if (!d || !this.track) return;
+    const s = d.state;
+    const f = forward(s.heading);
+    this.track.car.position.set(s.x, 0, s.z);
+    this.track.car.rotation.y = s.heading;
+    const calm = this.settings.reduceMotion;
+    this.track.body.rotation.z = calm ? 0 : -d.steer * Math.min(1, Math.abs(s.speed) / 15) * (0.03 + 0.08 * d.condition.sway);
+    const tx = s.x - f.x * 6.5;
+    const tz = s.z - f.z * 6.5;
+    const k = snap || calm ? 1 : 1 - Math.exp(-dt * 6);
+    this.camera.position.x += (tx - this.camera.position.x) * k;
+    this.camera.position.z += (tz - this.camera.position.z) * k;
+    this.camera.position.y = 2.6;
+    // Disco empenado: o carro treme ao frear (sem tremida com "reduzir movimento").
+    const braking = this.input.isActionDown('backward') && s.speed > 2;
+    if (!calm && braking && d.condition.brakeShake > 0) this.camera.position.y += Math.sin(s.time * 60) * 0.04 * d.condition.brakeShake;
+    this.camera.lookAt(s.x + f.x * 4, 1, s.z + f.z * 4);
+    this.camera.updateMatrixWorld();
+  }
+
+  /**
+   * Volta à oficina. Com `applyKm`, os km rodados entram no carro pela regra
+   * de domínio. Sem isso (sair ao menu, carregar save), nada muda na oficina.
+   */
+  private endTestDrive(applyKm: boolean): void {
+    const d = this.drive;
+    if (!d) return;
+    this.drive = null;
+    this.workshop.root.visible = true;
+    if (this.track) this.track.root.visible = false;
+    this.drivingHud.setVisible(false);
+    this.player.applyToCamera(this.camera);
+    this.camera.updateMatrixWorld();
+    if (this.state.is('driving')) this.state.transition('playing');
+    if (!applyKm) return;
+    const km = Math.round((d.drivenBefore + d.state.distance) / 10) / 100;
+    if (km > 0) this.session.apply(d.vehicleId, (v) => driveKm(v, km, this.catalogs));
+    const collisions = d.hitsBefore + d.state.collisions;
+    const hits = collisions ? `, ${collisions} batida(s)` : '';
+    this.hud.notify(`Test drive: ${km.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km, máxima de ${Math.round(d.topKmh)} km/h${hits}.`, 'ok');
+  }
+
   // --- Ferramentas e upgrades (Prompt 11) ------------------------------------
 
   private buyUpgrade(id: string): void {
@@ -722,6 +892,12 @@ export class Game {
   }
 
   private enterPlaying(fresh: boolean): void {
+    // Voltando da pausa no meio de um test drive: continua dirigindo.
+    if (!fresh && this.drive && this.state.is('paused')) {
+      this.input.reset();
+      this.state.transition('driving');
+      return;
+    }
     if (fresh && this.state.is('menu')) {
       this.player.respawn();
       this.clock.reset();
@@ -744,6 +920,7 @@ export class Game {
   }
 
   private quitToTitle(): void {
+    this.endTestDrive(false);
     if (this.state.transition('menu')) {
       this.input.exitPointerLock();
       void this.autosave().finally(() => void this.refreshContinue());
@@ -752,7 +929,8 @@ export class Game {
 
   private applyStateToUi(state: string): void {
     document.body.dataset.state = state;
-    this.hud.setVisible(state === 'playing' || state === 'paused' || state === 'panel');
+    this.hud.setVisible(state === 'playing' || state === 'panel' || (state === 'paused' && !this.drive));
+    this.drivingHud.setVisible(state === 'driving' || (state === 'paused' && this.drive !== null));
     if (state !== 'panel') {
       this.inspection.close();
       this.stockPanel.close();
@@ -767,13 +945,13 @@ export class Game {
 
   private handlePointerLockChange(locked: boolean): void {
     // Esc (ou alt-tab) solta o mouse: isso pausa o jogo.
-    if (!locked && this.state.is('playing')) this.pause();
+    if (!locked && this.state.is('playing', 'driving')) this.pause();
   }
 
   private readonly handleKeyDown = (event: Event): void => {
     const e = event as KeyboardEvent;
     // Sem captura de mouse (modo de teste), o Esc não é tratado pelo navegador.
-    if (e.code === 'Escape' && this.state.is('playing') && !this.input.pointerLocked) this.pause();
+    if (e.code === 'Escape' && this.state.is('playing', 'driving') && !this.input.pointerLocked) this.pause();
   };
 
   private readonly handleVisibility = (): void => {
@@ -890,6 +1068,7 @@ export class Game {
   private applySave(game: SaveGame): { ok: true } | { ok: false; message: string } {
     const restored = GameSession.fromSnapshot(this.catalogs, this.content, game.session);
     if (!restored.ok) return { ok: false, message: restored.problems.slice(0, 3).join('; ') };
+    this.endTestDrive(false);
     this.session = restored.session;
     this.resetMissions(new MissionTracker(this.missionLib, game.missions));
     this.clock.setAbsolute(game.clockMinutes);
@@ -905,7 +1084,7 @@ export class Game {
   }
 
   private readonly handleWindowBlur = (): void => {
-    if (this.state.is('playing')) this.pause();
+    if (this.state.is('playing', 'driving')) this.pause();
   };
 
   private readonly markDirty = (): void => {
@@ -988,6 +1167,19 @@ export class Game {
       },
       debt: { balance: this.session.debt.balance, paidCount: this.session.debt.paidCount, nextDueDay: this.session.debt.nextDueDay },
       upgrades: { ...this.session.upgrades },
+      driving: this.drive
+        ? {
+            speedKmh: Math.round(kmh(this.drive.state.speed) * 10) / 10,
+            rpm: this.drive.state.rpm,
+            gear: this.drive.state.gear,
+            x: this.drive.state.x,
+            z: this.drive.state.z,
+            collisions: this.drive.state.collisions,
+            distance: this.drive.state.distance,
+            lights: this.driveLights(),
+            cannotStart: this.drive.condition.cannotStart,
+          }
+        : null,
       diagnosis: this.diagnosisDiagnostics(),
       equipment: this.equipment.snapshot(),
       canvas: { width: canvas.width, height: canvas.height, clientWidth: canvas.clientWidth, clientHeight: canvas.clientHeight },
@@ -1059,6 +1251,11 @@ export class Game {
       vehicleOp: (op) => this.runVehicleOp(op as VehicleOp),
       autosaveNow: () => this.autosave(),
       dialogueChoose: (n) => this.chooseDialogueOption(n),
+      startTestDrive: async () => {
+        await this.startTestDrive();
+        return this.state.current;
+      },
+      testDriveBlocked: () => this.testDriveBlocked(),
       skipDialogueLine: () => this.handleDialogueStep(this.dialogue.skip()),
       bypassPointerLock: () => this.input.setLockBypass(true),
       teleport: (x, z, yaw, pitch = 0) => {
@@ -1082,3 +1279,22 @@ type VehicleOp =
   | { kind: 'setWear'; slot: string; wear: number }
   | { kind: 'reveal'; slot: string }
   | { kind: 'drive'; km: number };
+
+/** Test drive em andamento. */
+interface ActiveDrive {
+  vehicleId: string;
+  state: DriveState;
+  profile: DrivingProfile;
+  geometry: CarGeometry;
+  condition: DrivingCondition;
+  colliders: Box2D[];
+  /** Volante (-1 a 1), suavizado. */
+  steer: number;
+  accumulator: number;
+  topKmh: number;
+  /** Até quando mostrar o aviso de batida (tempo da simulação). */
+  impactUntil: number;
+  /** Metros e batidas de antes de apertar R (recomeçar). */
+  drivenBefore: number;
+  hitsBefore: number;
+}

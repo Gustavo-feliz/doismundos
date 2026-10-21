@@ -269,6 +269,12 @@ O envelope é definido em `src/save/saveFile.ts` e gravado no IndexedDB `simulad
 - **Onde os efeitos entram:** `testsForCase` (exames), `stepMinutes`/`removeOldPart`/`installHeldPart` (reparo) e `GameSession.takePart` (estoque).
 - **Valores:** [balanceamento.md](balanceamento.md).
 
+## Direção e test drive (`src/data/driving.ts`)
+
+- **`DRIVING_PROFILES`** (um perfil por categoria): `massKg`, `engineForceN`, `brakeForceN`, `idleRpm`, `maxRpm`, `gearTopKmh[]` (velocidade máxima de cada marcha), `dragCoef` e `maxSteerDeg`. O entre-eixos e as medidas vêm do `dimensions` de cada modelo.
+- **`TEST_TRACK`:** tamanho do pátio (`halfX`, `halfZ`), espessura dos muros, `speedLimitKmh`, largada, `cones[]`, `coneRadius` e `pillars[]`. A mesma definição desenha a cena (`src/world/TestTrack.ts`) e cria os colisores (`trackColliders`).
+- **Regras puras:** em `src/driving/`, com `physics.ts` (passo fixo de 1/60 s) e `condition.ts` (estado das peças → comportamento).
+
 ## Missões e diálogos (`src/data/missions.ts`)
 
 Tipos em `src/missions/types.ts`; validação em `src/missions/validate.ts` (erro `DataValidationError` ao abrir o jogo).

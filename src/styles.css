@@ -1557,3 +1557,112 @@ dd.negative {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Test drive: painel do carro (Prompt 13) ---------- */
+.drive-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.drive-dash {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius);
+  background: rgba(12, 13, 15, 0.86);
+  border: 1px solid var(--line);
+}
+.drive-gauge {
+  display: grid;
+  justify-items: center;
+  min-width: 70px;
+}
+.drive-gauge-wide {
+  min-width: 180px;
+  justify-items: stretch;
+  gap: 0.15rem;
+}
+.drive-speed {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+.drive-speed[data-over='true'] {
+  color: var(--accent);
+}
+.drive-gear {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.drive-rpm,
+.drive-temp {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.drive-rpm-fill,
+.drive-temp-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.drive-temp-fill[data-hot='true'] {
+  background: var(--danger);
+}
+.drive-rpm-text {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.drive-lights {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 0.2rem 0.4rem;
+  font-size: 0.7rem;
+}
+.drive-light {
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.drive-light[data-on='true'] {
+  color: #1b1b1b;
+  background: var(--danger);
+  border-color: var(--danger);
+  font-weight: 700;
+}
+.drive-message {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  background: rgba(18, 20, 22, 0.88);
+  border: 1px solid var(--danger);
+  font-weight: 600;
+}
+.drive-help {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius);
+  background: rgba(12, 13, 15, 0.7);
+  font-size: 0.8rem;
+}
+@media (max-width: 700px) {
+  .drive-dash {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: calc(100vw - 32px);
+  }
+}
